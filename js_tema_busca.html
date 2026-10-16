@@ -1,0 +1,108 @@
+<script>
+/* ══════════ TEMA CLARO / ESCURO ══════════ */
+function temaAtual(){return document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';}
+function aplicarTema(t){
+  if(t==='dark')document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+  document.querySelectorAll('#prefTemaSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===t);});
+}
+function alternarTema(){
+  var t=temaAtual()==='dark'?'light':'dark';
+  aplicarTema(t);
+  try{localStorage.setItem('tema',t);}catch(e){}
+}
+aplicarTema(temaAtual());
+
+/* ══════════ CAMPO DE BUSCA NO ASSUNTO ══════════ */
+function semAcento(s){
+  return String(s||'').toLowerCase().replace(/[áàâãä]/g,'a').replace(/[éèêë]/g,'e').replace(/[íìîï]/g,'i')
+    .replace(/[óòôõö]/g,'o').replace(/[úùûü]/g,'u').replace(/ç/g,'c');
+}
+// Transforma um <select> em lista com pesquisa (o select original continua guardando o valor)
+function pesquisavel(id){
+  var sel=document.getElementById(id);
+  if(!sel||sel._ps)return;
+  sel._ps=true;
+  var wrap=document.createElement('div');wrap.className='ps-wrap';
+  wrap.innerHTML='<div class="ps-trigger" tabindex="0"><span class="ps-text"></span><span>▾</span></div>'+
+    '<div class="ps-panel"><input type="text" class="ps-search" placeholder="🔍 Pesquisar assunto..." autocomplete="off"/>'+
+    '<div class="ps-list"></div></div>';
+  sel.parentNode.insertBefore(wrap,sel.nextSibling);
+  sel.style.display='none';
+  var trig=wrap.querySelector('.ps-trigger'),txt=wrap.querySelector('.ps-text'),
+      inp=wrap.querySelector('.ps-search'),list=wrap.querySelector('.ps-list'),
+      visiveis=[],hi=-1;
+  function atualizar(){
+    var o=sel.selectedIndex>=0?sel.options[sel.selectedIndex]:null;
+    var tem=o&&o.value;
+    txt.textContent=tem?o.text:'— Selecione —';
+    txt.className='ps-text'+(tem?'':' vazio');
+  }
+  function itens(){
+    var out=[];
+    Array.prototype.forEach.call(sel.children,function(ch){
+      if(ch.tagName==='OPTGROUP')Array.prototype.forEach.call(ch.children,function(o){out.push({opt:o,grupo:ch.label});});
+      else if(ch.tagName==='OPTION')out.push({opt:ch,grupo:''});
+    });
+    return out;
+  }
+  function marcar(){
+    var ops=list.querySelectorAll('.ps-op');
+    ops.forEach(function(el,i){el.classList.toggle('hi',i===hi);});
+    if(ops[hi])ops[hi].scrollIntoView({block:'nearest'});
+  }
+  function render(){
+    var termos=semAcento(inp.value).split(/\s+/).filter(Boolean),html='',ultimo=null;
+    visiveis=[];
+    itens().forEach(function(it){
+      if(!it.opt.value)return;
+      var hay=semAcento(it.grupo+' '+it.opt.text);
+      if(!termos.every(function(t){return hay.indexOf(t)!==-1;}))return;
+      if(it.grupo!==ultimo){
+        if(it.grupo)html+='<div class="ps-grupo">'+escHtml(it.grupo)+'</div>';
+        else if(ultimo!==null)html+='<div class="ps-sep"></div>';
+        ultimo=it.grupo;
+      }
+      visiveis.push(it);
+      html+='<div class="ps-op'+(it.opt.selected?' sel':'')+'" data-i="'+(visiveis.length-1)+'">'+escHtml(it.opt.text)+'</div>';
+    });
+    list.innerHTML=html||'<div class="ps-vazio">Nenhum resultado</div>';
+    hi=visiveis.length?0:-1;marcar();
+  }
+  function abrir(){
+    document.querySelectorAll('.ps-wrap.open').forEach(function(w){if(w!==wrap)w.classList.remove('open');});
+    wrap.classList.add('open');inp.value='';render();inp.focus();
+  }
+  function fechar(){wrap.classList.remove('open');}
+  function escolher(i){
+    var it=visiveis[i];if(!it)return;
+    it.opt.selected=true;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+    atualizar();fechar();trig.focus();
+  }
+  trig.addEventListener('click',function(){wrap.classList.contains('open')?fechar():abrir();});
+  trig.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){e.preventDefault();abrir();}
+  });
+  inp.addEventListener('input',render);
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){e.preventDefault();if(hi<visiveis.length-1){hi++;marcar();}}
+    else if(e.key==='ArrowUp'){e.preventDefault();if(hi>0){hi--;marcar();}}
+    else if(e.key==='Enter'){e.preventDefault();escolher(hi);}
+    else if(e.key==='Escape'){e.preventDefault();fechar();trig.focus();}
+  });
+  list.addEventListener('mousedown',function(e){
+    var op=e.target.closest?e.target.closest('.ps-op'):null;
+    if(op){e.preventDefault();escolher(parseInt(op.getAttribute('data-i'),10));}
+  });
+  document.addEventListener('mousedown',function(e){if(!wrap.contains(e.target))fechar();});
+  // limparForm() faz sel.value='' — atualiza o texto exibido quando o valor muda por código
+  var d=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value');
+  Object.defineProperty(sel,'value',{configurable:true,
+    get:function(){return d.get.call(this);},
+    set:function(v){d.set.call(this,v);atualizar();}});
+  atualizar();
+}
+['p_assunto','r_assunto','e_assunto'].forEach(function(i){pesquisavel(i);});
+
+</script>
