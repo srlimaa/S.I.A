@@ -1,0 +1,40 @@
+<script>
+/* ══════════ EMOJIS COM FUNDO ══════════ */
+(function(){
+  var re=/^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})(?:\uFE0F|\u200D\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)\s*/u;
+  var SEL='.nav-item,.cfg-tab,.form-card h2,.reu-panel h3,.rq-card h4,.rq-col h3,.rq-titulo,.modal-box h3,.periodo-card h1,.sis-box h1,.cfg-label.chip';
+  function um(el){
+    var f=el.firstElementChild;if(f&&f.classList&&f.classList.contains('emo'))return;
+    var n=el.firstChild;while(n&&n.nodeType===3&&!n.nodeValue.trim())n=n.nextSibling;
+    if(!n||n.nodeType!==3)return;
+    var m=re.exec(n.nodeValue);if(!m)return;
+    var sp=document.createElement('span');sp.className='emo';sp.textContent=m[1];
+    n.nodeValue=n.nodeValue.slice(m[0].length);el.insertBefore(sp,n);
+  }
+  function rodar(){Array.prototype.forEach.call(document.querySelectorAll(SEL),um);}
+  var t=null;
+  new MutationObserver(function(){if(t)return;t=requestAnimationFrame(function(){t=null;rodar();});}).observe(document.body,{childList:true,subtree:true,characterData:true});
+  rodar();
+})();
+
+// Carrega o logo/emoji do sistema já na tela de login
+google.script.run.withSuccessHandler(function(c){
+  if(c&&c.valor){
+    CFG_SISTEMA={tipo:c.tipo,valor:c.valor};FUNDO_LOGIN=c.fundo||null;
+    if(c.nome)NOME_SISTEMA=c.nome;
+    if(typeof c.subtitulo==='string')SUBTITULO_LOGIN=c.subtitulo;
+    aplicarBrand();aplicarFundoLogin();aplicarNomes();
+  }
+}).getConfigSistema();
+
+// Nome exclusivo da tela de login (se houver)
+google.script.run.withSuccessHandler(function(n){
+  NOME_LOGIN=String(n||'');aplicarNomes();
+}).getNomeLogin();
+
+// Preenche o número da versão no rodapé das Configurações
+google.script.run.withSuccessHandler(function(v){
+  var el = document.getElementById('versaoSistema');
+  if(el && v) el.textContent = v;
+}).getVersao();
+</script>
