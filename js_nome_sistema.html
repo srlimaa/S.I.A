@@ -65,7 +65,7 @@ function nlSalvar(){
     .withSuccessHandler(function(r){
       liberar();
       if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
-      NOME_LOGIN=r.nome||'';aplicarNomes();
+      NOME_LOGIN=(r.nome!=null?r.nome:r.nomeLogin)||'';aplicarNomes();   // aceita r.nome (NomeLogin.gs) ou r.nomeLogin
       showFeedback('fbCfg',NOME_LOGIN?'✔ Nome da tela de login atualizado!':'✔ O login voltou a usar o nome do sistema.',true);
     })
     .withFailureHandler(function(err){liberar();showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
