@@ -1,0 +1,62 @@
+<script>
+var USUARIO=null,PERIODO=null,HISTORICO_CACHE=[],INDICADORES_CACHE={};
+var CC_SESSAO=null,SISTEMA=null,ABERTO=null,NOME_LOGADO='',CC_HTML=null;
+
+/* ── Login / Logout ── */
+function fazerLogin(){
+  var email=document.getElementById('loginEmail').value.trim();
+  var senha=document.getElementById('loginSenha').value.trim();
+  if(!email||!senha){mostrarErroLogin('Preencha e-mail e senha.');return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r&&r.success){
+        USUARIO=r.registro||null;CC_SESSAO=r.cc||null;PERIODO=null;SISTEMA=null;ABERTO=null;
+        NOME_LOGADO=USUARIO?USUARIO.nome:(CC_SESSAO?CC_SESSAO.nome:'');
+        document.getElementById('loginScreen').style.display='none';
+        if(USUARIO)atualizarTopbarUser();
+        mostrarSistemas();
+      }else mostrarErroLogin((r&&r.message)||'Credenciais inválidas.');
+    })
+    .withFailureHandler(function(){mostrarErroLogin('Erro ao conectar.');})
+    .loginUnificado(email,senha);
+}
+function mostrarErroLogin(msg){
+  var e=document.getElementById('loginErro');
+  e.textContent=msg||'Não foi possível entrar.';e.style.display='block';
+}
+/* ── Escolha do sistema (login único) ── */
+function mostrarSistemas(){
+  ['appScreen','periodoScreen','ccScreen'].forEach(function(id){document.getElementById(id).style.display='none';});
+  document.getElementById('sistemaScreen').style.display='flex';
+  document.getElementById('sisSaudacao').textContent='Olá, '+NOME_LOGADO+'! Escolha o sistema que deseja acessar.';
+  var reg=!!USUARIO,cc=!!CC_SESSAO;
+  document.getElementById('sisCardReg').className='sis-card'+(reg?'':' off');
+  document.getElementById('sisRegLogo').innerHTML=brandHTML(CFG_SISTEMA,46);
+  document.getElementById('sisRegNome').textContent=NOME_SISTEMA;
+  document.getElementById('sisRegNota').textContent=reg?'Registro do atendimento':'Não reconhecido neste sistema (e-mail ou senha diferentes da base dele).';
+  document.getElementById('sisCardCC').className='sis-card cc'+(cc?'':' off');
+  var logo=cc&&CC_SESSAO.logo&&/^data:image\//.test(CC_SESSAO.logo)?'<img src="'+escHtml(CC_SESSAO.logo)+'" alt=""/>':'📞';
+  document.getElementById('sisCCLogo').innerHTML=logo;
+  document.getElementById('sisCCNome').textContent=(cc&&CC_SESSAO.nomeSistema)||'Call Center - Aditamentos';
+  document.getElementById('sisCCNota').textContent=cc?'Call Center de aditamentos':'Não reconhecido neste sistema (e-mail ou senha diferentes da base dele).';
+}
+function escolherSistema(s){
+  if((s==='registro'&&!USUARIO)||(s==='cc'&&!CC_SESSAO))return;
+  SISTEMA=s;
+  document.getElementById('sistemaScreen').style.display='none';
+  abrirSelecaoPeriodo();
+}
+function logout(){
+  if(CC_SESSAO&&CC_SESSAO.token){try{google.script.run.ccApiLogout(CC_SESSAO.token);}catch(e){}}
+  CC_SESSAO=null;SISTEMA=null;ABERTO=null;NOME_LOGADO='';ccRemoverFrame();
+  USUARIO=null;PERIODO=null;HISTORICO_CACHE=[];INDICADORES_CACHE={};AVATARES={};
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('periodoScreen').style.display='none';
+  document.getElementById('sistemaScreen').style.display='none';
+  document.getElementById('ccScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginSenha').value='';
+  document.getElementById('loginErro').style.display='none';
+}
+</script>
