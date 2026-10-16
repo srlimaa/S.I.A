@@ -1,0 +1,135 @@
+    <!-- E-mail -->
+    <div class="form-card" id="formEmail">
+      <h2>✉️ Registro E-mail</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data de Recebimento <span class="req">*</span></label>
+          <input type="date" id="e_dataReceb"/>
+        </div>
+        <div class="form-group">
+          <label>CPF</label>
+          <input type="text" id="e_cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"/>
+        </div>
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input type="text" id="e_nome" placeholder="Nome do aluno"/>
+        </div>
+        <div class="form-group">
+          <label>E-mail do Aluno <span class="req">*</span></label>
+          <input type="email" id="e_emailAluno" placeholder="aluno@email.com"/>
+        </div>
+        <div class="form-group full">
+          <label>Assunto <span class="req">*</span></label>
+          <select id="e_assunto">
+            <option value="">— Selecione —</option>
+            <optgroup label="FIES INSCRIÇÃO">
+              <option>FIES INSCRIÇÃO - Processo seletivo e contratação</option>
+              <option>FIES INSCRIÇÃO - Declaração de residência/dependência financeira</option>
+              <option>FIES INSCRIÇÃO - Contrato FIES incompleto</option>
+              <option>FIES INSCRIÇÃO - Contrato FIES</option>
+              <option>FIES INSCRIÇÃO - Solicitação de cópia do contrato FIES</option>
+              <option>FIES INSCRIÇÃO - Retorno da solicitação de cópia do contrato FIES</option>
+              <option>FIES INSCRIÇÃO - Solicitação do DRI</option>
+              <option>FIES INSCRIÇÃO - Retorno da solicitação do DRI</option>
+              <option>FIES INSCRIÇÃO - Dados de contato atualizado</option>
+            </optgroup>
+            <optgroup label="FIES ADITAMENTO">
+              <option>FIES ADITAMENTO - Sifesweb</option>
+              <option>FIES ADITAMENTO - Renovação</option>
+              <option>FIES ADITAMENTO - Renovação (FIES Social)</option>
+              <option>FIES ADITAMENTO - Renovação rejeitada pelo estudante</option>
+              <option>FIES ADITAMENTO - Em processamento</option>
+              <option>FIES ADITAMENTO - Não simplificado</option>
+              <option>FIES ADITAMENTO - Termo aditivo</option>
+              <option>FIES ADITAMENTO - Justificativa de reprovação (1º autorização)</option>
+              <option>FIES ADITAMENTO - Justificativa de reprovação (2º autorização)</option>
+              <option>FIES ADITAMENTO - Suspensão</option>
+              <option>FIES ADITAMENTO - Justificativa de suspensão excepcional</option>
+              <option>FIES ADITAMENTO - Transferência</option>
+              <option>FIES ADITAMENTO - Justificativa de cancelamento de transferência (curso/ies)</option>
+              <option>FIES ADITAMENTO - Dilatação</option>
+              <option>FIES ADITAMENTO - Justificativa de dilatação</option>
+              <option>FIES ADITAMENTO - Encerramento</option>
+              <option>FIES ADITAMENTO - Termo de encerramento</option>
+              <option>FIES ADITAMENTO - Assinatura digital (clicksign)</option>
+              <option>FIES ADITAMENTO - Solicitação de DRM(S)</option>
+              <option>FIES ADITAMENTO - Retorno da solicitação de DRM(S)</option>
+              <option>FIES ADITAMENTO - Abertura de demanda (estudante)</option>
+              <option>FIES ADITAMENTO - Dados de contato atualizado</option>
+            </optgroup>
+            <optgroup label="FIES BOLETOS">
+              <option>FIES BOLETOS - Emissão de boletos da coparticipação</option>
+              <option>FIES BOLETOS - Compensação do pagamento</option>
+              <option>FIES BOLETOS - Reparcelamento da coparticipação</option>
+            </optgroup>
+            <optgroup label="FIES">
+              <option>FIES - Solicitação (detalhar)</option>
+              <option>FIES - Retorno da solicitação (detalhar)</option>
+            </optgroup>
+            <optgroup label="PROUNI">
+              <option>PROUNI - Processo seletivo</option>
+              <option>PROUNI - Declaração de residência/dependência financeira</option>
+              <option>PROUNI - Termo de concessão</option>
+              <option>PROUNI - Termo de atualização</option>
+              <option>PROUNI - Termo de suspensão</option>
+              <option>PROUNI - Chave de transferência</option>
+              <option>PROUNI - Termo de transferência</option>
+              <option>PROUNI - Termo de encerramento</option>
+              <option>PROUNI - Solicitação de documentos</option>
+              <option>PROUNI - Retorno da solicitação de documentos</option>
+              <option>PROUNI - Dados de contato atualizado</option>
+            </optgroup>
+            <optgroup label="CREDIES">
+              <option>CREDIES - Contratação</option>
+              <option>CREDIES - Renovação</option>
+              <option>CREDIES - Contrato</option>
+              <option>CREDIES - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="P-FIES">
+              <option>P-FIES - Inscrição</option>
+              <option>P-FIES - Renovação</option>
+            </optgroup>
+            <optgroup label="SICOOB">
+              <option>SICOOB - Inscrição</option>
+              <option>SICOOB - Renovação</option>
+            </optgroup>
+            <optgroup label="PRAVALER">
+              <option>PRAVALER - Inscrição</option>
+              <option>PRAVALER - Renovação</option>
+            </optgroup>
+            <optgroup label="OUTROS SETORES">
+              <option>OUTROS SETORES - Informações de matrícula</option>
+              <option>OUTROS SETORES - Informações financeiras/negociação</option>
+            </optgroup>
+            <option>SOLICITAÇÃO SEM IDENTIFICAÇÃO - Aguardando informações do estudante/candidato</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Semestre</label>
+          <select id="e_semestre">
+            <option value="">— Selecione —</option>
+            <option value="2026.1">2026.1</option>
+            <option value="2026.2">2026.2</option>
+            <option value="2027.1">2027.1</option>
+            <option value="2027.2">2027.2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>IES</label>
+          <select id="e_ies">
+            <option value="">— Selecione —</option>
+            <option>Unileão</option><option>Univs</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de Retorno <span class="req">*</span></label>
+          <input type="date" id="e_dataRetorno"/>
+        </div>
+        <div class="form-group full">
+          <label>Observação</label>
+          <textarea id="e_obs" rows="3" placeholder="Observações adicionais..."></textarea>
+        </div>
+      </div>
+      <button class="btn-confirmar laranja" onclick="confirmarEmail()">✔ Confirmar</button>
+      <div class="feedback" id="fbEmail"></div>
+    </div>
