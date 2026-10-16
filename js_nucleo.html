@@ -1,0 +1,52 @@
+<script>
+/* ── Permissões ── */
+function aplicarPermissoes(){
+  var isAdmin=USUARIO.perfil==='Admin';
+  document.getElementById('cardVirtual').style.display=isAdmin?'':'none';
+  document.getElementById('navIndicadores').style.display=isAdmin?'':'none';
+  document.getElementById('navReuniao').style.display=isAdmin?'':'none';
+  document.getElementById('navUsuarios').style.display=isAdmin?'':'none';
+}
+
+/* ── Seções ── */
+var SECOES={registro:'secRegistro',historico:'secHistorico',ranque:'secRanque',indicadores:'secIndicadores',reuniao:'secReuniao',usuarios:'secUsuarios'};
+function showSection(sec){
+  Object.keys(SECOES).forEach(function(k){document.getElementById(SECOES[k]).style.display='none';});
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-sec')===sec);});
+  document.getElementById(SECOES[sec]).style.display='block';
+  if(sec==='historico')carregarHistorico();
+  if(sec==='ranque')carregarRanque();
+  if(sec==='indicadores')carregarIndicadores();
+  if(sec==='reuniao')carregarReuniao();
+  if(sec==='usuarios')carregarUsuarios();
+}
+/* ── Tipo ── */
+function selecionarTipo(tipo){
+  document.querySelectorAll('.tipo-card').forEach(function(c){c.classList.remove('active');});
+  ['formPresencial','formRamal','formEmail','formVirtual'].forEach(function(f){
+    document.getElementById(f).classList.remove('visible');
+  });
+  var tmap={presencial:'formPresencial',ramal:'formRamal',email:'formEmail',virtual:'formVirtual'};
+  document.querySelectorAll('.tipo-card').forEach(function(c){
+    if(c.getAttribute('onclick')==="selecionarTipo('"+tipo+"')")c.classList.add('active');
+  });
+  if(tmap[tipo])document.getElementById(tmap[tipo]).classList.add('visible');
+}
+
+/* ── Utilitários ── */
+function maskCPF(input){
+  var v=input.value.replace(/\D/g,'').substring(0,11);
+  if(v.length>9)v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+  else if(v.length>6)v=v.replace(/(\d{3})(\d{3})(\d+)/,'$1.$2.$3');
+  else if(v.length>3)v=v.replace(/(\d{3})(\d+)/,'$1.$2');
+  input.value=v;
+}
+function showFeedback(id,msg,ok){
+  var el=document.getElementById(id);
+  el.textContent=msg;el.className='feedback '+(ok?'ok':'err');el.style.display='block';
+  if(ok)setTimeout(function(){el.style.display='none';},3500);
+}
+function formatarDataBR(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function limparForm(ids){ids.forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}
+
+</script>
