@@ -1,0 +1,25 @@
+  <!-- ═══ INDICADORES ═══ -->
+  <!-- ═══ RANQUE ═══ -->
+  <div class="content" id="secRanque" style="display:none;">
+    <h2 class="rq-titulo">🏆 Ranque — <span id="rqPeriodo"></span></h2>
+    <div class="ind-filtros">
+      <div class="date-group"><label>De:</label><input type="date" id="rqDe"/></div>
+      <div class="date-group"><label>Até:</label><input type="date" id="rqAte"/></div>
+      <div class="ms-container">
+        <div class="ms-trigger" onclick="toggleMs('msMesQ')"><span id="msMesQLabel">Todos os meses</span><span>▾</span></div>
+        <div class="ms-dropdown" id="msMesQ">
+          <div class="ms-option" onclick="toggleMsAll('msMesQ',event)">
+            <input type="checkbox" id="msMesQ_all" checked onchange="syncMsAll('msMesQ',this)"/>
+            <label for="msMesQ_all" style="cursor:pointer;">Todos os meses</label>
+          </div>
+          <div class="ms-sep"></div>
+        </div>
+      </div>
+      <button class="btn-filtrar" onclick="filtrarRanque()">Filtrar</button>
+      <button class="btn-filtrar btn-sem" id="btnSemRq" onclick="rqSemestre()" title="Total do semestre inteiro (ex.: 2026.2 = julho a dezembro)">📅 Semestre</button>
+      <button class="btn-filtrar" style="background:#16a34a;" onclick="rqHoje()">Hoje</button>
+      <button class="btn-filtrar" style="background:var(--cinza);" onclick="limparFiltrosRanque()">Limpar</button>
+    </div>
+    <p class="cfg-hint" id="rqResumo" style="margin:-4px 0 18px;"></p>
+    <div id="ranqueContainer"></div>
+  </div>
