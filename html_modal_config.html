@@ -1,0 +1,193 @@
+<!-- MODAL CONFIGURAÇÕES -->
+<div class="modal-overlay" id="configOverlay" onclick="if(event.target===this)fecharConfig()">
+  <div class="modal-box cfg-box" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="fecharConfig()">✕</span>
+    <h3>⚙️ Configurações</h3>
+    <div class="cfg-layout">
+    <nav class="cfg-tabs">
+      <button class="cfg-tab active" id="tabCfgUser" onclick="cfgTab('user')">👤 Meu perfil</button>
+      <button class="cfg-tab" id="tabCfgPref" onclick="cfgTab('pref')">🎨 Tema</button>
+      <div class="cfg-grupo">Navegação</div>
+      <button class="cfg-tab" id="tabCfgTrocSem" onclick="prefTrocarPeriodo()">⇄ Trocar Semestre</button>
+      <button class="cfg-tab" id="tabCfgTrocSis" onclick="prefTrocarSistema()" style="display:none;">⇄ Trocar Sistema</button>
+      <div class="cfg-grupo" id="cfgGrupoAdmin" style="display:none;">Administração</div>
+      <button class="cfg-tab" id="tabCfgPeriodos" onclick="cfgTab('periodos')" style="display:none;">📅 Períodos letivos</button>
+      <button class="cfg-tab" id="tabCfgPlanilhas" onclick="cfgTab('planilhas')" style="display:none;">🔗 Planilhas</button>
+      <button class="cfg-tab" id="tabCfgSis" onclick="cfgTab('sistema')" style="display:none;">🏛️ Logo do sistema</button>
+      <button class="cfg-tab" id="tabCfgNome" onclick="cfgTab('nome')" style="display:none;">🏷️ Nome do sistema</button>
+      <button class="cfg-tab" id="tabCfgNomeLogin" onclick="cfgTab('nomelogin')" style="display:none;">🔐 Nome no login</button>
+      <button class="cfg-tab" id="tabCfgLogin" onclick="cfgTab('login')" style="display:none;">🖼️ Fundo do login</button>
+      <button class="cfg-tab" id="tabCfgVirtual" onclick="cfgTab('virtual')" style="display:none;">💬 Colab. Virtual</button>
+      <button class="cfg-tab" id="tabCfgAssunto" onclick="cfgTab('assunto')" style="display:none;">📝 Assuntos</button>
+      <button class="cfg-tab" id="tabCfgSemestre" onclick="cfgTab('semestre')" style="display:none;">🎓 Semestres</button>
+    </nav>
+    <div class="cfg-content">
+    <div class="feedback" id="fbCfg" style="margin:0 0 14px;"></div>
+    <div id="cfgPaneEmoji">
+    <div class="cfg-preview user" id="cfgPreview"></div>
+    <p class="cfg-hint" id="cfgHint"></p>
+    <label class="cfg-label">Emoji</label>
+    <input type="text" class="cfg-input" id="cfgEmoji" placeholder="Digite ou escolha um emoji" oninput="cfgEmojiInput()"/>
+    <div class="emoji-sug" id="cfgSug"></div>
+    <label class="cfg-label">Ou use uma imagem</label>
+    <div class="cfg-btns">
+      <button type="button" class="btn-outline" onclick="document.getElementById('cfgFile').click()">📷 Escolher imagem</button>
+      <button type="button" class="btn-outline" onclick="cfgRestaurar()">↺ Restaurar padrão</button>
+    </div>
+    <input type="file" id="cfgFile" accept="image/*" style="display:none;" onchange="cfgArquivo(this)"/>
+    <button class="btn-salvar-edit" id="btnCfgSalvar" onclick="cfgSalvar()">Salvar</button>
+    </div>
+    <div id="cfgPaneVirtual" style="display:none;">
+      <p class="cfg-hint">Nomes que aparecem na lista <strong>Colaborador</strong> do registro Virtual. Remover um nome não altera registros já salvos.</p>
+      <div id="vcList"></div>
+      <div class="cfg-btns" style="margin-top:12px;align-items:center;">
+        <input type="text" class="cfg-input" id="vcNovo" placeholder="Nome do novo colaborador" maxlength="60"
+               style="font-size:14px;flex:1;min-width:160px;width:auto;" onkeydown="if(event.key==='Enter')vcAdicionar()"/>
+        <button type="button" class="btn-outline" onclick="vcAdicionar()">+ Adicionar</button>
+      </div>
+      <div class="cfg-sep"></div>
+      <label class="cfg-label">Corrigir nome em registros Virtuais já salvos</label>
+      <p class="cfg-hint">Troca o nome em todos os períodos cadastrados. Ex.: registros antigos de "Atendimento" passam a "Patrick".</p>
+      <div class="fundo-linha" style="align-items:flex-end;">
+        <div style="flex:1;min-width:140px;"><label class="cfg-label">Nome antigo</label>
+          <input type="text" class="cfg-input" id="vcDe" placeholder="Ex.: Atendimento" style="font-size:14px;"/></div>
+        <div style="flex:1;min-width:140px;"><label class="cfg-label">Novo nome</label>
+          <select id="vcPara" style="width:100%;padding:10px 12px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;"></select></div>
+        <button type="button" class="btn-outline" onclick="vcTrocarRegistros()">Atualizar registros</button>
+      </div>
+    </div>
+    <div id="cfgPaneAssunto" style="display:none;">
+      <p class="cfg-hint">Adicione opções à lista <strong>Assunto</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
+      <label class="cfg-label">Aplicar em</label>
+      <div class="as-tipos">
+        <label><input type="checkbox" id="asT_presencial" checked/> Presencial</label>
+        <label><input type="checkbox" id="asT_ramal" checked/> Ramal</label>
+        <label><input type="checkbox" id="asT_email" checked/> E-mail</label>
+      </div>
+      <label class="cfg-label">Grupo <small style="font-weight:400;color:var(--cinza);">(opcional — escolha um existente ou digite um novo)</small></label>
+      <input type="text" class="cfg-input" id="asGrupo" list="asGrupos" placeholder="Ex.: FIES" maxlength="60" style="font-size:14px;margin-bottom:12px;"/>
+      <datalist id="asGrupos"></datalist>
+      <label class="cfg-label">Nome do assunto</label>
+      <div class="cfg-btns" style="margin-top:0;align-items:center;">
+        <input type="text" class="cfg-input" id="asNome" placeholder="Ex.: FIES - Cancelamento" maxlength="120"
+               style="font-size:14px;flex:1;min-width:180px;width:auto;" onkeydown="if(event.key==='Enter')asAdicionar()"/>
+        <button type="button" class="btn-outline" onclick="asAdicionar()">+ Adicionar</button>
+      </div>
+      <div class="cfg-sep"></div>
+      <label class="cfg-label">Assuntos adicionados</label>
+      <div id="asLista"></div>
+    </div>
+    <div id="cfgPaneSemestre" style="display:none;">
+      <p class="cfg-hint">Adicione opções ao campo <strong>Semestre</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
+      <label class="cfg-label">Aplicar em</label>
+      <div class="as-tipos">
+        <label><input type="checkbox" id="smT_presencial" checked/> Presencial</label>
+        <label><input type="checkbox" id="smT_email" checked/> E-mail</label>
+      </div>
+      <label class="cfg-label">Semestre <small style="font-weight:400;color:var(--cinza);">(formato AAAA.S — ex.: 2028.1)</small></label>
+      <div class="cfg-btns" style="margin-top:0;align-items:center;">
+        <input type="text" class="cfg-input" id="smNome" placeholder="2028.1" maxlength="6"
+               style="font-size:14px;flex:1;min-width:140px;width:auto;" onkeydown="if(event.key==='Enter')smAdicionar()"/>
+        <button type="button" class="btn-outline" onclick="smAdicionar()">+ Adicionar</button>
+      </div>
+      <div class="cfg-sep"></div>
+      <label class="cfg-label">Semestres adicionados</label>
+      <div id="smLista"></div>
+    </div>
+    <div id="cfgPanePref" style="display:none;">
+      <label class="cfg-label">Tema</label>
+      <div class="seg" id="prefTemaSeg">
+        <button type="button" data-t="light" onclick="prefTema('light')">☀️ Claro</button>
+        <button type="button" data-t="dark" onclick="prefTema('dark')">🌙 Escuro</button>
+      </div>
+      <p class="cfg-hint">A escolha fica salva neste navegador.</p>
+    </div>
+    <div id="cfgPanePeriodos" style="display:none;">
+      <p class="cfg-hint">Cadastre um novo período letivo e a planilha onde os registros dele serão salvos.</p>
+      <label class="cfg-label">Período</label>
+      <input type="text" class="cfg-input" id="np_periodo" placeholder="Ex.: 2027.1" maxlength="6" style="font-size:14px;margin-bottom:12px;"/>
+      <label class="cfg-label">ID (ou link) da planilha</label>
+      <input type="text" class="cfg-input" id="np_planilha" placeholder="ID da planilha do Google Sheets" style="font-size:14px;margin-bottom:12px;"/>
+      <button class="btn-salvar-edit" onclick="adicionarPeriodo()">+ Adicionar período</button>
+      <div class="feedback" id="fbPeriodo" style="margin-top:12px;"></div>
+      <div class="cfg-sep"></div>
+      <label class="cfg-label">Períodos cadastrados</label>
+      <div id="perLista"></div>
+    </div>
+    <div id="cfgPanePlanilhas" style="display:none;">
+      <p class="cfg-hint">Planilhas de ocorrências de cada período. Os Indicadores leem as datas e a aba Registro lista os pendentes. Deixe em branco para não usar.</p>
+      <label class="cfg-label">Período</label>
+      <select id="lkPeriodo" onchange="carregarLinks()" style="width:100%;padding:10px 14px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;margin-bottom:12px;"></select>
+      <label class="cfg-label">UNILEÃO — Lista de Ocorrências</label>
+      <input type="text" class="cfg-input" id="lk_unileao" placeholder="Link ou ID da planilha" style="font-size:14px;margin-bottom:12px;"/>
+      <label class="cfg-label">UNIVS — Lista de Ocorrências</label>
+      <input type="text" class="cfg-input" id="lk_univs" placeholder="Link ou ID da planilha" style="font-size:14px;margin-bottom:12px;"/>
+      <button class="btn-salvar-edit" onclick="salvarLinks()">Salvar links</button>
+      <div class="feedback" id="fbLinks" style="margin-top:12px;"></div>
+      <div class="cfg-sep"></div>
+      <label class="cfg-label">📞 Call Center — planilha do sistema (aba REGISTROS)</label>
+      <p class="cfg-hint">Vale para todos os períodos. Usada no login único e na contagem de registros por colaborador (Indicadores e Reunião).</p>
+      <input type="text" class="cfg-input" id="lk_cc" placeholder="Link ou ID da planilha do Call Center" style="font-size:14px;margin-bottom:12px;"/>
+      <button class="btn-salvar-edit" onclick="lkSalvarCC()">Salvar planilha do Call Center</button>
+      <div class="feedback" id="fbCC" style="margin-top:12px;"></div>
+    </div>
+    <div id="cfgPaneNome" style="display:none;">
+      <label class="cfg-label">Prévia — topo do sistema</label>
+      <div class="cfg-preview sistema" id="nmPrevTop"></div>
+      <label class="cfg-label">Prévia — tela de login</label>
+      <div class="nm-prev-login"><div><div id="nmPrevLogo" style="font-size:26px;line-height:1;margin-bottom:4px;"></div><div class="t" id="nmPrevNome"></div><div class="s" id="nmPrevSub"></div></div></div>
+      <label class="cfg-label">Nome do sistema</label>
+      <input type="text" class="cfg-input" id="nmNome" maxlength="60" style="font-size:14px;margin-bottom:14px;" oninput="nmPreview()"/>
+      <label class="cfg-label">Subtítulo da tela de login <small style="font-weight:400;color:var(--cinza);">(texto abaixo do nome)</small></label>
+      <input type="text" class="cfg-input" id="nmSub" maxlength="100" style="font-size:14px;" oninput="nmPreview()"/>
+      <p class="cfg-hint" style="margin-top:6px;">Deixe o subtítulo em branco para ocultá-lo. O nome aparece no topo do sistema, na escolha do sistema e na aba do navegador (e também no login, a menos que você defina um nome só para o login). Somente Admin pode alterar.</p>
+      <div class="cfg-btns">
+        <button type="button" class="btn-outline" onclick="nmRestaurar()">↺ Restaurar padrão</button>
+      </div>
+      <button class="btn-salvar-edit" id="btnNomeSalvar" onclick="nmSalvar()">Salvar nome</button>
+    </div>
+    <div id="cfgPaneNomeLogin" style="display:none;">
+      <p class="cfg-hint">Define o título que aparece <strong>somente na tela de login</strong>. O nome da escolha do sistema, do topo do sistema e da aba do navegador não muda.</p>
+      <label class="cfg-label">Prévia — tela de login</label>
+      <div class="nm-prev-login"><div><div id="nlPrevLogo" style="font-size:26px;line-height:1;margin-bottom:4px;"></div><div class="t" id="nlPrevNome"></div><div class="s" id="nlPrevSub"></div></div></div>
+      <label class="cfg-label">Nome na tela de login</label>
+      <input type="text" class="cfg-input" id="nlNome" maxlength="60" style="font-size:14px;" oninput="nlPreview()"/>
+      <p class="cfg-hint" style="margin-top:6px;">Deixe em branco para usar o nome do sistema. O subtítulo do login continua sendo editado em “Nome do sistema”. Somente Admin pode alterar.</p>
+      <div class="cfg-btns">
+        <button type="button" class="btn-outline" onclick="nlRestaurar()">↺ Usar o nome do sistema</button>
+      </div>
+      <button class="btn-salvar-edit" id="btnNomeLoginSalvar" onclick="nlSalvar()">Salvar nome do login</button>
+    </div>
+    <div id="cfgPaneLogin" style="display:none;">
+      <div class="fundo-preview" id="fundoPreview"><span>Prévia da tela de login e de período</span></div>
+      <label class="cfg-label">Tipo de fundo</label>
+      <div class="seg" id="fundoSeg">
+        <button type="button" data-t="padrao" onclick="fundoTipo('padrao')">Padrão</button>
+        <button type="button" data-t="cor" onclick="fundoTipo('cor')">Cor</button>
+        <button type="button" data-t="degrade" onclick="fundoTipo('degrade')">Mistura de cores</button>
+        <button type="button" data-t="imagem" onclick="fundoTipo('imagem')">Imagem</button>
+      </div>
+      <div id="fundoOpcCor" class="fundo-linha" style="display:none;">
+        <div><label class="cfg-label" id="lblFundoC1">Cor</label><input type="color" class="cor-input" id="fundoC1" oninput="fundoInput()"/></div>
+        <div id="fundoOpcDeg" style="display:none;" class="fundo-linha" >
+          <div><label class="cfg-label">Segunda cor</label><input type="color" class="cor-input" id="fundoC2" oninput="fundoInput()"/></div>
+          <div><label class="cfg-label">Direção</label>
+            <select id="fundoAng" onchange="fundoInput()" style="padding:9px 12px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;">
+              <option value="135">Diagonal ↘</option><option value="45">Diagonal ↗</option>
+              <option value="180">Vertical ↓</option><option value="90">Horizontal →</option>
+            </select></div>
+        </div>
+      </div>
+      <div id="fundoOpcImg" style="display:none;">
+        <div class="cfg-btns"><button type="button" class="btn-outline" onclick="document.getElementById('fundoFile').click()">📷 Escolher imagem</button></div>
+        <input type="file" id="fundoFile" accept="image/*" style="display:none;" onchange="fundoArquivo(this)"/>
+        <p class="cfg-hint">Use uma imagem horizontal (16:9). No editor você posiciona, amplia, gira e inverte.</p>
+      </div>
+      <p class="cfg-hint">Aplica-se à tela de login e à de seleção de período. Somente Admin pode alterar.</p>
+      <button class="btn-salvar-edit" id="btnFundoSalvar" onclick="fundoSalvar()">Salvar fundo</button>
+    </div>
+    <p class="cfg-hint" style="margin:16px 0 0;text-align:right;opacity:.7;">Versão <span id="versaoSistema">...</span></p>
+    </div>
+    </div>
+  </div>
+</div>
