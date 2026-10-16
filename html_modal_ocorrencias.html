@@ -1,0 +1,31 @@
+<!-- MODAL OCORRÊNCIAS -->
+<div class="modal-overlay" id="ocOverlay">
+  <div class="modal-box oc-box" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="ocFechar()">✕</span>
+    <h3 id="ocTitulo">Ocorrências</h3>
+    <div class="oc-topo">
+      <input type="text" class="oc-busca" id="ocBusca" placeholder="🔍 Buscar por nome ou CPF..." oninput="ocRender()"/>
+      <span class="oc-cont" id="ocCont"></span>
+      <button type="button" class="btn-outline" onclick="ocCarregar()">↻ Atualizar</button>
+    </div>
+    <div class="feedback" id="fbOcLista" style="margin:0 0 10px;"></div>
+    <div class="oc-tabela" id="ocTabela"></div>
+  </div>
+</div>
+<div class="modal-overlay oc-pop-overlay" id="ocPopOverlay">
+  <div class="modal-box oc-pop" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="ocFecharPopup()">✕</span>
+    <h3 id="ocPopNome"></h3>
+    <div class="oc-pop-sub" id="ocPopSub"></div>
+    <div class="oc-info" id="ocPopInfo"></div>
+    <div class="oc-resp espera" id="ocPopResp"></div>
+    <div class="oc-pop-cols">
+      <div class="oc-pop-col"><div class="oc-pop-lbl">Ocorrência</div><button type="button" class="btn-oc" id="btnOcOcorr" onclick="ocConfirmar('Ocorrência')">Confirmar</button></div>
+      <div class="oc-pop-col"><div class="oc-pop-lbl">Anexo</div><button type="button" class="btn-oc" id="btnOcAnexo" onclick="ocConfirmar('Anexo')">Confirmar</button></div>
+    </div>
+    <label class="cfg-label">Observação</label>
+    <textarea id="ocObs" rows="3" placeholder="Opcional"></textarea>
+    <div class="feedback" id="fbOcPop" style="margin-top:12px;"></div>
+    <button type="button" class="btn-outline" style="margin-top:14px;width:100%;" onclick="ocFecharPopup()">Fechar</button>
+  </div>
+</div>
