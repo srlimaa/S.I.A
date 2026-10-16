@@ -1,0 +1,44 @@
+  <!-- ═══ REUNIÃO ═══ -->
+  <div class="content" id="secReuniao" style="display:none;">
+    <h2 style="color:var(--titulo);margin-bottom:18px;">🎯 Reunião — Indicadores por Atividade</h2>
+    <div class="ind-filtros">
+      <div class="date-group"><label>De:</label><input type="date" id="reuDe"/></div>
+      <div class="date-group"><label>Até:</label><input type="date" id="reuAte"/></div>
+      <div class="ms-container">
+        <div class="ms-trigger" onclick="toggleMs('msMesR')"><span id="msMesRLabel">Todos os meses</span><span>▾</span></div>
+        <div class="ms-dropdown" id="msMesR">
+          <div class="ms-option" onclick="toggleMsAll('msMesR',event)">
+            <input type="checkbox" id="msMesR_all" checked onchange="syncMsAll('msMesR',this)"/>
+            <label for="msMesR_all" style="cursor:pointer;">Todos os meses</label>
+          </div>
+          <div class="ms-sep"></div>
+        </div>
+      </div>
+      <div class="ms-container">
+        <div class="ms-trigger" onclick="toggleMs('msAtivR')"><span id="msAtivRLabel">Todas as atividades</span><span>▾</span></div>
+        <div class="ms-dropdown" id="msAtivR">
+          <div class="ms-option" onclick="toggleMsAll('msAtivR',event)">
+            <input type="checkbox" id="msAtivR_all" checked onchange="syncMsAll('msAtivR',this)"/>
+            <label for="msAtivR_all" style="cursor:pointer;">Todas</label>
+          </div>
+          <div class="ms-sep"></div>
+          <div class="ms-option"><input type="checkbox" value="Presencial" checked onchange="syncMsLabel('msAtivR')"/> Presencial</div>
+          <div class="ms-option"><input type="checkbox" value="Ramal" checked onchange="syncMsLabel('msAtivR')"/> Ramal</div>
+          <div class="ms-option"><input type="checkbox" value="E-mail" checked onchange="syncMsLabel('msAtivR')"/> E-mail</div>
+          <div class="ms-option"><input type="checkbox" value="Conversa Atribuída" checked onchange="syncMsLabel('msAtivR')"/> Conversa Atribuída</div>
+          <div class="ms-option"><input type="checkbox" value="Conversa Fechada" checked onchange="syncMsLabel('msAtivR')"/> Conversa Fechada</div>
+          <div class="ms-option"><input type="checkbox" value="Ocorrência UNILEÃO" checked onchange="syncMsLabel('msAtivR')"/> Ocorrência UNILEÃO</div>
+          <div class="ms-option"><input type="checkbox" value="Anexo UNILEÃO" checked onchange="syncMsLabel('msAtivR')"/> Anexo UNILEÃO</div>
+          <div class="ms-option"><input type="checkbox" value="Ocorrência UNIVS" checked onchange="syncMsLabel('msAtivR')"/> Ocorrência UNIVS</div>
+          <div class="ms-option"><input type="checkbox" value="Anexo UNIVS" checked onchange="syncMsLabel('msAtivR')"/> Anexo UNIVS</div>
+          <div class="ms-option"><input type="checkbox" value="Call Center" checked onchange="syncMsLabel('msAtivR')"/> Call Center</div>
+        </div>
+      </div>
+      <button class="btn-filtrar" onclick="filtrarReu()">Filtrar</button>
+      <button class="btn-filtrar btn-sem" id="btnSemReu" onclick="reuSemestre()" title="Total do semestre inteiro (ex.: 2026.2 = julho a dezembro)">📅 Semestre</button>
+      <button class="btn-filtrar" style="background:var(--cinza);" onclick="limparFiltrosReu()">Limpar</button>
+    </div>
+    <p class="cfg-hint" id="reuModoInfo" style="display:none;margin:-6px 0 12px;"></p>
+    <div id="reuAvisos" class="ind-avisos"></div>
+    <div id="reuniaoContainer"><p class="ind-msg">Carregando...</p></div>
+  </div>
