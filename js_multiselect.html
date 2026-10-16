@@ -1,0 +1,61 @@
+<script>
+/* ══════════ MULTI-SELECT ══════════ */
+// Fecha todos ao clicar fora
+document.addEventListener('click',function(e){
+  document.querySelectorAll('.ms-dropdown.open').forEach(function(dd){
+    if(!dd.closest('.ms-container').contains(e.target))dd.classList.remove('open');
+  });
+});
+function toggleMs(id){
+  var dd=document.getElementById(id);
+  var wasOpen=dd.classList.contains('open');
+  document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});
+  if(!wasOpen)dd.classList.add('open');
+}
+function getMsValues(id){
+  // retorna array de valores marcados (excluindo checkbox "todos")
+  var dd=document.getElementById(id);
+  var checked=[];
+  dd.querySelectorAll('input[type=checkbox][value]').forEach(function(cb){
+    if(cb.checked)checked.push(cb.value);
+  });
+  return checked;
+}
+function syncMsLabel(id){
+  var vals=getMsValues(id);
+  var allCb=document.getElementById(id+'_all');
+  var allOpts=document.getElementById(id).querySelectorAll('input[type=checkbox][value]');
+  var allChecked=(vals.length===allOpts.length);
+  if(allCb)allCb.checked=allChecked;
+  var labelEl=document.getElementById(id+'Label');
+  if(!labelEl)return;
+  if(allChecked||vals.length===0){
+    labelEl.textContent=id.indexOf('msMes')===0?'Todos os meses':id.indexOf('msAtiv')===0?'Todas as atividades':'Todos os colaboradores';
+  } else if(vals.length===1){
+    labelEl.textContent=vals[0];
+  } else {
+    labelEl.textContent=vals.length+' selecionados';
+  }
+}
+function syncMsAll(id,allCb){
+  if(id.indexOf('msMes')===0)MES_TOQUE[id]=false;
+  var dd=document.getElementById(id);
+  dd.querySelectorAll('input[type=checkbox][value]').forEach(function(cb){cb.checked=allCb.checked;});
+  syncMsLabel(id);
+}
+function toggleMsAll(id,e){
+  // evita disparar ao clicar direto no checkbox
+  if(e&&e.target&&e.target.type==='checkbox')return;
+  var allCb=document.getElementById(id+'_all');
+  allCb.checked=!allCb.checked;
+  syncMsAll(id,allCb);
+}
+function setMsAll(id,checked){
+  if(id.indexOf('msMes')===0)MES_TOQUE[id]=false;
+  var allCb=document.getElementById(id+'_all');
+  if(allCb)allCb.checked=checked;
+  document.getElementById(id).querySelectorAll('input[type=checkbox][value]').forEach(function(cb){cb.checked=checked;});
+  syncMsLabel(id);
+}
+
+</script>
