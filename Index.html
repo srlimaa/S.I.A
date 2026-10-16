@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sistema de Atendimentos</title>
+<script>try{if(localStorage.getItem("tema")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>
+<style>
+<?!= include('css_base') ?>
+<?!= include('css_marca_config_reuniao') ?>
+<?!= include('css_app_registro_historico') ?>
+<?!= include('css_indicadores_usuarios') ?>
+<?!= include('css_tema_ranque_ocorrencias') ?>
+<?!= include('css_sistema_polimento') ?>
+</style>
+</head>
+<body>
+<?!= include('html_telas_acesso') ?>
+<!-- ════ APP ════ -->
+<div id="appScreen">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="brand-icon" id="brandIcon" style="font-size:22px;">🏛️</span>
+      <h1 id="topbarTitulo">Sistema de Atendimentos</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="topbar-user" id="topbarUser"></span>
+      <button class="btn-logout btn-gear" onclick="abrirConfig()" title="Configurações">⚙️</button>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <div class="nav-item active" data-sec="registro" onclick="showSection('registro')">📝 Registro</div>
+    <div class="nav-item" data-sec="historico" onclick="showSection('historico')">📋 Histórico</div>
+    <div class="nav-item" data-sec="ranque" onclick="showSection('ranque')">🏆 Ranque</div>
+    <div class="nav-item" data-sec="indicadores" id="navIndicadores" onclick="showSection('indicadores')" style="display:none;">📊 Indicadores</div>
+    <div class="nav-item" data-sec="reuniao" id="navReuniao" onclick="showSection('reuniao')" style="display:none;">🎯 Reunião</div>
+    <div class="nav-item" data-sec="usuarios" id="navUsuarios" onclick="showSection('usuarios')" style="display:none;">👥 Usuários</div>
+  </div>
+
+  <!-- ═══ REGISTRO ═══ -->
+  <div class="content" id="secRegistro">
+    <div class="tipo-grid">
+      <div class="tipo-card presencial" onclick="selecionarTipo('presencial')">
+        <div class="icon">🏢</div>
+        <div class="label" style="color:#16a34a;">Presencial</div>
+      </div>
+      <div class="tipo-card ramal" onclick="selecionarTipo('ramal')">
+        <div class="icon">📞</div>
+        <div class="label" style="color:#2563eb;">Ramal</div>
+      </div>
+      <div class="tipo-card email-t" onclick="selecionarTipo('email')">
+        <div class="icon">✉️</div>
+        <div class="label" style="color:#ea580c;">E-mail</div>
+      </div>
+      <!-- Virtual: visível somente para Admin (controlado por JS) -->
+      <div class="tipo-card virtual" id="cardVirtual" onclick="selecionarTipo('virtual')" style="display:none;">
+        <div class="icon">💬</div>
+        <div class="label" style="color:#7c3aed;">Virtual</div>
+      </div>
+    </div>
+
+    <div class="tipo-grid" style="margin-top:-12px;">
+      <div class="tipo-card oc-unileao" onclick="abrirOcorrencias('unileao')">
+        <div class="icon">📁</div>
+        <div class="label" style="color:#0d9488;">Ocorrências - Unileão</div>
+      </div>
+      <div class="tipo-card oc-univs" onclick="abrirOcorrencias('univs')">
+        <div class="icon">📁</div>
+        <div class="label" style="color:#4f46e5;">Ocorrências - Univs</div>
+      </div>
+    </div>
+
+<?!= include('html_form_presencial') ?>
+<?!= include('html_form_ramal') ?>
+<?!= include('html_form_email') ?>
+<?!= include('html_form_virtual') ?>
+  </div>
+
+<?!= include('html_sec_historico') ?>
+<?!= include('html_sec_ranque') ?>
+<?!= include('html_sec_indicadores') ?>
+<?!= include('html_sec_reuniao') ?>
+<?!= include('html_sec_usuarios') ?>
+</div><!-- /appScreen -->
+
+<?!= include('html_modal_ocorrencias') ?>
+<?!= include('html_modal_config') ?>
+<?!= include('html_modal_imagem') ?>
+<?!= include('html_modal_usuario') ?>
+<?!= include('html_modal_registro') ?>
+<script>
+<?!= include('js_login') ?>
+<?!= include('js_periodos') ?>
+<?!= include('js_nucleo') ?>
+<?!= include('js_registro') ?>
+<?!= include('js_historico') ?>
+<?!= include('js_multiselect') ?>
+<?!= include('js_indicadores') ?>
+<?!= include('js_usuarios') ?>
+<?!= include('js_config') ?>
+<?!= include('js_imagem_crop') ?>
+<?!= include('js_tema_busca') ?>
+<?!= include('js_fundo_login') ?>
+<?!= include('js_listas_admin') ?>
+<?!= include('js_download') ?>
+<?!= include('js_reuniao') ?>
+<?!= include('js_nome_sistema') ?>
+<?!= include('js_ranque') ?>
+<?!= include('js_ocorrencias') ?>
+<?!= include('js_callcenter') ?>
+<?!= include('js_boot') ?>
+</script>
+</body>
+</html>
