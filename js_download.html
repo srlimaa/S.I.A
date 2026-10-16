@@ -1,0 +1,385 @@
+<script>
+/* ══════════ DOWNLOAD DOS INDICADORES (Excel / Imagens) ══════════ */
+function toggleDl(e){
+  if(e)e.stopPropagation();
+  document.getElementById('dlMenu').classList.toggle('open');
+}
+document.addEventListener('click',function(){document.getElementById('dlMenu').classList.remove('open');});
+
+var CRC_T=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function u16(v){return [v&255,(v>>>8)&255];}
+function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+function juntarBytes(arrs){
+  var n=0;arrs.forEach(function(a){n+=a.length;});
+  var out=new Uint8Array(n),o=0;
+  arrs.forEach(function(a){out.set(a,o);o+=a.length;});
+  return out;
+}
+// ZIP sem compressão (suficiente para .xlsx e para lotes de JPG)
+function zipStore(files){
+  var enc=new TextEncoder(),partes=[],central=[],offset=0;
+  files.forEach(function(f){
+    var nome=enc.encode(f.nome),crc=crc32(f.dados),tam=f.dados.length;
+    var lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(tam),u32(tam),u16(nome.length),u16(0)));
+    partes.push(lh,nome,f.dados);
+    central.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(tam),u32(tam),
+      u16(nome.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))),nome);
+    offset+=lh.length+nome.length+tam;
+  });
+  var cd=juntarBytes(central);
+  var fim=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(offset),u16(0)));
+  return juntarBytes(partes.concat([cd,fim]));
+}
+function baixarBytes(nome,bytes,mime){
+  var blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=nome;a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+}
+function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function colLetra(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+
+// Monta o arquivo .xlsx (planilha "Indicadores") a partir do modelo da tabela
+function gerarXlsx(m){
+  var rows=[],merges=[],cols=m.cols;
+  var cab=[{v:m.rotCol||'Data',s:1},{v:'Atividade',s:1}];
+  cols.forEach(function(c){cab.push({v:c,s:1});});cab.push({v:'Total geral',s:1});
+  rows.push(cab);
+  m.dias.forEach(function(dia){
+    var ini=rows.length+1,n=dia.linhas.length;
+    dia.linhas.forEach(function(l,i){
+      var r=[i===0?{v:dia.d,s:9}:{s:9},{v:l.nome,s:3}];
+      cols.forEach(function(c){r.push({v:l.vals[c]>0?l.vals[c]:null,s:4});});
+      r.push({v:l.total>0?l.total:null,s:10});
+      rows.push(r);
+    });
+    var sr=[{s:9},{v:dia.d+' Total',s:5}];
+    cols.forEach(function(c){sr.push({v:dia.sub[c]>0?dia.sub[c]:null,s:6});});
+    sr.push({v:dia.sub.__total,s:6});
+    rows.push(sr);
+    merges.push('A'+ini+':A'+(ini+n));
+  });
+  if(!m.ocultarTotal){
+    var tr=[{v:'Total geral',s:7},{s:7}];
+    cols.forEach(function(c){tr.push({v:m.total[c]>0?m.total[c]:null,s:8});});
+    tr.push({v:m.total.__total,s:8});
+    rows.push(tr);
+    merges.push('A'+rows.length+':B'+rows.length);
+  }
+
+  var sd='';
+  rows.forEach(function(r,ri){
+    sd+='<row r="'+(ri+1)+'">';
+    r.forEach(function(c,ci){
+      var ref=colLetra(ci)+(ri+1);
+      if(c.v===null||c.v===undefined)sd+='<c r="'+ref+'" s="'+c.s+'"/>';
+      else if(typeof c.v==='number')sd+='<c r="'+ref+'" s="'+c.s+'"><v>'+c.v+'</v></c>';
+      else sd+='<c r="'+ref+'" s="'+c.s+'" t="inlineStr"><is><t>'+xmlEsc(c.v)+'</t></is></c>';
+    });
+    sd+='</row>';
+  });
+  var colsXml='<cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/>'+
+    '<col min="3" max="'+(cols.length+3)+'" width="16" customWidth="1"/></cols>';
+  var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  var HD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  var sheet=HD+'<worksheet '+NS+'><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="18"/>'+colsXml+'<sheetData>'+sd+'</sheetData>'+
+    '<mergeCells count="'+merges.length+'">'+merges.map(function(x){return '<mergeCell ref="'+x+'"/>';}).join('')+'</mergeCells></worksheet>';
+  var borda='<border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>';
+  function xf(font,fill,h){return '<xf numFmtId="0" fontId="'+font+'" fillId="'+fill+'" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'+h+'" vertical="center"/></xf>';}
+  var styles=HD+'<styleSheet '+NS+'>'+
+    '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'+
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3A5F"/><bgColor indexed="64"/></patternFill></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+borda+'</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="11"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+    xf(2,2,'center')+xf(0,0,'left')+xf(0,0,'left')+xf(0,0,'center')+xf(1,3,'left')+xf(1,3,'center')+xf(2,2,'left')+xf(2,2,'center')+xf(1,0,'left')+xf(1,0,'center')+
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var wb=HD+'<workbook '+NS+' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Indicadores" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var wbRels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var rels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var ct=HD+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  var enc=new TextEncoder();
+  return zipStore([
+    {nome:'[Content_Types].xml',dados:enc.encode(ct)},
+    {nome:'_rels/.rels',dados:enc.encode(rels)},
+    {nome:'xl/workbook.xml',dados:enc.encode(wb)},
+    {nome:'xl/_rels/workbook.xml.rels',dados:enc.encode(wbRels)},
+    {nome:'xl/styles.xml',dados:enc.encode(styles)},
+    {nome:'xl/worksheets/sheet1.xml',dados:enc.encode(sheet)}
+  ]);
+}
+
+function modeloParaDownload(){
+  var m=modeloIndicadores(filtrosInd());
+  if(m.vazio){showFeedback('fbIndDl',m.vazio==='sem-dados'?'Aguarde o carregamento dos indicadores.':'Nenhum dado para baixar com os filtros atuais.',false);return null;}
+  return m;
+}
+function baixarExcel(){
+  document.getElementById('dlMenu').classList.remove('open');
+  var m=modeloParaDownload();if(!m)return;
+  try{
+    baixarBytes('Indicadores_'+PERIODO+'.xlsx',gerarXlsx(m),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    showFeedback('fbIndDl','✔ Planilha gerada: Indicadores_'+PERIODO+'.xlsx',true);
+  }catch(e){showFeedback('fbIndDl','Erro ao gerar a planilha: '+e.message,false);}
+}
+
+/* ── Imagem (JPG) de cada dia ── */
+var FONTE_IMG='"Segoe UI",Roboto,Arial,sans-serif';
+function dataUrlBytes(url){
+  var b=atob(url.split(',')[1]),a=new Uint8Array(b.length);
+  for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
+  return a;
+}
+function desenharDia(m,dia,periodo){
+  var cols=m.cols.filter(function(c){return dia.sub[c]>0;});
+  var S=2,mg=28,tmp=document.createElement('canvas').getContext('2d');
+  function medir(t,peso){tmp.font=peso+' 14px '+FONTE_IMG;return tmp.measureText(t).width;}
+  var wA=Math.max(medir('Atividade','700'),medir(dia.d+' Total','700'));
+  dia.linhas.forEach(function(l){wA=Math.max(wA,medir(l.nome,'400'));});
+  wA=Math.max(170,Math.ceil(wA+36));
+  var wC=cols.map(function(c){return Math.max(78,Math.ceil(medir(c,'700')+30));});
+  var wT=Math.max(104,Math.ceil(medir('Total geral','700')+30));
+  var W=mg*2+wA+wC.reduce(function(a,b){return a+b;},0)+wT;
+  var tituloH=84,cabH=40,linH=34,n=dia.linhas.length+1,H=tituloH+cabH+linH*n+mg+22;
+  var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
+  var x=cv.getContext('2d');x.scale(S,S);
+  x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
+  x.textBaseline='middle';
+  x.fillStyle='#1e3a5f';x.font='700 22px '+FONTE_IMG;x.textAlign='left';
+  x.fillText('Indicadores de Atendimento',mg,mg+14);
+  x.fillStyle='#64748b';x.font='400 14px '+FONTE_IMG;
+  x.fillText((m.rotTitulo||'Data')+': '+dia.d+'   ·   Período letivo '+periodo,mg,mg+44);
+  var y=tituloH;
+  function celula(txt,cx0,w,yy,hh,fundo,cor,peso,alinha){
+    if(fundo){x.fillStyle=fundo;x.fillRect(cx0,yy,w,hh);}
+    x.strokeStyle='#e2e8f0';x.lineWidth=1;x.strokeRect(cx0+.5,yy+.5,w-1,hh-1);
+    if(txt===''||txt===null)return;
+    x.fillStyle=cor;x.font=peso+' 14px '+FONTE_IMG;x.textAlign=alinha;
+    x.fillText(String(txt),alinha==='left'?cx0+14:cx0+w/2,yy+hh/2+1);
+  }
+  function linha(rotulo,vals,tot,yy,hh,fundo,cor,peso,pesoRot){
+    var cx0=mg;
+    celula(rotulo,cx0,wA,yy,hh,fundo,cor,pesoRot,'left');cx0+=wA;
+    cols.forEach(function(c,i){celula(vals[c]>0?vals[c]:'',cx0,wC[i],yy,hh,fundo,cor,peso,'center');cx0+=wC[i];});
+    celula(tot>0?tot:'',cx0,wT,yy,hh,fundo,cor,'700','center');
+  }
+  // cabeçalho
+  var cx=mg;
+  celula('Atividade',cx,wA,y,cabH,'#1e3a5f','#ffffff','700','left');cx+=wA;
+  cols.forEach(function(c,i){celula(c,cx,wC[i],y,cabH,'#1e3a5f','#ffffff','700','center');cx+=wC[i];});
+  celula('Total geral',cx,wT,y,cabH,'#1e3a5f','#ffffff','700','center');
+  y+=cabH;
+  dia.linhas.forEach(function(l){linha(l.nome,l.vals,l.total,y,linH,null,'#1e293b','400','400');y+=linH;});
+  linha(dia.d+' Total',dia.sub,dia.sub.__total,y,linH,'#dbeafe','#1e293b','700','700');
+  // rodapé
+  x.fillStyle='#94a3b8';x.font='400 11px '+FONTE_IMG;x.textAlign='right';
+  var ag=new Date();
+  x.fillText('Gerado em '+ag.toLocaleDateString('pt-BR')+' '+ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),W-mg,H-16);
+  return cv.toDataURL('image/jpeg',0.93);
+}
+function dataArquivo(dBR){var p=dBR.split('/');return p[2]+'-'+p[1]+'-'+p[0];}
+function baixarImagens(){
+  document.getElementById('dlMenu').classList.remove('open');
+  var m=modeloParaDownload();if(!m)return;
+  try{
+    var base='Indicadores_'+PERIODO+'_';
+    if(m.dias.length===1){
+      var nome=base+m.dias[0].arq+'.jpg';
+      baixarBytes(nome,dataUrlBytes(desenharDia(m,m.dias[0],PERIODO)),'image/jpeg');
+      showFeedback('fbIndDl','✔ Imagem gerada: '+nome,true);return;
+    }
+    var arquivos=m.dias.map(function(dia){
+      return {nome:base+dia.arq+'.jpg',dados:dataUrlBytes(desenharDia(m,dia,PERIODO))};
+    });
+    baixarBytes(base+'imagens.zip',zipStore(arquivos),'application/zip');
+    showFeedback('fbIndDl','✔ '+arquivos.length+' imagens geradas em '+base+'imagens.zip',true);
+  }catch(e){showFeedback('fbIndDl','Erro ao gerar as imagens: '+e.message,false);}
+}
+
+
+/* ══════════ EXPORTAÇÃO GENÉRICA (Ranque e Reunião): bloco da tela → JPG, tabelas → Excel ══════════ */
+var JPG_IGN=/(^|-)(block|inline)(-|$)|^inset|^perspective-origin$|^transform-origin$|^animation|^transition|^-webkit-locale$/;
+function estiloInline(o){
+  var cs=getComputedStyle(o),t='';
+  for(var i=0;i<cs.length;i++){var p=cs[i];if(JPG_IGN.test(p))continue;t+=p+':'+cs.getPropertyValue(p)+';';}
+  return t;
+}
+function corFundoTela(){
+  var c=getComputedStyle(document.body).backgroundColor;
+  return (!c||c==='rgba(0, 0, 0, 0)'||c==='transparent')?'#ffffff':c;
+}
+function corEhEscura(c){
+  var m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return false;
+  return (0.299*m[0]+0.587*m[1]+0.114*m[2])<128;
+}
+// Copia o bloco (com os estilos aplicados) e devolve uma imagem do conteúdo COMPLETO (sem barras de rolagem)
+function domParaImagem(el){
+  return new Promise(function(res,rej){
+    try{
+      var clone=el.cloneNode(true);
+      var oo=[el].concat([].slice.call(el.querySelectorAll('*'))),cc=[clone].concat([].slice.call(clone.querySelectorAll('*')));
+      oo.forEach(function(o,i){cc[i].setAttribute('style',estiloInline(o));});
+      // remove o que não deve sair na imagem (botões, dicas, etc.)
+      [].slice.call(clone.querySelectorAll('.no-img,.ch-dica,script')).forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});
+      // rolagens: mostra o conteúdo inteiro
+      oo.forEach(function(o,i){
+        var c=cc[i];if(!c||!c.parentNode&&c!==clone)return;
+        var cs=getComputedStyle(o);if(cs.textOverflow==='ellipsis')return;
+        var ox=/(auto|scroll|hidden)/.test(cs.overflowX),oy=/(auto|scroll|hidden)/.test(cs.overflowY),a;
+        if(ox&&o.scrollWidth>o.clientWidth+1){
+          var ex=o.scrollWidth-o.clientWidth;
+          c.style.setProperty('width',o.scrollWidth+'px');c.style.setProperty('flex','none');c.style.setProperty('overflow-x','visible');
+          for(a=c.parentNode;a&&a.nodeType===1;a=a.parentNode){
+            a.style.setProperty('width',((parseFloat(a.style.width)||0)+ex)+'px');a.style.setProperty('min-width','0');
+            if(a===clone)break;
+          }
+        }
+        if(oy&&o.scrollHeight>o.clientHeight+1){
+          c.style.setProperty('max-height','none');c.style.setProperty('height',o.scrollHeight+'px');c.style.setProperty('overflow-y','visible');
+          for(a=c.parentNode;a&&a.nodeType===1;a=a.parentNode){
+            a.style.setProperty('height','auto');a.style.setProperty('max-height','none');
+            if(a===clone)break;
+          }
+        }
+      });
+      clone.style.setProperty('margin','0');clone.style.setProperty('height','auto');clone.style.setProperty('min-height','0');
+      var host=document.createElement('div');
+      host.style.cssText='position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;';
+      host.appendChild(clone);document.body.appendChild(host);
+      var r=clone.getBoundingClientRect(),W=Math.ceil(r.width),H=Math.ceil(r.height);
+      var xml=new XMLSerializer().serializeToString(clone);
+      document.body.removeChild(host);
+      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><foreignObject x="0" y="0" width="'+W+'" height="'+H+'">'+xml+'</foreignObject></svg>';
+      var img=new Image();
+      img.onload=function(){res({img:img,W:W,H:H});};
+      img.onerror=function(){rej(new Error('o navegador não conseguiu desenhar este bloco'));};
+      img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    }catch(e){rej(e);}
+  });
+}
+// Monta o JPG final: título + subtítulo + bloco + rodapé. Devolve os bytes.
+function blocoParaJpg(el,titulo,sub){
+  return domParaImagem(el).then(function(b){
+    var S=2,mg=28,bg=corFundoTela(),esc=corEhEscura(bg);
+    var cabH=sub?78:56,W=Math.max(b.W+mg*2,360),H=cabH+b.H+mg+20;
+    var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
+    var x=cv.getContext('2d');x.scale(S,S);
+    x.fillStyle=bg;x.fillRect(0,0,W,H);
+    x.textBaseline='middle';x.textAlign='left';
+    x.fillStyle=esc?'#e2e8f0':'#1e3a5f';x.font='700 22px '+FONTE_IMG;x.fillText(titulo,mg,mg+8);
+    if(sub){x.fillStyle=esc?'#94a3b8':'#64748b';x.font='400 13px '+FONTE_IMG;x.fillText(sub,mg,mg+38);}
+    x.drawImage(b.img,mg,cabH,b.W,b.H);
+    x.fillStyle=esc?'#64748b':'#94a3b8';x.font='400 11px '+FONTE_IMG;x.textAlign='right';
+    var ag=new Date();
+    x.fillText('Gerado em '+ag.toLocaleDateString('pt-BR')+' '+ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),W-mg,H-14);
+    return dataUrlBytes(cv.toDataURL('image/jpeg',0.93));
+  });
+}
+function nomeArq(s){
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+// itens: [{arq,el,titulo,sub}] → 1 JPG, ou um .zip com vários
+function baixarJpgs(itens,prefixo,msgId){
+  itens=itens.filter(function(i){return i.el;});
+  if(!itens.length){expMsg(msgId,'Nada para baixar.',false);return;}
+  expMsg(msgId,'Gerando imagem'+(itens.length>1?'ns':'')+'...',true);
+  var arquivos=[],p=Promise.resolve();
+  itens.forEach(function(it){
+    p=p.then(function(){return blocoParaJpg(it.el,it.titulo,it.sub);}).then(function(bytes){arquivos.push({nome:prefixo+'_'+nomeArq(it.arq)+'.jpg',dados:bytes});});
+  });
+  p.then(function(){
+    if(arquivos.length===1){baixarBytes(arquivos[0].nome,arquivos[0].dados,'image/jpeg');expMsg(msgId,'✔ Imagem gerada: '+arquivos[0].nome,true);}
+    else{baixarBytes(prefixo+'_imagens.zip',zipStore(arquivos),'application/zip');expMsg(msgId,'✔ '+arquivos.length+' imagens geradas em '+prefixo+'_imagens.zip',true);}
+  }).catch(function(e){expMsg(msgId,'Erro ao gerar a imagem: '+((e&&e.message)||e),false);});
+}
+function expMsg(id,txt,ok){
+  var el=id&&document.getElementById(id);if(!el)return;
+  el.textContent=txt;el.style.color=ok?'var(--cinza)':'#dc2626';
+  clearTimeout(el._t);if(ok&&txt.indexOf('✔')===0)el._t=setTimeout(function(){el.textContent='';},6000);
+}
+function txtFiltroDatas(sem,de,ate){
+  if(sem)return 'Semestre '+PERIODO+' ('+semestreTexto(PERIODO)+')';
+  if(de||ate)return 'De '+(de?de.split('-').reverse().join('/'):'início')+' até '+(ate?ate.split('-').reverse().join('/'):'hoje');
+  return 'Todas as datas';
+}
+
+// Excel genérico: abas=[{nome,cab:[...],linhas:[[...]],larg:[...],totalUltima:bool}]
+function xlsxTabelas(abas){
+  var HD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  var enc=new TextEncoder(),usados={};
+  abas.forEach(function(a,i){
+    var n=String(a.nome||'Planilha'+(i+1)).replace(/[\[\]:*?\/\\]/g,'-').slice(0,31),b=n,k=2;
+    while(usados[n.toLowerCase()]){n=b.slice(0,28)+' '+(k++);}
+    usados[n.toLowerCase()]=1;a._n=n;
+  });
+  var sheets=abas.map(function(a){
+    var rows=[a.cab.map(function(t){return {v:t,s:1};})];
+    a.linhas.forEach(function(l,ri){
+      var ult=a.totalUltima&&ri===a.linhas.length-1;
+      rows.push(l.map(function(v){
+        var num=typeof v==='number';
+        return {v:(v===''||v===null||v===undefined)?null:v,s:ult?(num?5:4):(num?3:2)};
+      }));
+    });
+    var sd='';
+    rows.forEach(function(r,ri){
+      sd+='<row r="'+(ri+1)+'">';
+      r.forEach(function(c,ci){
+        var ref=colLetra(ci)+(ri+1);
+        if(c.v===null)sd+='<c r="'+ref+'" s="'+c.s+'"/>';
+        else if(typeof c.v==='number')sd+='<c r="'+ref+'" s="'+c.s+'"><v>'+c.v+'</v></c>';
+        else sd+='<c r="'+ref+'" s="'+c.s+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(c.v)+'</t></is></c>';
+      });
+      sd+='</row>';
+    });
+    var cols='<cols>'+a.cab.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+((a.larg&&a.larg[i])||16)+'" customWidth="1"/>';}).join('')+'</cols>';
+    return HD+'<worksheet '+NS+'><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+      '<sheetFormatPr defaultRowHeight="18"/>'+cols+'<sheetData>'+sd+'</sheetData></worksheet>';
+  });
+  var borda='<border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>';
+  function xf(font,fill,h){return '<xf numFmtId="0" fontId="'+font+'" fillId="'+fill+'" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'+h+'" vertical="center"/></xf>';}
+  var styles=HD+'<styleSheet '+NS+'>'+
+    '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'+
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3A5F"/><bgColor indexed="64"/></patternFill></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+borda+'</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+    xf(2,2,'center')+xf(0,0,'left')+xf(0,0,'center')+xf(1,3,'left')+xf(1,3,'center')+
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var wb=HD+'<workbook '+NS+' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
+    abas.map(function(a,i){return '<sheet name="'+xmlEsc(a._n)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>';}).join('')+'</sheets></workbook>';
+  var wbRels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    abas.map(function(a,i){return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>';}).join('')+
+    '<Relationship Id="rId'+(abas.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var rels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var ct=HD+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    abas.map(function(a,i){return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';}).join('')+
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  var arq=[{nome:'[Content_Types].xml',dados:enc.encode(ct)},{nome:'_rels/.rels',dados:enc.encode(rels)},
+    {nome:'xl/workbook.xml',dados:enc.encode(wb)},{nome:'xl/_rels/workbook.xml.rels',dados:enc.encode(wbRels)},{nome:'xl/styles.xml',dados:enc.encode(styles)}];
+  sheets.forEach(function(s,i){arq.push({nome:'xl/worksheets/sheet'+(i+1)+'.xml',dados:enc.encode(s)});});
+  return zipStore(arq);
+}
+function baixarXlsxTabelas(nome,abas,msgId){
+  try{baixarBytes(nome,xlsxTabelas(abas),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');expMsg(msgId,'✔ Planilha gerada: '+nome,true);}
+  catch(e){expMsg(msgId,'Erro ao gerar a planilha: '+e.message,false);}
+}
+
+</script>
