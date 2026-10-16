@@ -1,0 +1,40 @@
+  <!-- ═══ USUÁRIOS ═══ -->
+  <div class="content" id="secUsuarios" style="display:none;">
+    <h2 style="color:var(--titulo);margin-bottom:18px;">👥 Gerenciamento de Usuários</h2>
+    <div class="user-form-card">
+      <h3>Cadastrar Novo Usuário</h3>
+      <div class="user-grid">
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="u_nome" placeholder="Nome completo"/>
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="u_email" placeholder="email@dominio.com"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="u_senha" placeholder="Defina uma senha"/>
+        </div>
+        <div class="form-group">
+          <label>Perfil</label>
+          <select id="u_perfil">
+            <option value="Atend">Atend</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-criar-user" onclick="criarUsuario()">+ Cadastrar Usuário</button>
+      <div class="feedback" id="fbUsuario"></div>
+    </div>
+    <div class="user-table-wrap">
+      <table class="user-table">
+        <thead>
+          <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ação</th></tr>
+        </thead>
+        <tbody id="usuariosBody">
+          <tr><td colspan="4" style="color:var(--cinza);">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
