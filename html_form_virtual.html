@@ -1,0 +1,26 @@
+    <!-- Virtual -->
+    <div class="form-card" id="formVirtual">
+      <h2>💬 Registro Virtual</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data <span class="req">*</span></label>
+          <input type="date" id="v_data"/>
+        </div>
+        <div class="form-group">
+          <label>Colaborador</label>
+          <select id="v_colaborador">
+            <option value="">— Selecione —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Conversas Atribuídas</label>
+          <input type="number" id="v_atrib" min="0" placeholder="0"/>
+        </div>
+        <div class="form-group">
+          <label>Conversas Fechadas</label>
+          <input type="number" id="v_fech" min="0" placeholder="0"/>
+        </div>
+      </div>
+      <button class="btn-confirmar roxo" onclick="confirmarVirtual()">✔ Confirmar</button>
+      <div class="feedback" id="fbVirtual"></div>
+    </div>
