@@ -1,0 +1,171 @@
+<script>
+/* ══════════ RANQUE ══════════ */
+var RANQUE_DADOS=null;
+function carregarRanque(){
+  document.getElementById('rqPeriodo').textContent=PERIODO||'';
+  document.getElementById('ranqueContainer').innerHTML='<p class="ind-msg">Carregando ranque...</p>';
+  google.script.run
+    .withSuccessHandler(function(res){RANQUE_DADOS=res;preencherFiltrosRanque(res);renderRanque();})
+    .withFailureHandler(function(){document.getElementById('ranqueContainer').innerHTML='<p class="ind-msg" style="color:#dc2626;">Falha ao carregar o ranque.</p>';})
+    .getIndicadores(PERIODO);
+}
+function preencherFiltrosRanque(data){
+  var mesesSet={};
+  Object.keys((data&&data.indicadores)||{}).forEach(function(d){var m=d.split('/');mesesSet[m[1]+'/'+m[2]]=true;});
+  var meses=Object.keys(mesesSet).sort(function(a,b){
+    var pa=a.split('/'),pb=b.split('/');
+    return new Date(pb[1],pb[0]-1)-new Date(pa[1],pa[0]-1);
+  });
+  MES_TOQUE.msMesQ=false;
+  var dd=document.getElementById('msMesQ');
+  while(dd.children.length>2)dd.removeChild(dd.lastChild);
+  meses.forEach(function(m){
+    var div=document.createElement('div');div.className='ms-option';
+    var cb=document.createElement('input');cb.type='checkbox';cb.value=m;cb.checked=true;
+    cb.addEventListener('change',function(){MES_TOQUE.msMesQ=true;syncMsLabel('msMesQ');});
+    div.appendChild(cb);div.appendChild(document.createTextNode(' '+mesesLabel(m)));
+    dd.appendChild(div);
+  });
+  syncMsLabel('msMesQ');
+}
+var RQ_SEM=false;
+function filtrarRanque(){RQ_SEM=false;atualizarBotaoSem('btnSemRq',false);renderRanque();}
+function rqSemestre(){
+  RQ_SEM=!RQ_SEM;
+  if(RQ_SEM){document.getElementById('rqDe').value='';document.getElementById('rqAte').value='';setMsAll('msMesQ',true);}
+  atualizarBotaoSem('btnSemRq',RQ_SEM);renderRanque();
+}
+function limparFiltrosRanque(){
+  RQ_ATIV_SEL=null;RQ_SEM=false;atualizarBotaoSem('btnSemRq',false);
+  document.getElementById('rqDe').value='';document.getElementById('rqAte').value='';
+  setMsAll('msMesQ',true);renderRanque();
+}
+function rqHoje(){        // ranque do dia
+  var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
+  var iso=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  RQ_SEM=false;atualizarBotaoSem('btnSemRq',false);
+  document.getElementById('rqDe').value=iso;document.getElementById('rqAte').value=iso;
+  setMsAll('msMesQ',true);renderRanque();
+}
+function rqOrdenar(mapa,extra){
+  var lista=Object.keys(mapa).filter(function(n){return mapa[n]>0;}).map(function(n){return {nome:n,v:mapa[n],extra:extra?extra(n):''};});
+  lista.sort(function(a,b){return b.v-a.v||a.nome.localeCompare(b.nome,'pt',{sensitivity:'base'});});
+  var pos=0,ant=null;                       // empate = mesma posição (1º, 1º, 3º)
+  lista.forEach(function(it,i){if(it.v!==ant){pos=i+1;ant=it.v;}it.pos=pos;});
+  return lista;
+}
+function rqLinha(it,max,top,unidade){
+  var medalha=it.pos===1?'🥇':it.pos===2?'🥈':it.pos===3?'🥉':'';
+  var pct=max?Math.max(3,Math.round(it.v/max*100)):0;
+  return '<div class="rq-linha'+(top?' top':'')+(it.pos<=3?' pos'+it.pos:'')+'">'+
+    '<div class="rq-pos'+(medalha?'':' num')+'">'+(medalha||it.pos+'º')+'</div>'+
+    avatarHTML(avatarDe(it.nome),top?52:38)+
+    '<div class="rq-info"><div class="rq-nome" title="'+escHtml(it.nome)+'">'+escHtml(it.nome)+'</div>'+
+    '<div class="rq-sub">'+it.pos+'º lugar'+(it.extra?' · '+escHtml(it.extra):'')+'</div></div>'+
+    '<div class="rq-val">'+nf(it.v)+'<small>'+unidade+'</small></div>'+
+    (top?'':'<div class="rq-barra"><i style="width:'+pct+'%"></i></div>')+'</div>';
+}
+/* Atividades que compõem o "Registro do Atendimento" (filtro acumulado com as datas) */
+var RQ_ATIVS=['Presencial','Ramal','E-mail','Ocorrências','Anexos'];
+var RQ_ATIV_SEL=null;                       // null = todas
+function rqAtivAtivas(){return RQ_ATIV_SEL?RQ_ATIVS.filter(function(a){return RQ_ATIV_SEL[a];}):RQ_ATIVS.slice();}
+function rqAtivToggle(nome,on){
+  var sel={};rqAtivAtivas().forEach(function(a){sel[a]=true;});
+  if(on)sel[nome]=true;else delete sel[nome];
+  if(!Object.keys(sel).length){renderRanque();expMsg('rqDlFb','Mantenha ao menos uma atividade selecionada.',false);return;}
+  RQ_ATIV_SEL=Object.keys(sel).length===RQ_ATIVS.length?null:sel;
+  renderRanque();
+}
+function rqAtivTodas(){RQ_ATIV_SEL=null;renderRanque();}
+function rqAtivChips(){
+  var at=rqAtivAtivas();
+  return '<div class="rq-ativ no-img"><b>Atividades:</b>'+RQ_ATIVS.map(function(a){
+    var on=at.indexOf(a)>=0;
+    return '<label class="rq-chip'+(on?' on':'')+'"><input type="checkbox"'+(on?' checked':'')+' onchange="rqAtivToggle(\''+a+'\',this.checked)"/> '+a+'</label>';
+  }).join('')+(at.length<RQ_ATIVS.length?'<button type="button" class="rq-todas" onclick="rqAtivTodas()">Todas</button>':'')+'</div>';
+}
+function rqCardH4(titulo,col,card,excel){
+  return '<h4 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+
+    '<button type="button" class="exp-mini" title="Baixar este cartão em imagem (.jpg)" onclick="rqBaixarJpg(\''+col+'\',\''+card+'\')">🖼️ JPG</button>'+
+    (excel?'<button type="button" class="exp-mini" title="Baixar esta lista em Excel" onclick="rqBaixarExcel(\''+col+'\')">📊 Excel</button>':'')+'</span></h4>';
+}
+function rqColuna(col,titulo,lista,unidade,extraTopo){
+  var max=lista.length?lista[0].v:0;
+  var top=lista.slice(0,3).map(function(it){return rqLinha(it,max,true,unidade);}).join('')||'<p class="rq-vazio">Sem registros neste período.</p>';
+  var todos=lista.map(function(it){return rqLinha(it,max,false,unidade);}).join('')||'<p class="rq-vazio">Sem registros neste período.</p>';
+  return '<div class="rq-col" data-col="'+col+'"><h3>'+titulo+'</h3>'+(extraTopo||'')+
+    '<div class="rq-card" data-card="'+col+'-top">'+rqCardH4('⭐ Top 3',col,'top',false)+top+'</div>'+
+    '<div class="rq-card" data-card="'+col+'-tot">'+rqCardH4('📊 Ranque Total ('+lista.length+')',col,'tot',true)+'<div class="rq-lista">'+todos+'</div></div></div>';
+}
+function renderRanque(){
+  var res=RANQUE_DADOS,cont=document.getElementById('ranqueContainer');
+  if(!res||!res.indicadores){cont.innerHTML='<p class="ind-msg">Sem dados.</p>';return;}
+  var de=document.getElementById('rqDe').value,ate=document.getElementById('rqAte').value;
+  var datas=RQ_SEM?datasSemestre(res.indicadores,PERIODO):datasFiltradas(res.indicadores,de,ate,getMsValues('msMesQ'));
+  var tot={},pres={},ram={},em={},oc={},an={},fech={},atrib={};
+  function soma(m,alvo){Object.keys(m||{}).forEach(function(c){alvo[c]=(alvo[c]||0)+m[c];});}
+  datas.forEach(function(d){
+    var dia=res.indicadores[d];
+    soma(dia['Presencial'],pres);soma(dia['Ramal'],ram);soma(dia['E-mail'],em);
+    soma(dia['Ocorrência UNILEÃO'],oc);soma(dia['Ocorrência UNIVS'],oc);        // ocorrências (Unileão + Univs)
+    soma(dia['Anexo UNILEÃO'],an);soma(dia['Anexo UNIVS'],an);                  // anexos (Unileão + Univs)
+    soma(dia['Conversa Fechada'],fech);soma(dia['Conversa Atribuída'],atrib);
+  });
+  var atSel=rqAtivAtivas(),porAt={'Presencial':pres,'Ramal':ram,'E-mail':em,'Ocorrências':oc,'Anexos':an};
+  atSel.forEach(function(a){soma(porAt[a],tot);});
+  var reg=rqOrdenar(tot,function(n){
+    return atSel.map(function(a){return a+' '+(porAt[a][n]||0);}).join(' · ');});
+  var fe=rqOrdenar(fech,function(n){return (atrib[n]||0)+' atribuídas';});
+  var at=rqOrdenar(atrib,function(n){return (fech[n]||0)+' fechadas';});
+  var txt=datas.length+' dia(s) com registro considerado(s)';
+  if(RQ_SEM)txt+=' · Semestre '+PERIODO+' ('+semestreTexto(PERIODO)+')';
+  else if(de||ate)txt+=' · de '+(de?de.split('-').reverse().join('/'):'início')+' até '+(ate?ate.split('-').reverse().join('/'):'hoje');
+  document.getElementById('rqResumo').textContent=txt+'. Registro do Atendimento soma '+(atSel.length===RQ_ATIVS.length?'Presencial, Ramal, E-mail, Ocorrências e Anexos (Unileão e Univs)':atSel.join(', '))+'.';
+  RQ_ULT={reg:reg,fe:fe,at:at,atSel:atSel,porAt:porAt,fech:fech,atrib:atrib,filtro:txtFiltroDatas(RQ_SEM,de,ate),dias:datas.length};
+  cont.innerHTML='<div class="exp-bar no-img"><button type="button" class="btn-outline" onclick="rqBaixarJpg()">🖼️ Baixar todos os cartões (.jpg)</button>'+
+    '<button type="button" class="btn-outline" onclick="rqBaixarExcel()">📊 Baixar Excel (todas as listas)</button><span class="exp-fb" id="rqDlFb"></span></div>'+
+    '<div class="rq-grid">'+
+    rqColuna('reg','📋 Registro do Atendimento',reg,'registros',rqAtivChips())+
+    rqColuna('fe','💬 Atendimento InfoBip — Fechadas',fe,'fechadas')+
+    rqColuna('at','📨 Atendimento InfoBip — Atribuídas',at,'atribuídas')+'</div>';
+}
+
+/* ── Download (JPG / Excel) ── */
+var RQ_ULT=null;
+var RQ_NOMES={reg:'Registro do Atendimento',fe:'InfoBip — Fechadas',at:'InfoBip — Atribuídas'};
+function rqSubImagem(col){
+  var t='Período letivo '+PERIODO+' · '+RQ_ULT.filtro;
+  if(col==='reg'&&RQ_ULT.atSel.length<RQ_ATIVS.length)t+=' · Atividades: '+RQ_ULT.atSel.join(', ');
+  return t;
+}
+// col/card opcionais: sem argumentos baixa todos os cartões
+function rqBaixarJpg(col,card){
+  if(!RQ_ULT){expMsg('rqDlFb','Aguarde o carregamento do ranque.',false);return;}
+  var cont=document.getElementById('ranqueContainer'),itens=[];
+  var cols=col?[col]:['reg','fe','at'],cards=card?[card]:['top','tot'];
+  cols.forEach(function(c){cards.forEach(function(k){
+    itens.push({arq:c+'_'+(k==='top'?'top3':'total'),el:cont.querySelector('[data-card="'+c+'-'+k+'"]'),
+      titulo:RQ_NOMES[c]+' — '+(k==='top'?'Top 3':'Ranque Total'),sub:rqSubImagem(c)});
+  });});
+  baixarJpgs(itens,'Ranque_'+PERIODO,'rqDlFb');
+}
+function rqAbaExcel(c){
+  var R=RQ_ULT,L=R[c];
+  if(c==='reg'){
+    var at=R.atSel;
+    return {nome:RQ_NOMES.reg,cab:['Posição','Colaborador','Total'].concat(at),larg:[10,32,12].concat(at.map(function(){return 14;})),
+      linhas:L.map(function(it){return [it.pos,it.nome,it.v].concat(at.map(function(a){return R.porAt[a][it.nome]||0;}));})};
+  }
+  var a1=c==='fe'?'Fechadas':'Atribuídas',a2=c==='fe'?'Atribuídas':'Fechadas';
+  return {nome:RQ_NOMES[c],cab:['Posição','Colaborador',a1,a2],larg:[10,32,14,14],
+    linhas:L.map(function(it){return [it.pos,it.nome,it.v,(c==='fe'?R.atrib:R.fech)[it.nome]||0];})};
+}
+function rqBaixarExcel(col){
+  if(!RQ_ULT){expMsg('rqDlFb','Aguarde o carregamento do ranque.',false);return;}
+  var cols=col?[col]:['reg','fe','at'],abas=cols.map(rqAbaExcel);
+  if(!col)abas.push({nome:'Filtros',cab:['Item','Valor'],larg:[26,70],linhas:[['Período letivo',PERIODO],['Datas',RQ_ULT.filtro],
+    ['Dias considerados',RQ_ULT.dias],['Atividades do Registro',RQ_ULT.atSel.join(', ')]]});
+  baixarXlsxTabelas('Ranque_'+PERIODO+(col?'_'+nomeArq(RQ_NOMES[col]):'')+'.xlsx',abas,'rqDlFb');
+}
+
+</script>
