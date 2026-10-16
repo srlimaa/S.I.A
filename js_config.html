@@ -1,0 +1,169 @@
+<script>
+/* ══════════ MARCA, AVATARES E CONFIGURAÇÕES ══════════ */
+var CFG_SISTEMA={tipo:'emoji',valor:'🏛️'},AVATARES={},CFG={alvo:'user',draft:{tipo:'nenhum',valor:''}};
+var SUG_USER=['😀','😎','🧑‍💼','👩‍💼','👨‍💻','👩‍💻','🎓','📞','💬','⭐','🚀','🦉'];
+var SUG_SIS=['🏛️','🎓','🏫','🏢','📚','🗂️','🛎️','💼','📞','🤝','🏥','⚖️'];
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function avatarHTML(av,size,padrao){
+  size=size||22;
+  if(av&&av.tipo==='imagem'&&av.valor)
+    return '<img class="av-img" style="width:'+size+'px;height:'+size+'px;" src="'+av.valor+'" alt=""/>';
+  var e=(av&&av.tipo==='emoji'&&av.valor)?av.valor:(padrao||'👤');
+  return '<span class="av" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.72)+'px;">'+escHtml(e)+'</span>';
+}
+function avatarDe(nome){return AVATARES[String(nome||'').trim().toLowerCase()]||null;}
+function brandHTML(cfg,emojiPx){
+  if(cfg&&cfg.tipo==='imagem'&&cfg.valor)return '<img src="'+cfg.valor+'" alt=""/>';
+  return '<span style="font-size:'+emojiPx+'px;line-height:1;">'+escHtml((cfg&&cfg.valor)||'🏛️')+'</span>';
+}
+function aplicarBrand(){
+  document.getElementById('brandIcon').innerHTML=brandHTML(CFG_SISTEMA,22);
+  document.getElementById('loginBrand').innerHTML=brandHTML(CFG_SISTEMA,46);
+}
+function atualizarTopbarUser(){
+  document.getElementById('topbarUser').innerHTML=avatarHTML(USUARIO.avatar,24)+
+    '<span>'+escHtml(USUARIO.nome)+' ('+escHtml(USUARIO.perfil)+')</span>'+(PERIODO?'<span class="topbar-per">📅 '+escHtml(PERIODO)+'</span>':'');
+}
+function carregarAvatares(){
+  google.script.run.withSuccessHandler(function(lista){
+    AVATARES={};
+    (lista||[]).forEach(function(a){AVATARES[String(a.nome).trim().toLowerCase()]={tipo:a.tipo,valor:a.valor};});
+    if(document.getElementById('secHistorico').style.display==='block'&&HISTORICO_CACHE.length)renderHistorico();
+  }).getAvatares();
+}
+
+/* ── Janela de configurações ── */
+var CFG_ABAS={user:['tabCfgUser','cfgPaneEmoji'],pref:['tabCfgPref','cfgPanePref'],periodos:['tabCfgPeriodos','cfgPanePeriodos'],
+  planilhas:['tabCfgPlanilhas','cfgPanePlanilhas'],sistema:['tabCfgSis','cfgPaneEmoji'],nome:['tabCfgNome','cfgPaneNome'],nomelogin:['tabCfgNomeLogin','cfgPaneNomeLogin'],
+  login:['tabCfgLogin','cfgPaneLogin'],virtual:['tabCfgVirtual','cfgPaneVirtual'],assunto:['tabCfgAssunto','cfgPaneAssunto'],
+  semestre:['tabCfgSemestre','cfgPaneSemestre']};
+var CFG_ABAS_ADMIN=['periodos','planilhas','sistema','nome','nomelogin','login','virtual','assunto','semestre'];
+function abrirConfig(){
+  var adm=USUARIO.perfil==='Admin';
+  CFG_ABAS_ADMIN.forEach(function(k){document.getElementById(CFG_ABAS[k][0]).style.display=adm?'':'none';});
+  document.getElementById('cfgGrupoAdmin').style.display=adm?'':'none';
+  document.getElementById('tabCfgTrocSis').style.display=(USUARIO&&CC_SESSAO)?'':'none';
+  cfgTab('user');
+  document.getElementById('configOverlay').classList.add('open');
+}
+function fecharConfig(){document.getElementById('configOverlay').classList.remove('open');}
+function cfgPadrao(){return CFG.alvo==='sistema'?{tipo:'emoji',valor:'🏛️'}:{tipo:'nenhum',valor:''};}
+function cfgTab(alvo){
+  CFG.alvo=alvo;
+  var panes={};
+  Object.keys(CFG_ABAS).forEach(function(k){
+    document.getElementById(CFG_ABAS[k][0]).classList.toggle('active',k===alvo);
+    panes[CFG_ABAS[k][1]]=1;
+  });
+  Object.keys(panes).forEach(function(id){document.getElementById(id).style.display=(id===CFG_ABAS[alvo][1])?'block':'none';});
+  document.getElementById('fbCfg').style.display='none';
+  if(alvo==='login'){fundoIniciar();return;}
+  if(alvo==='nome'){nmIniciar();return;}
+  if(alvo==='nomelogin'){nlIniciar();return;}
+  if(alvo==='virtual'){vcRender();return;}
+  if(alvo==='assunto'){asRender();return;}
+  if(alvo==='semestre'){smRender();return;}
+  if(alvo==='pref'){prefAtualizar();return;}
+  if(alvo==='periodos'){perListar();return;}
+  if(alvo==='planilhas'){lkIniciar();return;}
+  var atual=alvo==='user'?USUARIO.avatar:CFG_SISTEMA;
+  CFG.draft=(atual&&atual.tipo&&atual.valor)?{tipo:atual.tipo,valor:atual.valor}:cfgPadrao();
+  document.getElementById('cfgHint').textContent=alvo==='user'
+    ?'Seu emoji ou imagem aparece ao lado do seu nome e nos registros do histórico.'
+    :'O emoji ou logo aparece na tela de login e no topo do sistema. Somente Admin pode alterar.';
+  document.getElementById('cfgEmoji').value=CFG.draft.tipo==='emoji'?CFG.draft.valor:'';
+  var sug=alvo==='user'?SUG_USER:SUG_SIS;
+  document.getElementById('cfgSug').innerHTML=sug.map(function(e){
+    return '<button type="button" class="emoji-btn" onclick="cfgEscolherEmoji(this.textContent)">'+e+'</button>';}).join('');
+  document.getElementById('fbCfg').style.display='none';
+  cfgPreview();
+}
+function primeiroEmoji(v){
+  v=String(v||'').trim();if(!v)return '';
+  try{
+    if(window.Intl&&Intl.Segmenter){
+      var it=new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(v)[Symbol.iterator]().next();
+      return it.done?'':it.value.segment;
+    }
+  }catch(e){}
+  return Array.from(v)[0]||'';
+}
+function cfgEscolherEmoji(e){document.getElementById('cfgEmoji').value=e;cfgEmojiInput();}
+function cfgEmojiInput(){
+  var inp=document.getElementById('cfgEmoji'),e=primeiroEmoji(inp.value);
+  inp.value=e;
+  CFG.draft=e?{tipo:'emoji',valor:e}:cfgPadrao();
+  cfgPreview();
+}
+function cfgPreview(){
+  var d=CFG.draft,el=document.getElementById('cfgPreview');
+  if(CFG.alvo==='user'){
+    el.className='cfg-preview user';
+    el.innerHTML=avatarHTML(d.tipo==='nenhum'?null:d,40)+'<span>'+escHtml(USUARIO.nome)+'</span>';
+  }else{
+    el.className='cfg-preview sistema';
+    el.innerHTML='<span class="brand-icon">'+brandHTML(d,26)+'</span><strong>'+escHtml(NOME_SISTEMA)+'</strong>';
+  }
+}
+function cfgRestaurar(){
+  CFG.draft=cfgPadrao();
+  document.getElementById('cfgEmoji').value=CFG.draft.tipo==='emoji'?CFG.draft.valor:'';
+  cfgPreview();
+}
+function cfgArquivo(inp){
+  var f=inp.files&&inp.files[0];inp.value='';
+  if(!f)return;
+  var user=CFG.alvo==='user';
+  abrirCropper(f,{
+    aspects:user?[{label:'Quadrado (1:1)',ratio:1,outW:160}]
+                :[{label:'Quadrado (1:1)',ratio:1,outW:256},{label:'Horizontal (3:1)',ratio:3,outW:450}],
+    maxChars:user?22000:45000,
+    onDone:function(url){
+      CFG.draft={tipo:'imagem',valor:url};
+      document.getElementById('cfgEmoji').value='';
+      cfgPreview();
+    }
+  });
+}
+function cfgSalvar(){
+  var d=CFG.draft,alvo=CFG.alvo,btn=document.getElementById('btnCfgSalvar');
+  btn.disabled=true;btn.textContent='Salvando...';
+  document.getElementById('fbCfg').style.display='none';
+  function liberar(){btn.disabled=false;btn.textContent='Salvar';}
+  function falha(err){liberar();showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);}
+  function semResposta(r){
+    if(r&&r.success)return false;
+    liberar();
+    showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);
+    return true;
+  }
+  if(alvo==='user'){
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(semResposta(r))return;
+        liberar();
+        USUARIO.avatar={tipo:r.tipo,valor:r.valor};
+        var k=String(USUARIO.nome).trim().toLowerCase();
+        if(r.tipo)AVATARES[k]={tipo:r.tipo,valor:r.valor};else delete AVATARES[k];
+        atualizarTopbarUser();
+        if(document.getElementById('secHistorico').style.display==='block'&&HISTORICO_CACHE.length)renderHistorico();
+        showFeedback('fbCfg','✔ Perfil atualizado!',true);
+      })
+      .withFailureHandler(falha)
+      .salvarMeuAvatar(USUARIO.id,d.tipo,d.valor);
+  }else{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(semResposta(r))return;
+        liberar();
+        CFG_SISTEMA={tipo:r.tipo,valor:r.valor};
+        aplicarBrand();
+        showFeedback('fbCfg','✔ Identidade do sistema atualizada!',true);
+      })
+      .withFailureHandler(falha)
+      .salvarConfigSistema(d.tipo,d.valor,USUARIO.id);
+  }
+}
+
+</script>
