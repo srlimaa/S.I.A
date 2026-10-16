@@ -1,0 +1,298 @@
+<script>
+/* ══════════ REUNIÃO (indicadores visuais por atividade) ══════════ */
+function nf(n){return Number(n).toLocaleString('pt-BR');}
+function pctTxt(v,t){return t?(v/t*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'0%';}
+function escalaNice(max){
+  var raw=Math.max(max,1)/4,mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),f=raw/mag;
+  var step=(f<=1?1:f<=2?2:f<=5?5:10)*mag;if(step<1)step=1;
+  return {step:step,top:Math.max(step,Math.ceil(max/step)*step)};
+}
+function quebrarRotulo(s,max){
+  var p=String(s).split(' '),l1='',l2='';
+  p.forEach(function(w){
+    if(!l2&&(l1+' '+w).trim().length<=max)l1=(l1+' '+w).trim();else l2=(l2+' '+w).trim();
+  });
+  return l2?[l1,l2]:[l1];
+}
+/* Gráficos com eixo Y fixo e área rolável na horizontal */
+var CH_ML=46,CH_H=340;
+function chEixoSvg(mt,ih,e){
+  var s='<svg class="ch-axis" width="'+CH_ML+'" height="'+CH_H+'" viewBox="0 0 '+CH_ML+' '+CH_H+'">';
+  for(var k=0;k<=Math.round(e.top/e.step);k++){
+    var y=mt+ih-(k*e.step/e.top)*ih;
+    s+='<text x="'+(CH_ML-8)+'" y="'+(y+4)+'" text-anchor="end" class="ch-ax">'+nf(k*e.step)+'</text>';
+  }
+  return s+'</svg>';
+}
+function chGrade(W,mt,ih,e){
+  var s='';
+  for(var k=0;k<=Math.round(e.top/e.step);k++){
+    var y=mt+ih-(k*e.step/e.top)*ih;
+    s+='<line x1="0" x2="'+W+'" y1="'+y+'" y2="'+y+'" class="ch-grid"/>';
+  }
+  return s;
+}
+function tipAttr(html){return ' data-tip="'+escHtml(html)+'"';}
+
+// wDisp = largura visível da área do gráfico; se faltar espaço, a barra de rolagem aparece
+function graficoBarras(itens,total,wDisp){
+  var mt=30,mb=74,mr=12,ih=CH_H-mt-mb,max=0,n=itens.length;
+  itens.forEach(function(i){if(i.v>max)max=i.v;});
+  var e=escalaNice(max),slotMin=104,W=Math.max(Math.floor(wDisp),n*slotMin+mr),slot=(W-mr)/n,bw=Math.min(72,slot*0.6);
+  var s='<div class="ch-flex">'+chEixoSvg(mt,ih,e)+'<div class="ch-scroll"><svg width="'+W+'" height="'+CH_H+'" viewBox="0 0 '+W+' '+CH_H+'" role="img" aria-label="Total por atividade">'+chGrade(W,mt,ih,e);
+  itens.forEach(function(it,i){
+    var x0=slot*i,x=x0+(slot-bw)/2,h=(it.v/e.top)*ih,y=mt+ih-h,cxm=x+bw/2;
+    var tip='<i style="background:'+it.c+'"></i><span class="tip-t">'+escHtml(it.l)+'</span><br>Total: <b>'+nf(it.v)+'</b><br>'+pctTxt(it.v,total)+' do total';
+    s+='<g class="bar-slot"'+tipAttr(tip)+'><rect class="hover-bg" x="'+x0+'" y="'+mt+'" width="'+slot+'" height="'+(ih+mb-6)+'" rx="8"/>'+
+       '<rect class="hit" x="'+x0+'" y="0" width="'+slot+'" height="'+CH_H+'"/>'+
+       '<g class="bar-g"><rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+Math.max(h,2)+'" rx="5" fill="'+it.c+'"/>'+
+       '<text x="'+cxm+'" y="'+(y-8)+'" text-anchor="middle" class="ch-val">'+nf(it.v)+'</text></g>';
+    quebrarRotulo(it.l,Math.max(8,Math.floor((slot-10)/7.4))).forEach(function(ln,j){
+      s+='<text x="'+(x0+slot/2)+'" y="'+(mt+ih+20+j*15)+'" text-anchor="middle" class="ch-lb">'+escHtml(ln)+'</text>';
+    });
+    s+='</g>';
+  });
+  return s+'</svg></div></div>';
+}
+function svgRosca(itens,total){
+  var S=250,cx=125,cy=125,R=104,r=62,a0=-Math.PI/2;
+  var s='<svg viewBox="0 0 '+S+' '+S+'" class="ch ch-rosca" role="img" aria-label="Participação por atividade">';
+  function pt(rad,a){return (cx+rad*Math.cos(a)).toFixed(2)+' '+(cy+rad*Math.sin(a)).toFixed(2);}
+  function fatia(it,i,a1,ang){
+    var lg=ang>Math.PI?1:0,am=(a0+a1)/2;
+    var d='M '+pt(R,a0)+' A '+R+' '+R+' 0 '+lg+' 1 '+pt(R,a1)+' L '+pt(r,a1)+' A '+r+' '+r+' 0 '+lg+' 0 '+pt(r,a0)+' Z';
+    var lab=(it.v/total>=0.07)?'<text x="'+(cx+(R+r)/2*Math.cos(am)).toFixed(1)+'" y="'+(cy+(R+r)/2*Math.sin(am)+4).toFixed(1)+
+      '" text-anchor="middle" class="ch-pct" pointer-events="none">'+Math.round(it.v/total*100)+'%</text>':'';
+    return '<g class="slice-w" data-i="'+i+'"><path class="hit" d="'+d+'"/>'+
+      '<g class="slice-v" style="--dx:'+(9*Math.cos(am)).toFixed(1)+'px;--dy:'+(9*Math.sin(am)).toFixed(1)+'px;pointer-events:none;">'+
+      '<path d="'+d+'" fill="'+it.c+'" stroke="var(--white)" stroke-width="2"/>'+lab+'</g></g>';
+  }
+  if(itens.length===1){
+    s+='<g class="slice-w" data-i="0"><circle class="hit" cx="'+cx+'" cy="'+cy+'" r="'+((R+r)/2)+'" fill="none" stroke="transparent" stroke-width="'+(R-r)+'"/>'+
+       '<g class="slice-v" style="--dx:0px;--dy:-6px;pointer-events:none;"><circle cx="'+cx+'" cy="'+cy+'" r="'+((R+r)/2)+'" fill="none" stroke="'+itens[0].c+'" stroke-width="'+(R-r)+'"/></g></g>';
+  }else{
+    itens.forEach(function(it,i){
+      var ang=it.v/total*Math.PI*2,a1=a0+ang;
+      s+=fatia(it,i,a1,ang);a0=a1;
+    });
+  }
+  s+='<text x="'+cx+'" y="'+(cy+6)+'" text-anchor="middle" class="ch-centro" pointer-events="none">'+nf(total)+'</text>'+
+     '<text x="'+cx+'" y="'+(cy+26)+'" text-anchor="middle" class="ch-centro2" pointer-events="none">total geral</text></svg>';
+  return s;
+}
+function graficoDias(dias,wDisp){
+  var mt=30,mb=40,mr=12,ih=CH_H-mt-mb,max=0,n=dias.length;
+  dias.forEach(function(d){if(d.t>max)max=d.t;});
+  var e=escalaNice(max),slotMin=60,W=Math.max(Math.floor(wDisp),n*slotMin+mr),slot=(W-mr)/n,bw=Math.min(52,slot*0.7);
+  var s='<div class="ch-flex">'+chEixoSvg(mt,ih,e)+'<div class="ch-scroll" id="chDiasScroll"><svg width="'+W+'" height="'+CH_H+'" viewBox="0 0 '+W+' '+CH_H+'" role="img" aria-label="Total por dia">'+chGrade(W,mt,ih,e);
+  dias.forEach(function(d,i){
+    var x0=slot*i,x=x0+(slot-bw)/2,acc=0,tip='<span class="tip-t">'+d.d+'</span><br>Total do dia: <b>'+nf(d.t)+'</b>';
+    ORDEM_ATIV.forEach(function(a){if(d.seg[a])tip+='<br><i style="background:'+ATIV_COR[a]+'"></i>'+escHtml(a)+': <b>'+nf(d.seg[a])+'</b>';});
+    s+='<g class="bar-slot"'+tipAttr(tip)+'><rect class="hover-bg" x="'+x0+'" y="'+mt+'" width="'+slot+'" height="'+(ih+mb-6)+'" rx="8"/>'+
+       '<rect class="hit" x="'+x0+'" y="0" width="'+slot+'" height="'+CH_H+'"/><g class="bar-g">';
+    ORDEM_ATIV.forEach(function(a){
+      if(!d.seg[a])return;
+      var h=(d.seg[a]/e.top)*ih,y=mt+ih-acc-h;
+      s+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+Math.max(h,1.5)+'" fill="'+ATIV_COR[a]+'"/>';
+      acc+=h;
+    });
+    s+='<text x="'+(x+bw/2)+'" y="'+(mt+ih-acc-7)+'" text-anchor="middle" class="ch-val" style="font-size:12px">'+nf(d.t)+'</text></g>'+
+       '<text x="'+(x0+slot/2)+'" y="'+(mt+ih+20)+'" text-anchor="middle" class="ch-lb">'+escHtml(d.curto||d.d.slice(0,5))+'</text></g>';
+  });
+  return s+'</svg></div></div>';
+}
+
+/* Balão (tooltip) e destaque da rosca */
+(function(){
+  var tip=document.createElement('div');tip.id='chTip';document.body.appendChild(tip);
+  function pos(e){
+    var w=tip.offsetWidth,h=tip.offsetHeight,x=e.clientX+16,y=e.clientY+20;   // abaixo do cursor, para não cobrir o valor da coluna
+    if(x+w>window.innerWidth-8)x=e.clientX-w-16;
+    if(y+h>window.innerHeight-8)y=e.clientY-h-14;
+    tip.style.left=Math.max(8,x)+'px';tip.style.top=y+'px';
+  }
+  document.addEventListener('mouseover',function(e){
+    var t=e.target.closest?e.target.closest('[data-tip]'):null;
+    if(!t){tip.style.display='none';return;}
+    tip.innerHTML=t.getAttribute('data-tip');tip.style.display='block';pos(e);
+  });
+  document.addEventListener('mousemove',function(e){if(tip.style.display==='block')pos(e);});
+  document.addEventListener('mouseout',function(e){
+    if(!e.relatedTarget||!(e.relatedTarget.closest&&e.relatedTarget.closest('[data-tip]')))tip.style.display='none';
+  });
+  document.addEventListener('scroll',function(){tip.style.display='none';},true);
+})();
+function ligarRosca(wrap){
+  function marcar(i,on){
+    wrap.querySelectorAll('[data-i="'+i+'"]').forEach(function(el){el.classList.toggle('hot',on);});
+    wrap.classList.toggle('tem-hot',on);
+  }
+  wrap.addEventListener('mouseover',function(e){var t=e.target.closest('[data-i]');if(t)marcar(t.getAttribute('data-i'),true);});
+  wrap.addEventListener('mouseout',function(e){var t=e.target.closest('[data-i]');if(t)marcar(t.getAttribute('data-i'),false);});
+}
+
+function carregarReuniao(){
+  document.getElementById('reuniaoContainer').innerHTML='<p class="ind-msg">Carregando indicadores...</p>';
+  google.script.run
+    .withSuccessHandler(function(res){
+      INDICADORES_CACHE=res;preencherFiltrosReuniao(res);renderReuniao();
+      var av=document.getElementById('reuAvisos'),lista=(res&&res.avisos)||[];
+      av.innerHTML=lista.map(function(a){return '⚠️ '+escHtml(a);}).join('<br>');
+      av.style.display=lista.length?'block':'none';
+    })
+    .withFailureHandler(function(){
+      document.getElementById('reuniaoContainer').innerHTML='<p class="ind-msg" style="color:#dc2626;">Falha ao carregar indicadores.</p>';
+    })
+    .getIndicadores(PERIODO);
+}
+function preencherFiltrosReuniao(data){
+  var mesesSet={};
+  Object.keys((data&&data.indicadores)||{}).forEach(function(d){var m=d.split('/');mesesSet[m[1]+'/'+m[2]]=true;});
+  var meses=Object.keys(mesesSet).sort(function(a,b){
+    var pa=a.split('/'),pb=b.split('/');
+    return new Date(pb[1],pb[0]-1)-new Date(pa[1],pa[0]-1);
+  });
+  MES_TOQUE.msMesR=false;
+  var dd=document.getElementById('msMesR');
+  while(dd.children.length>2)dd.removeChild(dd.lastChild);
+  meses.forEach(function(m){
+    var div=document.createElement('div');div.className='ms-option';
+    var cb=document.createElement('input');cb.type='checkbox';cb.value=m;cb.checked=true;
+    cb.addEventListener('change',function(){MES_TOQUE.msMesR=true;syncMsLabel('msMesR');});
+    div.appendChild(cb);div.appendChild(document.createTextNode(' '+mesesLabel(m)));
+    dd.appendChild(div);
+  });
+  syncMsLabel('msMesR');syncMsLabel('msAtivR');
+}
+function filtrarReu(){REU_SEM=false;atualizarBotaoSem('btnSemReu',false);renderReuniao();}
+function reuSemestre(){
+  REU_SEM=!REU_SEM;
+  if(REU_SEM){document.getElementById('reuDe').value='';document.getElementById('reuAte').value='';setMsAll('msMesR',true);}
+  atualizarBotaoSem('btnSemReu',REU_SEM);renderReuniao();
+}
+function limparFiltrosReu(){
+  REU_SEM=false;atualizarBotaoSem('btnSemReu',false);
+  document.getElementById('reuDe').value='';document.getElementById('reuAte').value='';
+  setMsAll('msMesR',true);setMsAll('msAtivR',true);
+  renderReuniao();
+}
+var REU_ULT=null;
+var REU_TIT={kpis:'Cartões',barras:'Total por atividade',rosca:'Participação por atividade',dias:'Total por dia/mês',tabela:'Indicador por atividade'};
+function reuH3(titulo,chave,excel){
+  return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+
+    '<button type="button" class="exp-mini" title="Baixar em imagem (.jpg)" onclick="reuBaixarJpg(\''+chave+'\')">🖼️ JPG</button>'+
+    (excel?'<button type="button" class="exp-mini" title="Baixar em Excel" onclick="reuBaixarExcel()">📊 Excel</button>':'')+'</span></h3>';
+}
+// chave opcional: sem argumento baixa cartões + gráficos + tabela
+function reuBaixarJpg(chave){
+  if(!REU_ULT){expMsg('reuDlFb','Aguarde o carregamento dos indicadores.',false);return;}
+  var cont=document.getElementById('reuniaoContainer'),sub='Período letivo '+PERIODO+' · '+REU_ULT.filtro;
+  var chaves=chave?[chave]:['kpis','barras','rosca','dias','tabela'];
+  if(chaves.indexOf('dias')>=0&&REU_ULT.dias.length<2)chaves=chaves.filter(function(k){return k!=='dias';});
+  var itens=chaves.map(function(k){
+    var t=k==='dias'?'Total por '+(REU_ULT.modo==='mes'?'mês':'dia'):REU_TIT[k];
+    return {arq:k,el:cont.querySelector('[data-exp="'+k+'"]'),titulo:'Reunião — '+t,sub:sub};
+  });
+  baixarJpgs(itens,'Reuniao_'+PERIODO,'reuDlFb');
+}
+function reuBaixarExcel(){
+  if(!REU_ULT){expMsg('reuDlFb','Aguarde o carregamento dos indicadores.',false);return;}
+  var R=REU_ULT,linhas=R.dias.map(function(d){return [d.d].concat(R.ativs.map(function(a){return d.seg[a]>0?d.seg[a]:'';}),[d.t]);});
+  if(R.mostraTotal)linhas.push(['Total geral'].concat(R.ativs.map(function(a){return R.porAtiv[a];}),[R.total]));
+  var abas=[{nome:'Indicador por atividade',cab:[R.rotCol].concat(R.ativs,['Total geral']),larg:[16].concat(R.ativs.map(function(){return 16;}),[14]),linhas:linhas,totalUltima:R.mostraTotal},
+    {nome:'Resumo',cab:['Atividade','Total','% do total'],larg:[28,12,14],totalUltima:true,
+     linhas:R.ativs.map(function(a){return [a,R.porAtiv[a],pctTxt(R.porAtiv[a],R.total)];}).concat([['Total geral',R.total,'100,0%']])},
+    {nome:'Filtros',cab:['Item','Valor'],larg:[22,70],linhas:[['Período letivo',PERIODO],['Datas',R.filtro]]}];
+  baixarXlsxTabelas('Reuniao_'+PERIODO+'.xlsx',abas,'reuDlFb');
+}
+var _reuW=0;
+function renderReuniao(manter){
+  var cont=document.getElementById('reuniaoContainer'),data=INDICADORES_CACHE;
+  var pos=manter===true?Array.prototype.map.call(cont.querySelectorAll('.ch-scroll'),function(e){return e.scrollLeft;}):null;
+  if(!data||!data.indicadores){cont.innerHTML='<p class="ind-msg">Sem dados para exibir.</p>';return;}
+  var ind=data.indicadores,ativsSel=getMsValues('msAtivR');
+  var modo=modoAgrupamento(REU_SEM,getMsValues('msMesR'),totalMesesOpcoes('msMesR'),!!MES_TOQUE.msMesR);
+  var datas=REU_SEM?datasSemestre(ind,PERIODO):datasFiltradas(ind,document.getElementById('reuDe').value,document.getElementById('reuAte').value,getMsValues('msMesR'));
+  var grupos=gruposDeDatas(datas,modo);
+  var porAtiv={},dias=[],total=0,diasReg=0;
+  var info=document.getElementById('reuModoInfo');
+  grupos.forEach(function(g){
+    var dia={d:g.rot,curto:g.curto,seg:{},t:0};
+    g.datas.forEach(function(d){
+      var dt=0;
+      ORDEM_ATIV.forEach(function(a){
+        if(ativsSel.length>0&&ativsSel.indexOf(a)===-1)return;
+        if(!ind[d][a])return;
+        var s=0;Object.keys(ind[d][a]).forEach(function(c){s+=parseInt(ind[d][a][c])||0;});
+        if(s>0){dia.seg[a]=(dia.seg[a]||0)+s;dia.t+=s;dt+=s;porAtiv[a]=(porAtiv[a]||0)+s;}
+      });
+      if(dt>0)diasReg++;
+    });
+    if(dia.t>0){dias.push(dia);total+=dia.t;}
+  });
+  if(!dias.length){cont.innerHTML='<p class="ind-msg">Nenhum dado encontrado para os filtros selecionados.</p>';info.style.display='none';return;}
+  var tm=textoModo(modo);info.textContent=tm;info.style.display=tm?'block':'none';
+  var rotCol=rotuloModo(modo).col;
+  var ativs=ORDEM_ATIV.filter(function(a){return porAtiv[a]>0;});
+  var itens=ativs.map(function(a){return {l:a,v:porAtiv[a],c:ATIV_COR[a]};});
+
+  REU_ULT={rotCol:rotCol,ativs:ativs,dias:dias,porAtiv:porAtiv,total:total,mostraTotal:!(modo!=='dia'&&dias.length===1),
+    filtro:txtFiltroDatas(REU_SEM,document.getElementById('reuDe').value,document.getElementById('reuAte').value)+(tm?' · '+tm:''),
+    modo:modo};
+  var html='<div class="exp-bar no-img"><button type="button" class="btn-outline" onclick="reuBaixarJpg()">🖼️ Baixar tudo (.jpg)</button>'+
+    '<button type="button" class="btn-outline" onclick="reuBaixarJpg(\'kpis\')">🎴 Baixar cartões (.jpg)</button>'+
+    '<button type="button" class="btn-outline" onclick="reuBaixarExcel()">📊 Baixar Excel</button><span class="exp-fb" id="reuDlFb"></span></div>'+
+    '<div class="reu-kpis" data-exp="kpis"><div class="reu-kpi main"><span>Total geral</span><strong>'+nf(total)+'</strong><small>'+
+    diasReg+(diasReg===1?' dia':' dias')+' com registros</small></div>';
+  itens.forEach(function(it){
+    html+='<div class="reu-kpi" style="border-left-color:'+it.c+'"><span>'+escHtml(it.l)+'</span><strong>'+nf(it.v)+'</strong><small>'+pctTxt(it.v,total)+' do total</small></div>';
+  });
+  html+='</div>';
+
+  var cw=cont.clientWidth||900,largo=window.innerWidth>900;
+  var wBarras=(largo?(cw-18)*1.4/2.4:cw)-40-CH_ML-6,wDias=cw-40-CH_ML-6;
+  html+='<div class="reu-grid"><div class="reu-panel" data-exp="barras">'+reuH3('📊 Total por atividade','barras')+''+graficoBarras(itens,total,wBarras)+
+    '<div class="ch-dica">Passe o mouse sobre uma coluna para ver os detalhes. Use a barra abaixo do gráfico para rolar, se houver muitas atividades.</div></div>'+
+    '<div class="reu-panel" data-exp="rosca">'+reuH3('🥧 Participação por atividade','rosca')+'<div class="rosca-wrap" id="roscaWrap">'+svgRosca(itens,total)+'<div class="leg">'+
+    itens.map(function(it,i){return '<div data-i="'+i+'"><i style="background:'+it.c+'"></i>'+escHtml(it.l)+'<b>'+nf(it.v)+'</b><em>'+pctTxt(it.v,total)+'</em></div>';}).join('')+
+    '</div></div></div></div>';
+
+  var asc=dias.slice().reverse();     // gráfico em ordem cronológica
+  if(asc.length>1){
+    html+='<div class="reu-panel" data-exp="dias">'+reuH3('📅 Total por '+(modo==='mes'?'mês':'dia'),'dias')+graficoDias(asc,wDias)+'<div class="leg-linha">'+
+      ativs.map(function(a){return '<span><i style="background:'+ATIV_COR[a]+'"></i>'+escHtml(a)+'</span>';}).join('')+'</div>'+
+      '<div class="ch-dica">Passe o mouse sobre '+(modo==='mes'?'um mês':'um dia')+' para ver o total e o detalhe por atividade. Arraste a barra abaixo do gráfico para ver os outros.</div></div>';
+  }
+
+  html+='<div class="reu-panel" data-exp="tabela">'+reuH3('🧾 Indicador por atividade','tabela',true)+'<div class="ind-wrap"><table class="ind-table reu-table"><thead><tr><th>'+rotCol+'</th>';
+  ativs.forEach(function(a){html+='<th style="border-bottom:4px solid '+ATIV_COR[a]+'">'+escHtml(a)+'</th>';});
+  html+='<th>Total geral</th></tr></thead><tbody>';
+  dias.forEach(function(dia){
+    html+='<tr><td class="c-data"><strong>'+dia.d+'</strong></td>';
+    ativs.forEach(function(a){html+='<td>'+(dia.seg[a]>0?dia.seg[a]:'')+'</td>';});
+    html+='<td><strong>'+dia.t+'</strong></td></tr>';
+  });
+  if(!(modo!=='dia'&&dias.length===1)){
+    html+='<tr class="ind-total"><td class="c-data">Total geral</td>';
+    ativs.forEach(function(a){html+='<td>'+porAtiv[a]+'</td>';});
+    html+='<td>'+total+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+  cont.innerHTML=html;
+  var rw=document.getElementById('roscaWrap');if(rw)ligarRosca(rw);
+  _reuW=cont.clientWidth;
+  var ds=document.getElementById('chDiasScroll');
+  if(pos){Array.prototype.forEach.call(cont.querySelectorAll('.ch-scroll'),function(e,i){if(pos[i]!=null)e.scrollLeft=pos[i];});}   // redimensionou a janela: mantém onde estava
+  else if(ds)ds.scrollLeft=ds.scrollWidth;   // começa nos dias mais recentes
+}
+var _reuRz=null;
+window.addEventListener('resize',function(){
+  clearTimeout(_reuRz);
+  _reuRz=setTimeout(function(){
+    var s=document.getElementById('secReuniao');
+    var c=document.getElementById('reuniaoContainer');
+    if(s&&s.style.display==='block'&&INDICADORES_CACHE&&INDICADORES_CACHE.indicadores&&Math.abs(c.clientWidth-_reuW)>=2)renderReuniao(true);
+  },250);
+});
+
+</script>
