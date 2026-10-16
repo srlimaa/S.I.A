@@ -23,14 +23,18 @@ google.script.run.withSuccessHandler(function(c){
     CFG_SISTEMA={tipo:c.tipo,valor:c.valor};FUNDO_LOGIN=c.fundo||null;
     if(c.nome)NOME_SISTEMA=c.nome;
     if(typeof c.subtitulo==='string')SUBTITULO_LOGIN=c.subtitulo;
+    if(typeof c.nomeLogin==='string')NOME_LOGIN=c.nomeLogin;
     aplicarBrand();aplicarFundoLogin();aplicarNomes();
   }
 }).getConfigSistema();
 
-// Nome exclusivo da tela de login (se houver)
-google.script.run.withSuccessHandler(function(n){
-  NOME_LOGIN=String(n||'');aplicarNomes();
-}).getNomeLogin();
+// Nome exclusivo da tela de login: já vem em getConfigSistema (c.nomeLogin).
+// Só consulta getNomeLogin se essa função existir no servidor (compatibilidade).
+if(typeof google.script.run.getNomeLogin==='function'){
+  google.script.run.withSuccessHandler(function(n){
+    if(typeof n==='string'){NOME_LOGIN=n;aplicarNomes();}
+  }).getNomeLogin();
+}
 
 // Preenche o número da versão no rodapé das Configurações
 google.script.run.withSuccessHandler(function(v){
