@@ -1,0 +1,214 @@
+<script>
+/* ══════════ INDICADORES ══════════ */
+function carregarIndicadores(){
+  document.getElementById('indicadoresContainer').innerHTML='<p class="ind-msg">Carregando indicadores...</p>';
+  google.script.run
+    .withSuccessHandler(function(res){
+      INDICADORES_CACHE=res;preencherFiltrosInd(res);renderIndicadores();
+      var av=document.getElementById('indAvisos'),lista=(res&&res.avisos)||[];
+      av.innerHTML=lista.map(function(a){return '⚠️ '+escHtml(a);}).join('<br>');
+      av.style.display=lista.length?'block':'none';
+    })
+    .withFailureHandler(function(){
+      document.getElementById('indicadoresContainer').innerHTML=
+        '<p class="ind-msg" style="color:#dc2626;">Falha ao carregar indicadores.</p>';
+    })
+    .getIndicadores(PERIODO);
+}
+function preencherFiltrosInd(data){
+  // Popula multi-select de Meses
+  var mesesSet={};
+  Object.keys(data.indicadores||{}).forEach(function(d){var m=d.split('/');mesesSet[m[1]+'/'+m[2]]=true;});
+  var meses=Object.keys(mesesSet).sort(function(a,b){
+    var pa=a.split('/'),pb=b.split('/');
+    return new Date(pb[1],pb[0]-1)-new Date(pa[1],pa[0]-1);   // mais recente primeiro
+  });
+  MES_TOQUE.msMes=false;
+  var ddMes=document.getElementById('msMes');
+  // remove opções antigas (mantém "Todos" e separador = 2 primeiros filhos)
+  while(ddMes.children.length>2)ddMes.removeChild(ddMes.lastChild);
+  meses.forEach(function(m){
+    var div=document.createElement('div');div.className='ms-option';
+    var cb=document.createElement('input');cb.type='checkbox';cb.value=m;cb.checked=true;
+    cb.addEventListener('change',function(){MES_TOQUE.msMes=true;syncMsLabel('msMes');});
+    div.appendChild(cb);div.appendChild(document.createTextNode(' '+mesesLabel(m)));
+    ddMes.appendChild(div);
+  });
+  syncMsLabel('msMes');
+
+  // Popula multi-select de Colaboradores
+  var ddColab=document.getElementById('msColab');
+  while(ddColab.children.length>2)ddColab.removeChild(ddColab.lastChild);
+  (data.colaboradores||[]).forEach(function(c){
+    var div=document.createElement('div');div.className='ms-option';
+    var cb=document.createElement('input');cb.type='checkbox';cb.value=c;cb.checked=true;
+    cb.addEventListener('change',function(){syncMsLabel('msColab');});
+    div.appendChild(cb);div.appendChild(document.createTextNode(' '+c));
+    ddColab.appendChild(div);
+  });
+  syncMsLabel('msColab');
+
+  // Atividades já estão fixas no HTML; sincroniza label
+  syncMsLabel('msAtiv');
+}
+function mesesLabel(mmaaaa){
+  var mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var p=mmaaaa.split('/');return mn[parseInt(p[0],10)-1]+'/'+p[1];
+}
+function limparFiltrosInd(){
+  IND_SEM=false;atualizarBotaoSem('btnSemInd',false);
+  document.getElementById('filtroIndDataDe').value='';
+  document.getElementById('filtroIndDataAte').value='';
+  setMsAll('msMes',true);
+  setMsAll('msAtiv',true);
+  setMsAll('msColab',true);
+  renderIndicadores();
+}
+function parseDateBR(strBR){
+  var p=strBR.split('/');
+  if(p.length!==3)return null;
+  return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+}
+var ORDEM_ATIV=['Presencial','Ramal','E-mail','Conversa Atribuída','Conversa Fechada','Ocorrência UNILEÃO','Anexo UNILEÃO','Ocorrência UNIVS','Anexo UNIVS','Call Center'];
+var ATIV_COR={'Presencial':'#16a34a','Ramal':'#2563eb','E-mail':'#ea580c','Conversa Atribuída':'#7c3aed','Conversa Fechada':'#db2777',
+  'Ocorrência UNILEÃO':'#0891b2','Anexo UNILEÃO':'#ca8a04','Ocorrência UNIVS':'#475569','Anexo UNIVS':'#65a30d','Call Center':'#8b1e2d'};
+// Datas (DD/MM/AAAA) que passam nos filtros de período e mês, da mais recente para a mais antiga
+function datasFiltradas(ind,de,ate,meses){
+  var limDe=de?new Date(de+'T00:00:00'):null,limAte=ate?new Date(ate+'T00:00:00'):null;
+  return Object.keys(ind).filter(function(d){
+    if(meses.length>0){var p=d.split('/');if(meses.indexOf(p[1]+'/'+p[2])===-1)return false;}
+    if(limDe||limAte){
+      var dt=parseDateBR(d);if(!dt)return false;
+      if(limDe&&dt<limDe)return false;
+      if(limAte&&dt>limAte)return false;
+    }
+    return true;
+  }).sort(function(a,b){
+    var pa=a.split('/'),pb=b.split('/');
+    return new Date(pb[2],pb[1]-1,pb[0])-new Date(pa[2],pa[1]-1,pa[0]);   // mais recente primeiro
+  });
+}
+var MES_TOQUE={},IND_SEM=false,REU_SEM=false;
+function totalMesesOpcoes(id){return document.getElementById(id).querySelectorAll('input[type=checkbox][value]').length;}
+function ordenarDatasDesc(l){
+  return l.sort(function(a,b){var pa=a.split('/'),pb=b.split('/');return new Date(pb[2],pb[1]-1,pb[0])-new Date(pa[2],pa[1]-1,pa[0]);});
+}
+// Datas do semestre do período (AAAA.1 = janeiro a junho · AAAA.2 = julho a dezembro)
+function datasSemestre(ind,periodo){
+  var m=String(periodo||'').match(/^(\d{4})\.([12])$/);
+  return ordenarDatasDesc(Object.keys(ind).filter(function(d){
+    if(!m)return true;
+    var p=d.split('/'),mes=parseInt(p[1],10);
+    if(p[2]!==m[1])return false;
+    return m[2]==='1'?(mes>=1&&mes<=6):(mes>=7&&mes<=12);
+  }));
+}
+function semestreTexto(periodo){
+  var m=String(periodo||'').match(/^(\d{4})\.([12])$/);
+  return m?(m[2]==='1'?'janeiro a junho':'julho a dezembro')+' de '+m[1]:'';
+}
+// dia = uma linha por data · mes = um total por mês selecionado · semestre = um único total
+function modoAgrupamento(sem,mesesSel,totalOpc,toque){
+  if(sem)return 'semestre';
+  if(mesesSel.length>0&&(mesesSel.length<totalOpc||toque))return 'mes';
+  return 'dia';
+}
+function mesCurto(k){var mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],p=k.split('/');return mn[parseInt(p[0],10)-1]+'/'+p[1].slice(2);}
+function gruposDeDatas(datas,modo){
+  if(modo==='semestre')return [{rot:PERIODO,arq:String(PERIODO),curto:String(PERIODO),datas:datas}];
+  if(modo==='mes'){
+    var mapa={},ordem=[];
+    datas.forEach(function(d){var p=d.split('/'),k=p[1]+'/'+p[2];if(!mapa[k]){mapa[k]=[];ordem.push(k);}mapa[k].push(d);});
+    return ordem.map(function(k){return {rot:mesesLabel(k),arq:k.split('/')[1]+'-'+k.split('/')[0],curto:mesCurto(k),datas:mapa[k]};});
+  }
+  return datas.map(function(d){return {rot:d,arq:dataArquivo(d),curto:d.slice(0,5),datas:[d]};});
+}
+function rotuloModo(modo){
+  return modo==='mes'?{col:'Mês',titulo:'Mês'}:modo==='semestre'?{col:'Semestre',titulo:'Semestre'}:{col:'Data',titulo:'Data'};
+}
+function textoModo(modo){
+  if(modo==='mes')return '📅 Mostrando o total de cada mês selecionado, sem separar por data.';
+  if(modo==='semestre')return '📅 Semestre '+PERIODO+' ('+semestreTexto(PERIODO)+') em um único total.';
+  return '';
+}
+function filtrosInd(){
+  return {de:document.getElementById('filtroIndDataDe').value,ate:document.getElementById('filtroIndDataAte').value,
+          meses:getMsValues('msMes'),ativs:getMsValues('msAtiv'),colabs:getMsValues('msColab'),
+          sem:IND_SEM,totalMeses:totalMesesOpcoes('msMes'),toque:!!MES_TOQUE.msMes};
+}
+function atualizarBotaoSem(id,on){var b=document.getElementById(id);if(b)b.classList.toggle('on',!!on);}
+function filtrarInd(){IND_SEM=false;atualizarBotaoSem('btnSemInd',false);renderIndicadores();}
+function indSemestre(){
+  IND_SEM=!IND_SEM;
+  if(IND_SEM){document.getElementById('filtroIndDataDe').value='';document.getElementById('filtroIndDataAte').value='';setMsAll('msMes',true);}
+  atualizarBotaoSem('btnSemInd',IND_SEM);renderIndicadores();
+}
+// Calcula os números da tabela de Indicadores (usado na tela, no Excel e nas imagens)
+function modeloIndicadores(f){
+  var data=INDICADORES_CACHE;
+  if(!data||!data.indicadores)return {vazio:'sem-dados'};
+  var ind=data.indicadores,allColabs=data.colaboradores||[];
+  var cols=f.colabs.length>0?allColabs.filter(function(c){return f.colabs.indexOf(c)!==-1;}):allColabs;
+  var modo=modoAgrupamento(f.sem,f.meses,f.totalMeses,f.toque);
+  var datas=f.sem?datasSemestre(ind,PERIODO):datasFiltradas(ind,f.de,f.ate,f.meses);
+  if(datas.length===0||cols.length===0)return {vazio:'filtros'};
+  var grupos=gruposDeDatas(datas,modo);
+  var total={__total:0};cols.forEach(function(c){total[c]=0;});
+  var dias=[];
+  grupos.forEach(function(g){
+    var ativs=ORDEM_ATIV.filter(function(a){
+      if(f.ativs.length>0&&f.ativs.indexOf(a)===-1)return false;
+      return g.datas.some(function(d){return !!ind[d][a];});
+    });
+    if(ativs.length===0)return;
+    var sub={__total:0};cols.forEach(function(c){sub[c]=0;});
+    var linhas=ativs.map(function(ativ){
+      var vals={},rowT=0;
+      cols.forEach(function(c){
+        var v=0;
+        g.datas.forEach(function(d){if(ind[d][ativ]&&ind[d][ativ][c])v+=parseInt(ind[d][ativ][c])||0;});
+        vals[c]=v;sub[c]+=v;total[c]+=v;rowT+=v;
+      });
+      sub.__total+=rowT;total.__total+=rowT;
+      return {nome:ativ,vals:vals,total:rowT};
+    });
+    dias.push({d:g.rot,arq:g.arq,linhas:linhas,sub:sub});
+  });
+  if(!dias.length)return {vazio:'filtros'};
+  var rot=rotuloModo(modo);
+  return {cols:cols,dias:dias,total:total,modo:modo,rotCol:rot.col,rotTitulo:rot.titulo,
+          ocultarTotal:(modo!=='dia'&&dias.length===1)};   // um único grupo: o "Total geral" repetiria o total do grupo
+}
+function renderIndicadores(){
+  var cont=document.getElementById('indicadoresContainer');
+  var m=modeloIndicadores(filtrosInd());
+  var info=document.getElementById('indModoInfo');
+  if(m.vazio==='sem-dados'){cont.innerHTML='<p class="ind-msg">Sem dados para exibir.</p>';info.style.display='none';return;}
+  if(m.vazio){cont.innerHTML='<p class="ind-msg">Nenhum dado encontrado para os filtros selecionados.</p>';info.style.display='none';return;}
+  var tm=textoModo(m.modo);info.textContent=tm;info.style.display=tm?'block':'none';
+  var cols=m.cols;
+  var html='<table class="ind-table"><thead><tr><th>'+m.rotCol+'</th><th>Atividade</th>';
+  cols.forEach(function(c){html+='<th>'+c+'</th>';});
+  html+='<th>Total geral</th></tr></thead><tbody>';
+  m.dias.forEach(function(dia){
+    dia.linhas.forEach(function(l,i){
+      html+='<tr>';
+      if(i===0)html+='<td class="c-data" rowspan="'+(dia.linhas.length+1)+'"><strong>'+dia.d+'</strong></td>';
+      html+='<td class="c-ativ">'+l.nome+'</td>';
+      cols.forEach(function(c){html+='<td>'+(l.vals[c]>0?l.vals[c]:'')+'</td>';});
+      html+='<td><strong>'+(l.total>0?l.total:'')+'</strong></td></tr>';
+    });
+    html+='<tr class="ind-subtotal"><td class="c-ativ"><strong>'+dia.d+' Total</strong></td>';   // a célula do rótulo (rowspan) já ocupa a 1ª coluna
+    cols.forEach(function(c){html+='<td><strong>'+(dia.sub[c]>0?dia.sub[c]:'')+'</strong></td>';});
+    html+='<td><strong>'+dia.sub.__total+'</strong></td></tr>';
+  });
+  if(!m.ocultarTotal){
+    html+='<tr class="ind-total"><td class="c-ativ" colspan="2">Total geral</td>';
+    cols.forEach(function(c){html+='<td>'+(m.total[c]>0?m.total[c]:'')+'</td>';});
+    html+='<td>'+m.total.__total+'</td></tr>';
+  }
+  html+='</tbody></table>';
+  cont.innerHTML=html;
+}
+
+</script>
