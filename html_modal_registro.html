@@ -1,0 +1,11 @@
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="fecharModal()">✕</span>
+    <h3 id="modalTitulo"></h3>
+    <div class="feedback" id="fbModal" style="margin:0 0 12px;"></div>
+    <div class="modal-detalhe" id="modalDetalhe"></div>
+    <div class="modal-acoes" id="modalAcoes"></div>
+    <div id="modalEdicao" style="display:none;"></div>
+  </div>
+</div>
