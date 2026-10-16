@@ -1,0 +1,85 @@
+<script>
+/* ══════════ USUÁRIOS ══════════ */
+var USUARIOS_LISTA=[];
+function carregarUsuarios(){
+  google.script.run
+    .withSuccessHandler(function(lista){
+      var tbody=document.getElementById('usuariosBody');
+      USUARIOS_LISTA=lista||[];
+      if(!lista||lista.length===0){
+        tbody.innerHTML='<tr><td colspan="4" style="color:var(--cinza);">Nenhum usuário cadastrado.</td></tr>';return;
+      }
+      tbody.innerHTML=lista.map(function(u){
+        return '<tr><td>'+u.nome+'</td><td>'+u.email+'</td>'+
+          '<td><span class="badge-'+u.perfil.toLowerCase()+'">'+u.perfil+'</span></td>'+
+          '<td><button class="btn-editar" onclick="abrirEdicaoUsuario(\''+u.id+'\')">Editar</button>'+
+          '<button class="btn-excluir" onclick="excluirUsuario(\''+u.id+'\')">Excluir</button></td></tr>';
+      }).join('');
+    }).getUsuarios();
+}
+function abrirEdicaoUsuario(id){
+  var u=USUARIOS_LISTA.find(function(x){return String(x.id)===String(id);});
+  if(!u)return;
+  document.getElementById('eu_id').value=u.id;
+  document.getElementById('eu_nome').value=u.nome;
+  document.getElementById('eu_email').value=u.email;
+  document.getElementById('eu_perfil').value=u.perfil;
+  document.getElementById('eu_senha').value='';
+  document.getElementById('fbEditUser').style.display='none';
+  document.getElementById('editUserOverlay').classList.add('open');
+}
+function fecharEdicaoUsuario(){document.getElementById('editUserOverlay').classList.remove('open');}
+function salvarEdicaoUsuario(){
+  var id=document.getElementById('eu_id').value;
+  var nome=document.getElementById('eu_nome').value.trim();
+  var email=document.getElementById('eu_email').value.trim();
+  var senha=document.getElementById('eu_senha').value.trim();
+  var perfil=document.getElementById('eu_perfil').value;
+  if(String(id)===String(USUARIO.id)&&USUARIO.perfil==='Admin'&&perfil!=='Admin'&&
+     !confirm('Você está removendo o seu próprio acesso de Admin. Continuar?'))return;
+  if(!nome||!email){showFeedback('fbEditUser','Nome e e-mail são obrigatórios.',false);return;}
+  var btn=document.getElementById('btnSalvarEdit');
+  btn.disabled=true;btn.textContent='Salvando...';
+  document.getElementById('fbEditUser').style.display='none';
+  function liberar(){btn.disabled=false;btn.textContent='Salvar alterações';}
+  google.script.run
+    .withSuccessHandler(function(r){
+      liberar();
+      if(!r){showFeedback('fbEditUser','Erro: o servidor não respondeu. Confira se a nova versão do script foi implantada.',false);return;}
+      if(r.success){
+        if(String(id)===String(USUARIO.id)){
+          var perdeuAdmin=USUARIO.perfil==='Admin'&&r.perfil!=='Admin';
+          USUARIO.nome=r.nome;USUARIO.email=r.email;USUARIO.perfil=r.perfil;
+          atualizarTopbarUser();
+          aplicarPermissoes();
+          if(perdeuAdmin){fecharEdicaoUsuario();showSection('registro');return;}
+        }
+        HISTORICO_CACHE=[];INDICADORES_CACHE={};
+        fecharEdicaoUsuario();carregarUsuarios();carregarAvatares();
+        showFeedback('fbUsuario','✔ Usuário atualizado!'+(r.renomeados?' ('+r.renomeados+' registros atualizados com o novo nome)':''),true);
+      }else showFeedback('fbEditUser','Erro: '+r.message,false);
+    })
+    .withFailureHandler(function(err){liberar();showFeedback('fbEditUser','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .editarUsuario(id,nome,email,senha,perfil,USUARIO.id);
+}
+function criarUsuario(){
+  var nome=document.getElementById('u_nome').value.trim();
+  var email=document.getElementById('u_email').value.trim();
+  var senha=document.getElementById('u_senha').value.trim();
+  var perfil=document.getElementById('u_perfil').value;
+  if(!nome||!email||!senha){showFeedback('fbUsuario','Preencha Nome, E-mail e Senha.',false);return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){showFeedback('fbUsuario','✔ Usuário criado com sucesso!',true);
+        limparForm(['u_nome','u_email','u_senha']);carregarUsuarios();
+      }else showFeedback('fbUsuario','Erro: '+r.message,false);
+    }).criarUsuario(nome,email,senha,perfil);
+}
+function excluirUsuario(id){
+  if(!confirm('Confirmar exclusão do usuário?'))return;
+  google.script.run
+    .withSuccessHandler(function(r){if(r.success)carregarUsuarios();else alert('Erro: '+r.message);})
+    .excluirUsuario(id);
+}
+
+</script>
