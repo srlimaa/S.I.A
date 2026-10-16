@@ -1,0 +1,86 @@
+    <!-- Ramal -->
+    <div class="form-card" id="formRamal">
+      <h2>📞 Registro Ramal</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data <span class="req">*</span></label>
+          <input type="date" id="r_data"/>
+        </div>
+        <div class="form-group">
+          <label>CPF <small style="font-weight:400;color:var(--cinza);">(opcional)</small></label>
+          <input type="text" id="r_cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"/>
+        </div>
+        <div class="form-group">
+          <label>Nome Completo <span class="req">*</span></label>
+          <input type="text" id="r_nome" placeholder="Nome do aluno"/>
+        </div>
+        <div class="form-group">
+          <label>Telefone / Ramal <span class="req">*</span></label>
+          <input type="text" id="r_telefone" placeholder="Ex.: 3521-1234 ou 1234"/>
+        </div>
+        <div class="form-group full">
+          <label>Assunto <span class="req">*</span></label>
+          <select id="r_assunto">
+            <option value="">— Selecione —</option>
+            <optgroup label="FIES">
+              <option>FIES - Inscrição</option>
+              <option>FIES - DRI</option>
+              <option>FIES - Contrato FIES</option>
+              <option>FIES - Aditamento Renovação</option>
+              <option>FIES - DRM</option>
+              <option>FIES - Termo Aditivo</option>
+              <option>FIES - Suspensão</option>
+              <option>FIES - Transferência</option>
+              <option>FIES - Dilatação</option>
+              <option>FIES - Encerramento</option>
+              <option>FIES - Reparcelamento da Coparticipação</option>
+              <option>FIES - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="PROUNI">
+              <option>PROUNI - Inscrição</option>
+              <option>PROUNI - Resultado</option>
+              <option>PROUNI - Termo de Concessão</option>
+              <option>PROUNI - Atualização</option>
+              <option>PROUNI - Suspensão</option>
+              <option>PROUNI - Transferência</option>
+              <option>PROUNI - Encerramento</option>
+              <option>PROUNI - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="FINAN. PRÓPRIO">
+              <option>FINAN. PRÓPRIO - Contratação</option>
+              <option>FINAN. PRÓPRIO - Renovação</option>
+              <option>FINAN. PRÓPRIO - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="CREDIES">
+              <option>CREDIES - Contratação</option>
+              <option>CREDIES - Renovação</option>
+              <option>CREDIES - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="P-FIES">
+              <option>P-FIES - Inscrição</option>
+              <option>P-FIES - Renovação</option>
+            </optgroup>
+            <optgroup label="SICOOB">
+              <option>SICOOB - Inscrição</option>
+              <option>SICOOB - Renovação</option>
+            </optgroup>
+            <optgroup label="PRAVALER">
+              <option>PRAVALER - Inscrição</option>
+              <option>PRAVALER - Renovação</option>
+            </optgroup>
+            <option>OUTROS ASSUNTOS (detalhar)</option>
+            <option>EIXO INSCRIÇÃO</option>
+            <option>EIXO ADITAMENTO</option>
+            <option>EIXO PROUNI</option>
+            <option>EIXO COORDENAÇÃO</option>
+            <option>INTERNO - Outros Setores (detalhar)</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Observação</label>
+          <textarea id="r_obs" rows="3" placeholder="Observações adicionais..."></textarea>
+        </div>
+      </div>
+      <button class="btn-confirmar azul" onclick="confirmarRamal()">✔ Confirmar</button>
+      <div class="feedback" id="fbRamal"></div>
+    </div>
