@@ -1,0 +1,23 @@
+  <!-- ═══ HISTÓRICO ═══ -->
+  <div class="content" id="secHistorico" style="display:none;">
+    <h2 style="color:var(--titulo);margin-bottom:18px;">📋 Histórico de Registros</h2>
+    <div class="filtros-bar">
+      <select id="filtroTipo" onchange="renderHistorico()">
+        <option value="">Todos os tipos</option>
+        <option value="Presencial">Presencial</option>
+        <option value="Ramal">Ramal</option>
+        <option value="E-mail">E-mail</option>
+        <option value="Virtual">Virtual</option>
+      </select>
+      <select id="filtroColab" onchange="renderHistorico()">
+        <option value="meus">Meus registros</option>
+        <option value="todos">Todos os colaboradores</option>
+      </select>
+      <input type="text" id="filtroTexto" placeholder="🔍 Buscar por nome..."
+             oninput="renderHistorico()" style="min-width:200px;"/>
+    </div>
+    <div class="feedback" id="fbHist" style="margin:0 0 14px;"></div>
+    <div id="histListContainer" class="hist-list">
+      <p class="loading-msg">Carregando...</p>
+    </div>
+  </div>
