@@ -1,0 +1,230 @@
+<script>
+/* ══════════ HISTÓRICO ══════════ */
+function carregarHistorico(){
+  document.getElementById('histListContainer').innerHTML='<p class="loading-msg">Carregando...</p>';
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(res&&res.error){
+        document.getElementById('histListContainer').innerHTML=
+          '<p class="loading-msg" style="color:#dc2626;">Erro: '+res.error+'</p>';return;
+      }
+      HISTORICO_CACHE=Array.isArray(res)?res:[];
+      renderHistorico();
+    })
+    .withFailureHandler(function(){
+      document.getElementById('histListContainer').innerHTML=
+        '<p class="loading-msg" style="color:#dc2626;">Falha ao carregar histórico.</p>';
+    })
+    .getHistorico(PERIODO);
+}
+
+function renderHistorico(){
+  var filtroTipo=document.getElementById('filtroTipo').value;
+  var filtroColab=document.getElementById('filtroColab').value;
+  var filtroTexto=(document.getElementById('filtroTexto').value||'').toLowerCase().trim();
+  var lista=HISTORICO_CACHE.filter(function(item){
+    if(filtroTipo&&item.tipo!==filtroTipo)return false;
+    if(filtroColab==='meus'){
+      var c=(item.colaborador||'').trim().toLowerCase();
+      var r=(item.registradoPor||'').trim().toLowerCase();
+      if(c!==USUARIO.nome.toLowerCase()&&r!==USUARIO.nome.toLowerCase())return false;
+    }
+    if(filtroTexto){
+      var hay=[item.colaborador,item.registradoPor,item.data].join(' ').toLowerCase();
+      if(item.detalhes)Object.values(item.detalhes).forEach(function(v){hay+=' '+String(v).toLowerCase();});
+      if(hay.indexOf(filtroTexto)===-1)return false;
+    }
+    return true;
+  });
+  lista.sort(function(a,b){
+    return b.data.split('/').reverse().join('-').localeCompare(a.data.split('/').reverse().join('-'));
+  });
+  var container=document.getElementById('histListContainer');
+  if(lista.length===0){container.innerHTML='<p class="empty-msg">Nenhum registro encontrado.</p>';return;}
+  container.innerHTML=lista.map(function(item){
+    var tc=item.tipo.replace(/[^a-zA-Z]/g,'');
+    return '<div class="hist-item '+tc+'" onclick="abrirModal(\''+item.id+'\')">'+
+      '<div class="hist-info">'+
+      '<strong>'+(item.detalhes.Nome||item.detalhes.Colaborador||'—')+'</strong>'+
+      '<div class="hist-data">🗓 '+item.data+' · '+avatarHTML(avatarDe(item.colaborador),18)+' '+item.colaborador+'</div>'+
+      '</div><span class="hist-badge badge-'+tc+'">'+item.tipo+'</span></div>';
+  }).join('');
+  window._histFiltered=lista;
+}
+
+var MODAL_ITEM=null,MODAL_EDITANDO=false;
+function podeMexerRegistro(item){
+  if(USUARIO.perfil==='Admin')return true;
+  var m=String(USUARIO.nome||'').trim().toLowerCase();
+  return [item.colaborador,item.registradoPor].some(function(x){return String(x||'').trim().toLowerCase()===m;});
+}
+function abrirModal(id){
+  var item=(window._histFiltered||HISTORICO_CACHE).find(function(h){return String(h.id)===String(id);});
+  if(!item)return;
+  MODAL_ITEM=item;MODAL_EDITANDO=false;
+  document.getElementById('modalTitulo').textContent=item.tipo+' — '+item.data;
+  var html=detalheItem('Colaborador',avatarHTML(avatarDe(item.colaborador),22)+' '+item.colaborador)+detalheItem('Data',item.data);
+  if(item.detalhes)Object.entries(item.detalhes).forEach(function(kv){if(kv[1])html+=detalheItem(kv[0],kv[1]);});
+  var d=document.getElementById('modalDetalhe');d.innerHTML=html;d.style.display='';
+  document.getElementById('modalEdicao').style.display='none';
+  document.getElementById('fbModal').style.display='none';
+  mostrarAcoesModal();
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function mostrarAcoesModal(){
+  var ac=document.getElementById('modalAcoes');
+  if(!MODAL_ITEM||!podeMexerRegistro(MODAL_ITEM)){ac.style.display='none';ac.innerHTML='';return;}
+  ac.style.display='flex';
+  ac.innerHTML='<button type="button" class="btn-editar" onclick="iniciarEdicaoRegistro()">✏️ Editar</button>'+
+               '<button type="button" class="btn-excluir" onclick="pedirExclusao()">🗑️ Excluir</button>';
+}
+function pedirExclusao(){
+  document.getElementById('modalAcoes').innerHTML=
+    '<span class="conf-txt">Excluir este registro definitivamente?</span>'+
+    '<button type="button" class="btn-outline" onclick="mostrarAcoesModal()">Cancelar</button>'+
+    '<button type="button" class="btn-excluir-conf" id="btnExcluirReg" onclick="confirmarExclusao()">Sim, excluir</button>';
+}
+function confirmarExclusao(){
+  var item=MODAL_ITEM;if(!item)return;
+  var btn=document.getElementById('btnExcluirReg');btn.disabled=true;btn.textContent='Excluindo...';
+  function falha(msg){mostrarAcoesModal();showFeedback('fbModal','Erro: '+msg,false);}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){falha((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.');return;}
+      HISTORICO_CACHE=HISTORICO_CACHE.filter(function(x){return x!==item;});
+      INDICADORES_CACHE={};
+      document.getElementById('modalOverlay').classList.remove('open');
+      MODAL_ITEM=null;renderHistorico();
+      showFeedback('fbHist','✔ Registro excluído.',true);
+    })
+    .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar.');})
+    .excluirRegistro(PERIODO,item.tipo,item.id,USUARIO.id);
+}
+
+/* ── Edição de registro ── */
+var REG_CAMPOS={
+  'Presencial':[
+    {k:'data',l:'Data',t:'date',obr:1},
+    {k:'cpf',l:'CPF',t:'cpf',obr:1,de:'CPF'},
+    {k:'nome',l:'Nome Completo',t:'text',obr:1,de:'Nome'},
+    {k:'curso',l:'Curso',t:'select',src:'p_curso',de:'Curso'},
+    {k:'assunto',l:'Assunto',t:'select',src:'p_assunto',obr:1,de:'Assunto',full:1,busca:1},
+    {k:'semestre',l:'Semestre',t:'select',src:'p_semestre',de:'Semestre'},
+    {k:'ies',l:'IES',t:'select',src:'p_ies',de:'IES'}],
+  'Ramal':[
+    {k:'data',l:'Data',t:'date',obr:1},
+    {k:'cpf',l:'CPF',t:'cpf',de:'CPF'},
+    {k:'nome',l:'Nome Completo',t:'text',obr:1,de:'Nome'},
+    {k:'telefone',l:'Telefone / Ramal',t:'text',obr:1,de:'Telefone'},
+    {k:'assunto',l:'Assunto',t:'select',src:'r_assunto',obr:1,de:'Assunto',full:1,busca:1},
+    {k:'observacao',l:'Observação',t:'textarea',de:'Observacao',full:1}],
+  'E-mail':[
+    {k:'data',l:'Data de Recebimento',t:'date',obr:1},
+    {k:'cpf',l:'CPF',t:'cpf',de:'CPF'},
+    {k:'nome',l:'Nome Completo',t:'text',de:'Nome'},
+    {k:'emailAluno',l:'E-mail do Aluno',t:'email',obr:1,de:'EmailAluno'},
+    {k:'assunto',l:'Assunto',t:'select',src:'e_assunto',obr:1,de:'Assunto',full:1,busca:1},
+    {k:'semestre',l:'Semestre',t:'select',src:'e_semestre',de:'Semestre'},
+    {k:'ies',l:'IES',t:'select',src:'e_ies',de:'IES'},
+    {k:'dataRetorno',l:'Data de Retorno',t:'date',obr:1,de:'DataRetorno'},
+    {k:'observacao',l:'Observação',t:'textarea',de:'Observacao',full:1}],
+  'Virtual':[
+    {k:'data',l:'Data',t:'date',obr:1},
+    {k:'colaborador',l:'Colaborador',t:'select',src:'v_colaborador',de:'Colaborador'},
+    {k:'atrib',l:'Conversas Atribuídas',t:'number',de:'ConversasAtribuidas'},
+    {k:'fech',l:'Conversas Fechadas',t:'number',de:'ConversasFechadas'}]
+};
+function dataParaISO(br){var m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';}
+function setSelectValue(sel,val){
+  val=String(val==null?'':val);
+  for(var i=0;i<sel.options.length;i++){
+    if(sel.options[i].value===val||sel.options[i].text===val){sel.options[i].selected=true;return;}
+  }
+  if(val){var o=document.createElement('option');o.textContent=val;sel.insertBefore(o,sel.options[1]||null);o.selected=true;}
+}
+function valorAtual(item,f){
+  if(f.k==='data')return item.data;
+  return item.detalhes?item.detalhes[f.de]:'';
+}
+function iniciarEdicaoRegistro(){
+  var item=MODAL_ITEM;if(!item)return;
+  var campos=REG_CAMPOS[item.tipo];if(!campos)return;
+  MODAL_EDITANDO=true;
+  document.getElementById('modalDetalhe').style.display='none';
+  document.getElementById('modalAcoes').style.display='none';
+  document.getElementById('fbModal').style.display='none';
+  document.getElementById('modalTitulo').textContent='✏️ Editar — '+item.tipo;
+  var html='<div class="edit-grid">'+campos.map(function(f){
+    var id='ed_'+f.k,inp;
+    if(f.t==='select')inp='<select id="'+id+'"></select>';
+    else if(f.t==='textarea')inp='<textarea id="'+id+'" rows="3"></textarea>';
+    else if(f.t==='date')inp='<input type="date" id="'+id+'"/>';
+    else if(f.t==='cpf')inp='<input type="text" id="'+id+'" maxlength="14" placeholder="000.000.000-00" oninput="maskCPF(this)"/>';
+    else if(f.t==='number')inp='<input type="number" id="'+id+'" min="0"/>';
+    else if(f.t==='email')inp='<input type="email" id="'+id+'"/>';
+    else inp='<input type="text" id="'+id+'"/>';
+    return '<div class="form-group'+(f.full?' full':'')+'"><label>'+f.l+(f.obr?' <span class="req">*</span>':'')+'</label>'+inp+'</div>';
+  }).join('')+'</div>'+
+  '<div class="modal-acoes" style="display:flex;">'+
+    '<button type="button" class="btn-outline" onclick="cancelarEdicaoRegistro()">Cancelar</button>'+
+    '<button type="button" class="btn-salvar-edit" id="btnSalvarReg" style="width:auto;" onclick="salvarEdicaoRegistro()">Salvar alterações</button>'+
+  '</div>';
+  var box=document.getElementById('modalEdicao');box.innerHTML=html;box.style.display='block';
+  campos.forEach(function(f){
+    var el=document.getElementById('ed_'+f.k),v=valorAtual(item,f);
+    if(f.t==='select'){
+      el.innerHTML=document.getElementById(f.src).innerHTML;
+      setSelectValue(el,v);
+      if(f.busca)pesquisavel('ed_'+f.k);
+    }else if(f.t==='date')el.value=dataParaISO(v);
+    else el.value=(v==null?'':v);
+  });
+}
+function cancelarEdicaoRegistro(){
+  MODAL_EDITANDO=false;
+  if(MODAL_ITEM)document.getElementById('modalTitulo').textContent=MODAL_ITEM.tipo+' — '+MODAL_ITEM.data;
+  document.getElementById('modalEdicao').style.display='none';
+  document.getElementById('modalEdicao').innerHTML='';
+  document.getElementById('modalDetalhe').style.display='';
+  document.getElementById('fbModal').style.display='none';
+  mostrarAcoesModal();
+}
+function salvarEdicaoRegistro(){
+  var item=MODAL_ITEM;if(!item)return;
+  var lista=REG_CAMPOS[item.tipo],campos={};
+  for(var i=0;i<lista.length;i++){
+    var f=lista[i],v=document.getElementById('ed_'+f.k).value;
+    if(f.t==='date')v=formatarDataBR(v);
+    if(f.t==='number')v=v||0;
+    if(f.obr&&!String(v).trim()){showFeedback('fbModal','Preencha: '+f.l+'.',false);return;}
+    campos[f.k]=typeof v==='string'?v.trim():v;
+  }
+  var btn=document.getElementById('btnSalvarReg');btn.disabled=true;btn.textContent='Salvando...';
+  function falha(msg){btn.disabled=false;btn.textContent='Salvar alterações';showFeedback('fbModal','Erro: '+msg,false);}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){falha((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.');return;}
+      lista.forEach(function(f){
+        if(f.k==='data')item.data=campos.data;
+        else if(item.detalhes)item.detalhes[f.de]=String(campos[f.k]);
+      });
+      if(item.tipo==='Virtual')item.colaborador=campos.colaborador;
+      INDICADORES_CACHE={};
+      MODAL_EDITANDO=false;MODAL_ITEM=null;
+      document.getElementById('modalOverlay').classList.remove('open');
+      renderHistorico();
+      showFeedback('fbHist','✔ Registro atualizado.',true);
+    })
+    .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar.');})
+    .editarRegistro(PERIODO,item.tipo,item.id,campos,USUARIO.id);
+}
+function detalheItem(l,v){
+  return '<div class="detalhe-item"><div class="detalhe-label">'+l+'</div><div class="detalhe-valor">'+v+'</div></div>';
+}
+function fecharModal(e){
+  if(e&&MODAL_EDITANDO)return;     // clique fora não descarta uma edição em andamento
+  if(!e||e.target===document.getElementById('modalOverlay')){
+    document.getElementById('modalOverlay').classList.remove('open');MODAL_EDITANDO=false;
+  }
+}
+</script>
