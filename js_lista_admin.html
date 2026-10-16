@@ -1,0 +1,210 @@
+<script>
+/* ══════════ COLABORADORES DA OPÇÃO VIRTUAL ══════════ */
+var COLABS_VIRTUAL_PADRAO=['Amanda','Andreza','Cesar','Israel','Luana','Magno','Miriã','Patrick'];
+function ordenarNomes(l){return l.slice().sort(function(a,b){return a.localeCompare(b,'pt',{sensitivity:'base'});});}
+var COLABS_VIRTUAL=COLABS_VIRTUAL_PADRAO.slice();
+function preencherSelectVirtual(){
+  var sel=document.getElementById('v_colaborador'),atual=sel.value;
+  sel.innerHTML='<option value="">— Selecione —</option>'+
+    COLABS_VIRTUAL.map(function(n){return '<option>'+escHtml(n)+'</option>';}).join('');
+  sel.value=atual;
+}
+function carregarColabsVirtual(){
+  google.script.run.withSuccessHandler(function(l){
+    if(Array.isArray(l)){COLABS_VIRTUAL=ordenarNomes(l);preencherSelectVirtual();}
+  }).getColaboradoresVirtual();
+}
+function vcRender(){
+  var box=document.getElementById('vcList');
+  box.innerHTML=COLABS_VIRTUAL.length?COLABS_VIRTUAL.map(function(n,i){
+    return '<div class="vc-item"><span>'+escHtml(n)+'</span>'+
+      '<button type="button" class="btn-excluir" onclick="vcRemover('+i+')">Remover</button></div>';
+  }).join(''):'<p class="vc-vazio">Nenhum colaborador cadastrado.</p>';
+  document.getElementById('vcPara').innerHTML=COLABS_VIRTUAL.map(function(n){return '<option>'+escHtml(n)+'</option>';}).join('');
+}
+function vcSalvar(lista,msgOk){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      COLABS_VIRTUAL=ordenarNomes(r.lista);preencherSelectVirtual();vcRender();
+      showFeedback('fbCfg',msgOk,true);
+    })
+    .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .salvarColaboradoresVirtual(lista,USUARIO.id);
+}
+function vcAdicionar(){
+  var inp=document.getElementById('vcNovo'),n=inp.value.replace(/\s+/g,' ').trim();
+  if(!n)return;
+  if(/[<>]/.test(n)){showFeedback('fbCfg','O nome não pode conter < ou >.',false);return;}
+  var k=semAcento(n);
+  if(COLABS_VIRTUAL.some(function(x){return semAcento(x)===k;})){showFeedback('fbCfg','Este colaborador já está na lista.',false);return;}
+  inp.value='';
+  vcSalvar(COLABS_VIRTUAL.concat([n]),'✔ '+n+' adicionado(a)!');
+}
+function vcRemover(i){
+  var n=COLABS_VIRTUAL[i];if(n==null)return;
+  if(!confirm('Remover "'+n+'" da lista? Registros já salvos não serão alterados.'))return;
+  vcSalvar(COLABS_VIRTUAL.filter(function(_,j){return j!==i;}),'✔ '+n+' removido(a) da lista.');
+}
+function vcTrocarRegistros(){
+  var de=document.getElementById('vcDe').value.trim(),para=document.getElementById('vcPara').value;
+  if(!de||!para){showFeedback('fbCfg','Informe o nome antigo e escolha o novo nome.',false);return;}
+  if(!confirm('Trocar "'+de+'" por "'+para+'" em todos os registros Virtuais já salvos?'))return;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      HISTORICO_CACHE=[];INDICADORES_CACHE={};document.getElementById('vcDe').value='';
+      showFeedback('fbCfg','✔ '+r.atualizados+' registro(s) atualizado(s).',true);
+    })
+    .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .trocarNomeVirtual(de,para,USUARIO.id);
+}
+preencherSelectVirtual();
+
+/* ══════════ ASSUNTOS ADICIONAIS (Presencial / Ramal / E-mail) ══════════ */
+var ASSUNTO_SEL={presencial:'p_assunto',ramal:'r_assunto',email:'e_assunto'};
+var ASSUNTO_NOME={presencial:'Presencial',ramal:'Ramal',email:'E-mail'};
+var ASSUNTO_BASE={},ASSUNTOS_EXTRA=[];
+Object.keys(ASSUNTO_SEL).forEach(function(t){ASSUNTO_BASE[t]=document.getElementById(ASSUNTO_SEL[t]).innerHTML;});
+function aplicarAssuntos(){
+  Object.keys(ASSUNTO_SEL).forEach(function(t){
+    var sel=document.getElementById(ASSUNTO_SEL[t]);if(!sel)return;
+    var atual=sel.value;
+    sel.innerHTML=ASSUNTO_BASE[t];
+    ASSUNTOS_EXTRA.filter(function(a){return a.t===t;}).forEach(function(a){
+      var o=document.createElement('option');o.textContent=a.n;
+      var alvo=null;
+      if(a.g){
+        Array.prototype.forEach.call(sel.querySelectorAll('optgroup'),function(og){if(semAcento(og.label)===semAcento(a.g))alvo=og;});
+        if(!alvo){alvo=document.createElement('optgroup');alvo.label=a.g;sel.appendChild(alvo);}
+      }
+      (alvo||sel).appendChild(o);
+    });
+    sel.value=atual;
+  });
+}
+function carregarAssuntosExtra(){
+  google.script.run.withSuccessHandler(function(l){
+    if(Array.isArray(l)){ASSUNTOS_EXTRA=l;aplicarAssuntos();}
+  }).getAssuntosExtra();
+}
+function asGruposExistentes(){
+  var vistos={},out=[];
+  function add(n){var k=semAcento(n);if(n&&!vistos[k]){vistos[k]=1;out.push(n);}}
+  Object.keys(ASSUNTO_BASE).forEach(function(t){
+    var tmp=document.createElement('select');tmp.innerHTML=ASSUNTO_BASE[t];
+    Array.prototype.forEach.call(tmp.querySelectorAll('optgroup'),function(og){add(og.label);});
+  });
+  ASSUNTOS_EXTRA.forEach(function(a){add(a.g);});
+  return out;
+}
+function asExiste(t,nome){
+  var k=semAcento(nome),tmp=document.createElement('select');tmp.innerHTML=ASSUNTO_BASE[t];
+  var base=Array.prototype.some.call(tmp.querySelectorAll('option'),function(o){return semAcento(o.text)===k;});
+  return base||ASSUNTOS_EXTRA.some(function(a){return a.t===t&&semAcento(a.n)===k;});
+}
+function asRender(){
+  document.getElementById('asGrupos').innerHTML=asGruposExistentes().map(function(g){return '<option value="'+escHtml(g)+'">';}).join('');
+  var box=document.getElementById('asLista');
+  if(!ASSUNTOS_EXTRA.length){box.innerHTML='<p class="vc-vazio">Nenhum assunto adicional ainda.</p>';return;}
+  box.innerHTML=ASSUNTOS_EXTRA.map(function(a,i){
+    return '<div class="vc-item"><span><span class="as-tag '+a.t+'">'+ASSUNTO_NOME[a.t]+'</span>'+escHtml(a.n)+
+      (a.g?'<span class="as-grupo">'+escHtml(a.g)+'</span>':'')+'</span>'+
+      '<button type="button" class="btn-excluir" onclick="asRemover('+i+')">Remover</button></div>';
+  }).join('');
+}
+function asSalvar(lista,msgOk){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      ASSUNTOS_EXTRA=r.lista;aplicarAssuntos();asRender();
+      showFeedback('fbCfg',msgOk,true);
+    })
+    .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .salvarAssuntosExtra(lista,USUARIO.id);
+}
+function asAdicionar(){
+  var nome=document.getElementById('asNome').value.replace(/\s+/g,' ').trim();
+  var grupo=document.getElementById('asGrupo').value.replace(/\s+/g,' ').trim();
+  if(!nome){showFeedback('fbCfg','Digite o nome do assunto.',false);return;}
+  if(/[<>]/.test(nome+grupo)){showFeedback('fbCfg','O texto não pode conter < ou >.',false);return;}
+  var tipos=Object.keys(ASSUNTO_SEL).filter(function(t){return document.getElementById('asT_'+t).checked;});
+  if(!tipos.length){showFeedback('fbCfg','Marque ao menos um tipo (Presencial, Ramal ou E-mail).',false);return;}
+  var novos=[],jaTem=[];
+  tipos.forEach(function(t){if(asExiste(t,nome))jaTem.push(ASSUNTO_NOME[t]);else novos.push({t:t,g:grupo,n:nome});});
+  if(!novos.length){showFeedback('fbCfg','Esse assunto já existe em: '+jaTem.join(', ')+'.',false);return;}
+  document.getElementById('asNome').value='';
+  var onde=novos.map(function(a){return ASSUNTO_NOME[a.t];}).join(', ');
+  asSalvar(ASSUNTOS_EXTRA.concat(novos),'✔ Adicionado em '+onde+(jaTem.length?' (já existia em '+jaTem.join(', ')+')':'')+'.');
+}
+function asRemover(i){
+  var a=ASSUNTOS_EXTRA[i];if(!a)return;
+  if(!confirm('Remover "'+a.n+'" de '+ASSUNTO_NOME[a.t]+'? Registros já salvos não serão alterados.'))return;
+  asSalvar(ASSUNTOS_EXTRA.filter(function(_,j){return j!==i;}),'✔ Assunto removido de '+ASSUNTO_NOME[a.t]+'.');
+}
+
+/* ══════════ SEMESTRES ADICIONAIS (Presencial / E-mail) ══════════ */
+var SEM_SEL={presencial:'p_semestre',email:'e_semestre'};
+var SEM_NOME={presencial:'Presencial',email:'E-mail'};
+var SEM_BASE={},SEMESTRES_EXTRA=[];
+Object.keys(SEM_SEL).forEach(function(t){
+  var sel=document.getElementById(SEM_SEL[t]);
+  SEM_BASE[t]=Array.prototype.map.call(sel.options,function(o){return o.value;}).filter(Boolean);
+});
+function aplicarSemestres(){
+  Object.keys(SEM_SEL).forEach(function(t){
+    var sel=document.getElementById(SEM_SEL[t]);if(!sel)return;
+    var atual=sel.value,vistos={},lista=[];
+    SEM_BASE[t].concat(SEMESTRES_EXTRA.filter(function(a){return a.t===t;}).map(function(a){return a.n;}))
+      .forEach(function(v){if(!vistos[v]){vistos[v]=1;lista.push(v);}});
+    lista.sort();
+    sel.innerHTML='<option value="">— Selecione —</option>'+lista.map(function(v){return '<option value="'+escHtml(v)+'">'+escHtml(v)+'</option>';}).join('');
+    sel.value=atual;
+  });
+}
+function carregarSemestresExtra(){
+  google.script.run.withSuccessHandler(function(l){
+    if(Array.isArray(l)){SEMESTRES_EXTRA=l;aplicarSemestres();}
+  }).getSemestresExtra();
+}
+function smExiste(t,n){
+  return SEM_BASE[t].indexOf(n)!==-1||SEMESTRES_EXTRA.some(function(a){return a.t===t&&a.n===n;});
+}
+function smRender(){
+  var box=document.getElementById('smLista');
+  if(!SEMESTRES_EXTRA.length){box.innerHTML='<p class="vc-vazio">Nenhum semestre adicional ainda.</p>';return;}
+  var ord=SEMESTRES_EXTRA.map(function(a,i){return {a:a,i:i};}).sort(function(x,y){return x.a.n<y.a.n?-1:x.a.n>y.a.n?1:0;});
+  box.innerHTML=ord.map(function(o){
+    return '<div class="vc-item"><span><span class="as-tag '+o.a.t+'">'+SEM_NOME[o.a.t]+'</span>'+escHtml(o.a.n)+'</span>'+
+      '<button type="button" class="btn-excluir" onclick="smRemover('+o.i+')">Remover</button></div>';
+  }).join('');
+}
+function smSalvar(lista,msgOk){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      SEMESTRES_EXTRA=r.lista;aplicarSemestres();smRender();
+      showFeedback('fbCfg',msgOk,true);
+    })
+    .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .salvarSemestresExtra(lista,USUARIO.id);
+}
+function smAdicionar(){
+  var n=document.getElementById('smNome').value.trim();
+  if(!/^\d{4}\.[12]$/.test(n)){showFeedback('fbCfg','Use o formato AAAA.S, com semestre 1 ou 2 (ex.: 2028.1).',false);return;}
+  var tipos=Object.keys(SEM_SEL).filter(function(t){return document.getElementById('smT_'+t).checked;});
+  if(!tipos.length){showFeedback('fbCfg','Marque ao menos um tipo (Presencial ou E-mail).',false);return;}
+  var novos=[],jaTem=[];
+  tipos.forEach(function(t){if(smExiste(t,n))jaTem.push(SEM_NOME[t]);else novos.push({t:t,n:n});});
+  if(!novos.length){showFeedback('fbCfg','O semestre '+n+' já existe em: '+jaTem.join(', ')+'.',false);return;}
+  document.getElementById('smNome').value='';
+  smSalvar(SEMESTRES_EXTRA.concat(novos),'✔ Semestre '+n+' adicionado em '+novos.map(function(a){return SEM_NOME[a.t];}).join(', ')+
+    (jaTem.length?' (já existia em '+jaTem.join(', ')+')':'')+'.');
+}
+function smRemover(i){
+  var a=SEMESTRES_EXTRA[i];if(!a)return;
+  if(!confirm('Remover o semestre '+a.n+' de '+SEM_NOME[a.t]+'? Registros já salvos não serão alterados.'))return;
+  smSalvar(SEMESTRES_EXTRA.filter(function(_,j){return j!==i;}),'✔ Semestre removido de '+SEM_NOME[a.t]+'.');
+}
+
+</script>
