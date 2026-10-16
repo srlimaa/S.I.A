@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<script>
+/* Ponte com o sistema principal: este arquivo roda dentro de um iframe e as chamadas ao servidor passam pelo sistema pai */
+(function(){
+  var pend={},n=0,MAP={api:'ccApi',apiLogout:'ccApiLogout',apiLogin:'ccApiLogin',getPublic:'ccGetPublic'};
+  window.addEventListener('message',function(e){
+    var m=e.data;if(!m||!m.ccb||e.source!==parent)return;
+    if(m.t==='res'){var p=pend[m.id];if(!p)return;delete pend[m.id];if(m.erro)p.fail({message:m.erro});else p.ok(m.ok);}
+    else if(m.t==='init'&&window.__ccInit)window.__ccInit(m);
+  });
+  function mk(){
+    var ok=function(){},fail=function(){},px,o={withSuccessHandler:function(f){ok=f;return px},withFailureHandler:function(f){fail=f;return px}};
+    px=new Proxy(o,{get:function(t,k){
+      if(k in t)return t[k];
+      return function(){var id=++n;pend[id]={ok:ok,fail:fail};parent.postMessage({ccb:1,t:'call',id:id,fn:MAP[k]||k,args:[].slice.call(arguments)},'*');};
+    }});
+    return px;
+  }
+  window.google={script:{get run(){return mk();}}};
+})();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B&amp;F - Call Center Aditamentos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+<?!= include('cc_css') ?>
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand"><div class="logo-circle" id="lLogo">CC</div><h2 id="lNome">Call Center FIES</h2><p>Controle de Aditamentos</p></div>
+    <div class="login-field"><label>E-mail</label><input type="email" id="lEmail" placeholder="seu@email.com" autocomplete="username"></div>
+    <div class="login-field"><label>Senha</label><input type="password" id="lSenha" placeholder="••••••••" autocomplete="current-password"></div>
+    <p class="login-error" id="lErr"></p>
+    <button class="btn-login" id="lBtn">Entrar</button>
+  </div>
+</div>
+<div id="app">
+  <header class="header">
+    <div class="header-brand"><div class="header-logo" id="hLogo">CC</div><div><div class="header-name" id="hNome"></div><div class="header-sub" id="hSem"></div></div></div>
+    <div class="header-spacer"></div>
+    <div class="header-user">
+      <div><div class="header-uname" id="hUser">—</div><div class="header-role" id="hRole">—</div></div>
+      <div class="header-avatar" id="hAv" title="Configurações"></div>
+      <button class="icon-btn" id="bCfg" title="Configurações">⚙️</button>
+      <button class="icon-btn danger" id="bSair" title="Sair">🚪</button>
+    </div>
+  </header>
+  <nav class="tabs-bar" id="nav"></nav>
+  <main class="main">
+    <div class="tab-pane active" id="v-cc"></div>
+    <div class="tab-pane" id="v-ger"></div>
+    <div class="tab-pane" id="v-col"></div>
+  </main>
+</div>
+<div id="mroot"></div>
+<div class="toast" id="toast"></div>
+<script>
+<?!= include('cc_js') ?>
+</script>
+</body>
+</html>
