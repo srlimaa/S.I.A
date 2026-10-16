@@ -1,0 +1,107 @@
+    <!-- Presencial -->
+    <div class="form-card" id="formPresencial">
+      <h2>🏢 Registro Presencial</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data <span class="req">*</span></label>
+          <input type="date" id="p_data"/>
+        </div>
+        <div class="form-group">
+          <label>CPF <span class="req">*</span></label>
+          <input type="text" id="p_cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"/>
+        </div>
+        <div class="form-group">
+          <label>Nome Completo <span class="req">*</span></label>
+          <input type="text" id="p_nome" placeholder="Nome do aluno"/>
+        </div>
+        <div class="form-group">
+          <label>Curso</label>
+          <select id="p_curso">
+            <option value="">— Selecione —</option>
+            <option>Administração</option><option>Biomedicina</option>
+            <option>Ciências Contábeis</option><option>Direito</option>
+            <option>Educação Física (Licenciatura)</option>
+            <option>Educação Física (Bacharelado)</option>
+            <option>Enfermagem</option><option>Fisioterapia</option>
+            <option>Medicina Veterinária</option><option>Odontologia</option>
+            <option>Psicologia</option><option>Medicina</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Assunto <span class="req">*</span></label>
+          <select id="p_assunto">
+            <option value="">— Selecione —</option>
+            <optgroup label="FIES">
+              <option>FIES - Inscrição</option>
+              <option>FIES - Complementação/Documentação</option>
+              <option>FIES - Lista de Espera</option>
+              <option>FIES - Contratação (digital/presencial)</option>
+              <option>FIES - Contrato/DRI</option>
+              <option>FIES - Aditamento Renovação</option>
+              <option>FIES - DRMs</option>
+              <option>FIES - Termo Aditivo</option>
+              <option>FIES - Suspensão</option>
+              <option>FIES - Transferência</option>
+              <option>FIES - Dilatação</option>
+              <option>FIES - Encerramento</option>
+              <option>FIES - Boleto da coparticipação</option>
+              <option>FIES - Reparcelamento</option>
+              <option>FIES - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="PROUNI">
+              <option>PROUNI - Inscrição</option>
+              <option>PROUNI - Resultado/Lista de Espera</option>
+              <option>PROUNI - Envio da documentação</option>
+              <option>PROUNI - Termo de concessão</option>
+              <option>PROUNI - Renovação/Atualização</option>
+              <option>PROUNI - Suspensão</option>
+              <option>PROUNI - Transferência</option>
+              <option>PROUNI - Encerramento</option>
+              <option>PROUNI - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="PARCELAMENTO">
+              <option>PARCELAMENTO - Contratação</option>
+              <option>PARCELAMENTO - Renovação</option>
+              <option>PARCELAMENTO - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="CREDIES">
+              <option>CREDIES - Contratação</option>
+              <option>CREDIES - Renovação</option>
+              <option>CREDIES - Outros (detalhar)</option>
+            </optgroup>
+            <optgroup label="P-FIES">
+              <option>P-FIES - Inscrição</option>
+              <option>P-FIES - Renovação</option>
+            </optgroup>
+            <optgroup label="SICOOB">
+              <option>SICOOB - Inscrição</option>
+              <option>SICOOB - Renovação</option>
+            </optgroup>
+            <optgroup label="PRAVALER">
+              <option>PRAVALER - Inscrição</option>
+              <option>PRAVALER - Renovação</option>
+            </optgroup>
+            <option>Outros assuntos (detalhar)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Semestre</label>
+          <select id="p_semestre">
+            <option value="">— Selecione —</option>
+            <option value="2026.1">2026.1</option>
+            <option value="2026.2">2026.2</option>
+            <option value="2027.1">2027.1</option>
+            <option value="2027.2">2027.2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>IES</label>
+          <select id="p_ies">
+            <option value="">— Selecione —</option>
+            <option>Unileão</option><option>Univs</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-confirmar verde" onclick="confirmarPresencial()">✔ Confirmar</button>
+      <div class="feedback" id="fbPresencial"></div>
+    </div>
