@@ -1,0 +1,98 @@
+<script>
+/* ── Confirmar Presencial ── */
+function confirmarPresencial(){
+  var data=document.getElementById('p_data').value;
+  var cpf=document.getElementById('p_cpf').value.trim();
+  var nome=document.getElementById('p_nome').value.trim();
+  var assunto=document.getElementById('p_assunto').value;
+  if(!data||!cpf||!nome||!assunto){
+    showFeedback('fbPresencial','Preencha: Data, CPF, Nome e Assunto.',false);return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){showFeedback('fbPresencial','✔ Registro Presencial salvo!',true);
+        limparForm(['p_data','p_cpf','p_nome','p_curso','p_assunto','p_semestre','p_ies']);
+      }else showFeedback('fbPresencial','Erro: '+r.message,false);
+    })
+    .registrarPresencial({periodo:PERIODO,
+      data:formatarDataBR(data),cpf:cpf,nomeCompleto:nome,
+      curso:document.getElementById('p_curso').value,
+      assunto:assunto,
+      semestre:document.getElementById('p_semestre').value,
+      ies:document.getElementById('p_ies').value,
+      colaborador:USUARIO.nome
+    });
+}
+
+/* ── Confirmar Ramal ── */
+function confirmarRamal(){
+  var data=document.getElementById('r_data').value;
+  var nome=document.getElementById('r_nome').value.trim();
+  var tel=document.getElementById('r_telefone').value.trim();
+  var assunto=document.getElementById('r_assunto').value;
+  if(!data||!nome||!tel||!assunto){
+    showFeedback('fbRamal','Preencha: Data, Nome, Telefone/Ramal e Assunto.',false);return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){showFeedback('fbRamal','✔ Registro Ramal salvo!',true);
+        limparForm(['r_data','r_cpf','r_nome','r_telefone','r_assunto','r_obs']);
+      }else showFeedback('fbRamal','Erro: '+r.message,false);
+    })
+    .registrarRamal({periodo:PERIODO,
+      data:formatarDataBR(data),
+      cpf:document.getElementById('r_cpf').value.trim(),
+      nomeCompleto:nome,telefone:tel,assunto:assunto,
+      observacao:document.getElementById('r_obs').value.trim(),
+      colaborador:USUARIO.nome
+    });
+}
+
+/* ── Confirmar E-mail ── */
+function confirmarEmail(){
+  var dataR=document.getElementById('e_dataReceb').value;
+  var emailA=document.getElementById('e_emailAluno').value.trim();
+  var assunto=document.getElementById('e_assunto').value;
+  var dataRet=document.getElementById('e_dataRetorno').value;
+  if(!dataR||!emailA||!assunto||!dataRet){
+    showFeedback('fbEmail','Preencha: Data Recebimento, E-mail, Assunto e Data de Retorno.',false);return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){showFeedback('fbEmail','✔ Registro E-mail salvo!',true);
+        limparForm(['e_dataReceb','e_cpf','e_nome','e_emailAluno','e_assunto','e_semestre','e_ies','e_dataRetorno','e_obs']);
+      }else showFeedback('fbEmail','Erro: '+r.message,false);
+    })
+    .registrarEmail({periodo:PERIODO,
+      dataRecebimento:formatarDataBR(dataR),
+      cpf:document.getElementById('e_cpf').value.trim(),
+      nomeCompleto:document.getElementById('e_nome').value.trim(),
+      emailAluno:emailA,assunto:assunto,
+      semestre:document.getElementById('e_semestre').value,
+      ies:document.getElementById('e_ies').value,
+      dataRetorno:formatarDataBR(dataRet),
+      observacao:document.getElementById('e_obs').value.trim(),
+      colaborador:USUARIO.nome
+    });
+}
+
+/* ── Confirmar Virtual ── */
+function confirmarVirtual(){
+  var data=document.getElementById('v_data').value;
+  if(!data){showFeedback('fbVirtual','Preencha a Data.',false);return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){showFeedback('fbVirtual','✔ Registro Virtual salvo!',true);
+        limparForm(['v_data','v_colaborador','v_atrib','v_fech']);
+      }else showFeedback('fbVirtual','Erro: '+r.message,false);
+    })
+    .registrarVirtual({periodo:PERIODO,
+      data:formatarDataBR(data),
+      colaborador:document.getElementById('v_colaborador').value,
+      conversasAtribuidas:document.getElementById('v_atrib').value||0,
+      conversasFechadas:document.getElementById('v_fech').value||0,
+      registradoPor:USUARIO.nome
+    });
+}
+
+</script>
