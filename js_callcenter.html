@@ -1,0 +1,60 @@
+<script>
+/* ══════════ CALL CENTER (iframe + ponte) ══════════ */
+function ccMensagem(txt,erro,botoes){
+  var m=document.getElementById('ccMsg');
+  m.className='cc-msg'+(erro?' erro':'');m.style.display='flex';
+  m.innerHTML='<div>'+escHtml(txt)+'</div>'+(botoes?'<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"><button class="btn-outline" onclick="ccTrocarPeriodo()">📅 Escolher outro período</button><button class="btn-outline" onclick="ccTrocarSistema()">⇄ Sistemas</button></div>':'');
+}
+function ccRemoverFrame(){var f=document.getElementById('ccFrame');if(f)f.remove();}
+function abrirCC(){
+  ABERTO='cc';
+  document.getElementById('ccScreen').style.display='flex';
+  var bn=document.getElementById('ccBarNome');if(bn)bn.textContent=CC_SESSAO.nomeSistema||'Call Center - Aditamentos';
+  var bp=document.getElementById('ccBarPeriodo');if(bp)bp.textContent='📅 '+PERIODO+' ⇄';
+  ccRemoverFrame();ccMensagem('Abrindo o Call Center...');
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||!r.success){
+        if(r&&r.sessao){logout();mostrarErroLogin(r.message);return;}
+        ccMensagem((r&&r.message)||'Não foi possível abrir o Call Center. Confira se a nova versão do script foi implantada.',true,true);return;
+      }
+      ccCarregarHtml(ccMontarFrame);
+    })
+    .withFailureHandler(function(err){ccMensagem('Não foi possível abrir o Call Center: '+((err&&err.message)||'falha ao conectar'),true,true);})
+    .ccAbrirPeriodo(CC_SESSAO.token,PERIODO);
+}
+function ccCarregarHtml(cb){
+  if(CC_HTML){cb();return;}
+  google.script.run
+    .withSuccessHandler(function(html){CC_HTML=html;cb();})
+    .withFailureHandler(function(err){ccMensagem('Não foi possível carregar a tela do Call Center ('+((err&&err.message)||'erro')+'). Confira se existe, no projeto, um arquivo HTML chamado "CallCenter".',true,true);})
+    .ccGetHtml();
+}
+function ccMontarFrame(){
+  ccRemoverFrame();
+  var f=document.createElement('iframe');f.id='ccFrame';f.title='Call Center';f.srcdoc=CC_HTML;
+  document.getElementById('ccFrameBox').appendChild(f);
+}
+function ccTrocarSistema(){ABERTO=null;SISTEMA=null;ccRemoverFrame();document.getElementById('ccScreen').style.display='none';mostrarSistemas();}
+function ccTrocarPeriodo(){abrirSelecaoPeriodo();}
+window.addEventListener('message',function(e){
+  var f=document.getElementById('ccFrame');
+  if(!f||e.source!==f.contentWindow)return;
+  var m=e.data;if(!m||!m.ccb)return;
+  function resp(o){o.ccb=1;o.t='res';o.id=m.id;f.contentWindow.postMessage(o,'*');}
+  if(m.t==='pronto'){
+    document.getElementById('ccMsg').style.display='none';
+    f.contentWindow.postMessage({ccb:1,t:'init',token:CC_SESSAO&&CC_SESSAO.token},'*');
+  }else if(m.t==='call'){
+    if(['ccApi','ccApiLogout'].indexOf(m.fn)<0){resp({erro:'Chamada não permitida.'});return;}
+    var run=google.script.run
+      .withSuccessHandler(function(v){resp({ok:v});})
+      .withFailureHandler(function(er){resp({erro:String((er&&er.message)||er)});});
+    run[m.fn].apply(run,m.args||[]);
+  }else if(m.t==='sair'){logout();}
+  else if(m.t==='periodo'){ccTrocarPeriodo();}
+  else if(m.t==='sistema'){ccTrocarSistema();}
+  else if(m.t==='sessao'){logout();mostrarErroLogin('Sua sessão no Call Center expirou. Entre novamente.');}
+});
+
+</script>
