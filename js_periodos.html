@@ -1,0 +1,128 @@
+<script>
+/* ── Período letivo ── */
+function abrirSelecaoPeriodo(){
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('ccScreen').style.display='none';
+  document.getElementById('periodoScreen').style.display='flex';
+  document.getElementById('periodoSaudacao').textContent='Olá, '+NOME_LOGADO+'! Selecione o período para continuar.';
+  document.getElementById('btnVoltarPeriodo').style.display='block';
+  document.getElementById('fbPeriodoSel').style.display='none';
+  carregarPeriodos(PERIODO);
+}
+function carregarPeriodos(selecionar){
+  var sel=document.getElementById('periodoSelect');
+  sel.innerHTML='<option>Carregando...</option>';
+  function preencher(lista){
+    if(!lista||!lista.length){sel.innerHTML='<option value="">Nenhum período cadastrado</option>';return;}
+    sel.innerHTML=lista.map(function(p){return '<option value="'+escHtml(p)+'">'+escHtml(p)+'</option>';}).join('');
+    if(selecionar&&lista.indexOf(selecionar)!==-1)sel.value=selecionar;
+  }
+  function doRegistro(){
+    google.script.run
+      .withSuccessHandler(preencher)
+      .withFailureHandler(function(){sel.innerHTML='<option value="">Falha ao carregar</option>';})
+      .getPeriodos();
+  }
+  if(SISTEMA==='cc'&&CC_SESSAO&&CC_SESSAO.token){            // no Call Center, só os semestres cadastrados nele
+    google.script.run
+      .withSuccessHandler(function(r){
+        var s=r&&r.ok&&r.ok.sems;
+        if(s&&s.length)preencher(s.slice().map(String).sort().reverse());else doRegistro();
+      })
+      .withFailureHandler(doRegistro)
+      .ccApi(CC_SESSAO.token,'boot',{});
+  }else doRegistro();
+}
+function carregarLinks(){
+  if(!USUARIO||USUARIO.perfil!=='Admin')return;
+  var p=document.getElementById('lkPeriodo').value;
+  document.getElementById('lk_unileao').value='';document.getElementById('lk_univs').value='';
+  if(!p)return;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(document.getElementById('lkPeriodo').value!==p)return;
+      if(r&&r.success){
+        document.getElementById('lk_unileao').value=r.unileao||'';
+        document.getElementById('lk_univs').value=r.univs||'';
+      }
+    })
+    .getLinksOcorrencias(p,USUARIO.id);
+}
+function salvarLinks(){
+  var p=document.getElementById('lkPeriodo').value;
+  if(!p){showFeedback('fbLinks','Selecione um período.',false);return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r&&r.success){INDICADORES_CACHE={};showFeedback('fbLinks','✔ Links do período '+p+' salvos!',true);}
+      else showFeedback('fbLinks','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);
+    })
+    .withFailureHandler(function(err){showFeedback('fbLinks','Erro: '+((err&&err.message)||'falha ao conectar.'),false);})
+    .salvarLinksOcorrencias(p,document.getElementById('lk_unileao').value,document.getElementById('lk_univs').value,USUARIO.id);
+}
+function lkIniciar(){
+  var sel=document.getElementById('lkPeriodo');sel.innerHTML='<option>Carregando...</option>';
+  google.script.run.withSuccessHandler(function(lista){
+    if(!lista||!lista.length){sel.innerHTML='<option value="">Nenhum período cadastrado</option>';return;}
+    sel.innerHTML=lista.map(function(p){return '<option value="'+escHtml(p)+'">'+escHtml(p)+'</option>';}).join('');
+    if(PERIODO&&lista.indexOf(PERIODO)!==-1)sel.value=PERIODO;
+    carregarLinks();
+  }).getPeriodos();
+  document.getElementById('lk_cc').value='';
+  google.script.run.withSuccessHandler(function(r){if(r&&r.success)document.getElementById('lk_cc').value=r.link||'';}).getPlanilhaCC(USUARIO.id);
+}
+function lkSalvarCC(){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r&&r.success){INDICADORES_CACHE={};document.getElementById('lk_cc').value=r.link||'';showFeedback('fbCC','✔ Planilha do Call Center salva!',true);}
+      else showFeedback('fbCC','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);
+    })
+    .withFailureHandler(function(err){showFeedback('fbCC','Erro: '+((err&&err.message)||'falha ao conectar.'),false);})
+    .salvarPlanilhaCC(document.getElementById('lk_cc').value,USUARIO.id);
+}
+function perListar(){
+  var box=document.getElementById('perLista');box.innerHTML='<p class="vc-vazio">Carregando...</p>';
+  google.script.run.withSuccessHandler(function(lista){
+    box.innerHTML=(lista&&lista.length)?lista.map(function(p){
+      return '<div class="vc-item"><span>📅 '+escHtml(p)+(p===PERIODO?' <small style="color:var(--cinza);">(em uso)</small>':'')+'</span></div>';}).join(''):'<p class="vc-vazio">Nenhum período cadastrado.</p>';
+  }).getPeriodos();
+}
+function prefAtualizar(){
+  document.querySelectorAll('#prefTemaSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===temaAtual());});
+}
+function prefTema(t){aplicarTema(t);try{localStorage.setItem('tema',t);}catch(e){}}
+function prefTrocarPeriodo(){fecharConfig();abrirSelecaoPeriodo();}
+function prefTrocarSistema(){fecharConfig();ABERTO=null;SISTEMA=null;mostrarSistemas();}
+function confirmarPeriodo(){
+  var p=document.getElementById('periodoSelect').value;
+  if(!p){showFeedback('fbPeriodoSel','Selecione um período letivo.',false);return;}
+  if(p!==PERIODO){HISTORICO_CACHE=[];INDICADORES_CACHE={};RANQUE_DADOS=null;}
+  PERIODO=p;
+  document.getElementById('periodoScreen').style.display='none';
+  if(SISTEMA==='cc'){abrirCC();return;}
+  ABERTO='registro';
+  atualizarTopbarUser();
+  document.getElementById('appScreen').style.display='block';
+  aplicarPermissoes();carregarAvatares();carregarColabsVirtual();carregarAssuntosExtra();carregarSemestresExtra();showSection('registro');
+}
+function voltarDoPeriodo(){
+  document.getElementById('periodoScreen').style.display='none';
+  if(ABERTO==='registro')document.getElementById('appScreen').style.display='block';
+  else if(ABERTO==='cc')document.getElementById('ccScreen').style.display='flex';
+  else mostrarSistemas();
+}
+function adicionarPeriodo(){
+  var periodo=document.getElementById('np_periodo').value.trim();
+  var planilha=document.getElementById('np_planilha').value.trim();
+  if(!periodo||!planilha){showFeedback('fbPeriodo','Preencha o período e o ID da planilha.',false);return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){
+        showFeedback('fbPeriodo','✔ Período '+r.periodo+' cadastrado!',true);
+        limparForm(['np_periodo','np_planilha']);carregarPeriodos(r.periodo);perListar();
+      }else showFeedback('fbPeriodo','Erro: '+r.message,false);
+    })
+    .withFailureHandler(function(){showFeedback('fbPeriodo','Erro ao conectar.',false);})
+    .criarPeriodo(periodo,planilha,USUARIO.id);
+}
+
+</script>
