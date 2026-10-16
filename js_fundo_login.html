@@ -1,0 +1,69 @@
+<script>
+/* ══════════ FUNDO DA TELA DE LOGIN ══════════ */
+var FUNDO_LOGIN=null,FUNDO_DRAFT={tipo:'padrao',c1:'#1e3a5f',c2:'#2563eb',ang:135,img:''};
+function fundoCSS(f){
+  var pad='linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)';
+  if(!f||!f.tipo||f.tipo==='padrao')return pad;
+  if(f.tipo==='cor')return f.c1||'#1e3a5f';
+  if(f.tipo==='degrade')return 'linear-gradient('+(f.ang==null?135:f.ang)+'deg,'+f.c1+','+f.c2+')';
+  if(f.tipo==='imagem'&&f.img)return 'url("'+f.img+'") center/cover no-repeat, '+(f.c1||'#1e3a5f');
+  return pad;
+}
+function aplicarFundoLogin(){
+  var css=fundoCSS(FUNDO_LOGIN);
+  ['loginScreen','periodoScreen','sistemaScreen'].forEach(function(id){document.getElementById(id).style.background=css;});
+}
+function fundoIniciar(){
+  var f=FUNDO_LOGIN||{tipo:'padrao'};
+  FUNDO_DRAFT={tipo:f.tipo||'padrao',c1:f.c1||'#1e3a5f',c2:f.c2||'#2563eb',ang:f.ang==null?135:f.ang,img:f.img||''};
+  document.getElementById('fundoC1').value=FUNDO_DRAFT.c1;
+  document.getElementById('fundoC2').value=FUNDO_DRAFT.c2;
+  document.getElementById('fundoAng').value=String(FUNDO_DRAFT.ang);
+  fundoTipo(FUNDO_DRAFT.tipo);
+}
+function fundoTipo(t){
+  FUNDO_DRAFT.tipo=t;
+  document.querySelectorAll('#fundoSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===t);});
+  document.getElementById('fundoOpcCor').style.display=(t==='cor'||t==='degrade')?'flex':'none';
+  document.getElementById('fundoOpcDeg').style.display=t==='degrade'?'flex':'none';
+  document.getElementById('fundoOpcImg').style.display=t==='imagem'?'block':'none';
+  document.getElementById('lblFundoC1').textContent=t==='degrade'?'Primeira cor':'Cor';
+  fundoPreview();
+}
+function fundoInput(){
+  FUNDO_DRAFT.c1=document.getElementById('fundoC1').value;
+  FUNDO_DRAFT.c2=document.getElementById('fundoC2').value;
+  FUNDO_DRAFT.ang=parseInt(document.getElementById('fundoAng').value,10);
+  fundoPreview();
+}
+function fundoPreview(){document.getElementById('fundoPreview').style.background=fundoCSS(FUNDO_DRAFT);}
+function fundoArquivo(inp){
+  var f=inp.files&&inp.files[0];inp.value='';
+  if(!f)return;
+  abrirCropper(f,{
+    aspects:[{label:'Paisagem (16:9)',ratio:16/9,outW:1280}],
+    maxChars:150000,
+    onDone:function(url){FUNDO_DRAFT.img=url;fundoPreview();}
+  });
+}
+function fundoSalvar(){
+  var d=FUNDO_DRAFT;
+  if(d.tipo==='imagem'&&!d.img){showFeedback('fbCfg','Escolha uma imagem para o fundo.',false);return;}
+  var envio={tipo:d.tipo};
+  if(d.tipo==='cor')envio.c1=d.c1;
+  if(d.tipo==='degrade'){envio.c1=d.c1;envio.c2=d.c2;envio.ang=d.ang;}
+  if(d.tipo==='imagem'){envio.img=d.img;envio.c1=d.c1;}
+  var btn=document.getElementById('btnFundoSalvar');btn.disabled=true;btn.textContent='Salvando...';
+  function liberar(){btn.disabled=false;btn.textContent='Salvar fundo';}
+  google.script.run
+    .withSuccessHandler(function(r){
+      liberar();
+      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      FUNDO_LOGIN=r.fundo;aplicarFundoLogin();
+      showFeedback('fbCfg','✔ Fundo da tela de login atualizado!',true);
+    })
+    .withFailureHandler(function(err){liberar();showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .salvarFundoLogin(envio,USUARIO.id);
+}
+
+</script>
