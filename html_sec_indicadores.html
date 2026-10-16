@@ -1,0 +1,80 @@
+  <div class="content" id="secIndicadores" style="display:none;">
+    <h2 style="color:var(--titulo);margin-bottom:18px;">📊 Indicadores de Atendimento</h2>
+    <div class="ind-filtros">
+      <div class="date-group">
+        <label>De:</label>
+        <input type="date" id="filtroIndDataDe"/>
+      </div>
+      <div class="date-group">
+        <label>Até:</label>
+        <input type="date" id="filtroIndDataAte"/>
+      </div>
+      <!-- Multi-select Mês -->
+      <div class="ms-container" id="msMesContainer">
+        <div class="ms-trigger" onclick="toggleMs('msMes')">
+          <span id="msMesLabel">Todos os meses</span><span>▾</span>
+        </div>
+        <div class="ms-dropdown" id="msMes">
+          <div class="ms-option" onclick="toggleMsAll('msMes',event)">
+            <input type="checkbox" id="msMes_all" checked onchange="syncMsAll('msMes',this)"/>
+            <label for="msMes_all" style="cursor:pointer;">Todos os meses</label>
+          </div>
+          <div class="ms-sep"></div>
+          <!-- populado via JS -->
+        </div>
+      </div>
+      <!-- Multi-select Atividade -->
+      <div class="ms-container" id="msAtivContainer">
+        <div class="ms-trigger" onclick="toggleMs('msAtiv')">
+          <span id="msAtivLabel">Todas as atividades</span><span>▾</span>
+        </div>
+        <div class="ms-dropdown" id="msAtiv">
+          <div class="ms-option" onclick="toggleMsAll('msAtiv',event)">
+            <input type="checkbox" id="msAtiv_all" checked onchange="syncMsAll('msAtiv',this)"/>
+            <label for="msAtiv_all" style="cursor:pointer;">Todas</label>
+          </div>
+          <div class="ms-sep"></div>
+          <div class="ms-option"><input type="checkbox" value="Presencial" checked onchange="syncMsLabel('msAtiv')"/> Presencial</div>
+          <div class="ms-option"><input type="checkbox" value="Ramal" checked onchange="syncMsLabel('msAtiv')"/> Ramal</div>
+          <div class="ms-option"><input type="checkbox" value="E-mail" checked onchange="syncMsLabel('msAtiv')"/> E-mail</div>
+          <div class="ms-option"><input type="checkbox" value="Conversa Atribuída" checked onchange="syncMsLabel('msAtiv')"/> Conversa Atribuída</div>
+          <div class="ms-option"><input type="checkbox" value="Conversa Fechada" checked onchange="syncMsLabel('msAtiv')"/> Conversa Fechada</div>
+          <div class="ms-option"><input type="checkbox" value="Ocorrência UNILEÃO" checked onchange="syncMsLabel('msAtiv')"/> Ocorrência UNILEÃO</div>
+          <div class="ms-option"><input type="checkbox" value="Anexo UNILEÃO" checked onchange="syncMsLabel('msAtiv')"/> Anexo UNILEÃO</div>
+          <div class="ms-option"><input type="checkbox" value="Ocorrência UNIVS" checked onchange="syncMsLabel('msAtiv')"/> Ocorrência UNIVS</div>
+          <div class="ms-option"><input type="checkbox" value="Anexo UNIVS" checked onchange="syncMsLabel('msAtiv')"/> Anexo UNIVS</div>
+          <div class="ms-option"><input type="checkbox" value="Call Center" checked onchange="syncMsLabel('msAtiv')"/> Call Center</div>
+        </div>
+      </div>
+      <!-- Multi-select Colaborador -->
+      <div class="ms-container" id="msColabContainer">
+        <div class="ms-trigger" onclick="toggleMs('msColab')">
+          <span id="msColabLabel">Todos os colaboradores</span><span>▾</span>
+        </div>
+        <div class="ms-dropdown" id="msColab">
+          <div class="ms-option" onclick="toggleMsAll('msColab',event)">
+            <input type="checkbox" id="msColab_all" checked onchange="syncMsAll('msColab',this)"/>
+            <label for="msColab_all" style="cursor:pointer;">Todos</label>
+          </div>
+          <div class="ms-sep"></div>
+          <!-- populado via JS -->
+        </div>
+      </div>
+      <button class="btn-filtrar" onclick="filtrarInd()">Filtrar</button>
+      <button class="btn-filtrar btn-sem" id="btnSemInd" onclick="indSemestre()" title="Total do semestre inteiro (ex.: 2026.2 = julho a dezembro)">📅 Semestre</button>
+      <button class="btn-filtrar" style="background:var(--cinza);" onclick="limparFiltrosInd()">Limpar</button>
+      <div class="dl-wrap">
+        <button class="btn-filtrar" style="background:var(--verde);" onclick="toggleDl(event)">⬇️ Baixar ▾</button>
+        <div class="dl-menu" id="dlMenu">
+          <button onclick="baixarExcel()">📗 Excel (.xlsx)<small>Tabela completa, com os filtros atuais</small></button>
+          <button onclick="baixarImagens()">🖼️ Imagens JPG<small>Um arquivo por dia (em .zip quando houver vários)</small></button>
+        </div>
+      </div>
+    </div>
+    <div class="feedback" id="fbIndDl" style="margin:0 0 12px;"></div>
+    <p class="cfg-hint" id="indModoInfo" style="display:none;margin:-6px 0 12px;"></p>
+    <div id="indAvisos" class="ind-avisos"></div>
+    <div class="ind-wrap">
+      <div id="indicadoresContainer"><p class="ind-msg">Carregando indicadores...</p></div>
+    </div>
+  </div>
