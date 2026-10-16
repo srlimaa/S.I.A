@@ -1,0 +1,22 @@
+<!-- MODAL EDITAR USUÁRIO -->
+<div class="modal-overlay" id="editUserOverlay" onclick="if(event.target===this)fecharEdicaoUsuario()">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px;">
+    <span class="modal-close" onclick="fecharEdicaoUsuario()">✕</span>
+    <h3>✏️ Editar Usuário</h3>
+    <div class="feedback" id="fbEditUser" style="margin:-6px 0 14px;"></div>
+    <div class="edit-form">
+      <input type="hidden" id="eu_id"/>
+      <div class="form-group"><label>Nome</label><input type="text" id="eu_nome"/></div>
+      <div class="form-group"><label>E-mail</label><input type="email" id="eu_email"/></div>
+      <div class="form-group"><label>Perfil</label>
+        <select id="eu_perfil" style="width:100%;padding:10px 14px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;background:var(--white);">
+          <option value="Atend">Atend</option>
+          <option value="Admin">Admin</option>
+        </select></div>
+      <div class="form-group"><label>Nova senha</label>
+        <input type="password" id="eu_senha" placeholder="Deixe em branco para manter a atual" autocomplete="new-password"/>
+        <div class="dica">Preencha somente se quiser trocar a senha.</div></div>
+      <button class="btn-salvar-edit" id="btnSalvarEdit" onclick="salvarEdicaoUsuario()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
