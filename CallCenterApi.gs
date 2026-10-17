@@ -38,10 +38,11 @@ const CC_API = {
         alunos.push(al);
       }
       const resp = {};
+      const regs = ccRegs_(sem), info = ccUsuariosInfo_(regs.map(r => r.colab));
       ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === String(sem)).forEach(x => resp[x.CPF] = x.Email);
       return {
-        sem: sem, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, alunos: alunos, light: u.Perfil === 'Admin' ? light : [], regs: ccRegs_(sem), resp: resp,
-        usuarios: ccTab_('USUARIOS').map(x => ({ email: x.Email, nome: x.Nome, foto: x.Foto }))
+        sem: sem, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, alunos: alunos, light: u.Perfil === 'Admin' ? light : [], regs: regs, resp: resp,
+        usuarios: info.usuarios, extras: info.extras
       };
     }
   },
@@ -67,7 +68,7 @@ const CC_API = {
       const email = String(a.email || '').trim();
       const sem = String(a.sem || '').trim();
       if (!sem) throw new Error('Semestre não informado.');
-      if (email && !ccTab_('USUARIOS').some(x => String(x.Email) === email)) throw new Error('Responsável inválido.');
+      if (email && !ccUsuariosInfo_([]).usuarios.some(x => x.email === email.toLowerCase())) throw new Error('Responsável inválido.');
       const alvo = {}; cpfs.forEach(c => alvo[c] = 1);
       const l = LockService.getScriptLock(); l.waitLock(30000);
       try {
@@ -97,7 +98,7 @@ const CC_API = {
         if (a.id) {
           const r = ccTab_('REGISTROS', ssR).find(x => x.Id === a.id);
           if (!r) throw new Error('Registro não encontrado.');
-          if (r.ColabEmail !== u.Email && u.Perfil !== 'Admin') throw new Error('Só quem registrou (ou Admin) pode editar.');
+          if (String(r.ColabEmail).toLowerCase() !== u.Email && u.Perfil !== 'Admin') throw new Error('Só quem registrou (ou Admin) pode editar.');
           ccUpd_('REGISTROS', r._row, { Objetivo: a.objetivo, Meio: a.meio, Resultado: a.resultado, Observacao: a.obs || '', EditadoEm: agora }, ssR);
         } else {
           ccAdd_('REGISTROS', { Id: Utilities.getUuid(), Semestre: a.sem, CPF: a.cpf, Aluno: a.aluno, DataHora: agora, Objetivo: a.objetivo, Meio: a.meio, Resultado: a.resultado, Observacao: a.obs || '', ColabEmail: u.Email, ColabNome: u.Nome, Status: a.status }, ssR);
@@ -129,7 +130,6 @@ const CC_API = {
 
   setSem: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Semestre: a.sem }); return true; } },
   setTema: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Tema: a.tema }); return true; } },
-  setFoto: { f: (u, a) => { if (String(a.foto).length > 45000) throw new Error('Imagem muito grande.'); ccUpd_('USUARIOS', u._row, { Foto: a.foto }); return true; } },
   opcAdd: { admin: 1, f: (u, a) => { if (!a.valor) throw new Error('Informe o texto.'); ccAdd_('OPCOES', { Tipo: a.tipo, Valor: a.valor }); return ccOpc_(); } },
   opcDel: { admin: 1, f: (u, a) => { const r = ccTab_('OPCOES').find(x => x.Tipo === a.tipo && x.Valor === a.valor); if (r) ccDel_('OPCOES', r._row); return ccOpc_(); } },
 
@@ -140,37 +140,6 @@ const CC_API = {
       const r = ccTab_('CONFIG').find(x => x.Chave === a.chave);
       if (r) ccUpd_('CONFIG', r._row, { Valor: a.valor }); else ccAdd_('CONFIG', { Chave: a.chave, Valor: a.valor });
       return ccCfg_();
-    }
-  },
-
-  usersList: { admin: 1, f: () => ccTab_('USUARIOS').map(x => ({ email: x.Email, nome: x.Nome, perfil: x.Perfil })) },
-  userSave: {
-    admin: 1, f: (u, a) => {
-      const email = String(a.email || '').trim().toLowerCase();
-      if (!email || !a.nome) throw new Error('Informe nome e e-mail.');
-      if (['Admin', 'Colab'].indexOf(a.perfil) < 0) throw new Error('Perfil inválido.');
-      const us = ccTab_('USUARIOS');
-      const old = a.old ? us.find(x => String(x.Email).toLowerCase() === String(a.old).toLowerCase()) : null;
-      if (us.some(x => String(x.Email).toLowerCase() === email && (!old || x._row !== old._row))) throw new Error('E-mail já cadastrado.');
-      if (old) {
-        if (old.Perfil === 'Admin' && a.perfil !== 'Admin' && us.filter(x => x.Perfil === 'Admin').length < 2) throw new Error('Precisa existir ao menos um Admin.');
-        const o = { Email: email, Nome: a.nome, Perfil: a.perfil };
-        if (a.senha) o.Senha = ccHashNew_(a.senha);
-        ccUpd_('USUARIOS', old._row, o);
-      } else {
-        if (!a.senha) throw new Error('Informe a senha.');
-        ccAdd_('USUARIOS', { Email: email, Nome: a.nome, Senha: ccHashNew_(a.senha), Perfil: a.perfil, Tema: 'Padrão' });
-      }
-      return CC_API.usersList.f();
-    }
-  },
-  userDel: {
-    admin: 1, f: (u, a) => {
-      const us = ccTab_('USUARIOS'), r = us.find(x => x.Email === a.email);
-      if (!r) return CC_API.usersList.f();
-      if (r.Email === u.Email) throw new Error('Você não pode excluir seu próprio usuário.');
-      if (r.Perfil === 'Admin' && us.filter(x => x.Perfil === 'Admin').length < 2) throw new Error('Precisa existir ao menos um Admin.');
-      ccDel_('USUARIOS', r._row); return CC_API.usersList.f();
     }
   },
 
@@ -209,7 +178,7 @@ const CC_API = {
 function ccApi(token, fn, a) {
   const email = CacheService.getScriptCache().get('s_' + token);
   if (!email) return { err: 'SESSAO' };
-  const u = ccTab_('USUARIOS').find(x => x.Email === email);
+  const u = ccUser_(email);                        // usuário do Atendimentos com acesso liberado ao Call Center
   if (!u) return { err: 'SESSAO' };
   const h = CC_API[fn];
   if (!h) return { err: 'Função inválida.' };
