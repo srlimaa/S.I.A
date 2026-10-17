@@ -42,7 +42,6 @@ function ccEnsure_() {
     sh.getRange(1, 1, 1, CC_HEAD[n].length).setValues([CC_HEAD[n]]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange(2, 1, sh.getMaxRows() - 1, CC_HEAD[n].length).setNumberFormat('@');
-    if (n === 'USUARIOS') sh.appendRow(['admin@admin.com', 'Administrador', ccHashNew_('admin123'), 'Admin', '', 'Padrão', '']);
     if (n === 'CONFIG') { sh.appendRow(['nomeLogin', 'Call Center']); sh.appendRow(['nomeSistema', 'Call Center - Aditamentos']); sh.appendRow(['logo', '']); }
     if (n === 'SEMESTRES') ccAdd_('SEMESTRES', { Semestre: '2026.2' });
     if (n === 'OPCOES') {
@@ -98,13 +97,12 @@ function ccCheck_(s, stored) { const p = String(stored).split('$'); return p.len
 function ccGetPublic() { ccEnsure_(); const c = ccCfg_(); return { nomeLogin: c.nomeLogin, logo: c.logo }; }
 
 function ccApiLogin(email, senha) {
-  ccEnsure_();
-  email = String(email || '').trim().toLowerCase();
-  const u = ccTab_('USUARIOS').find(x => String(x.Email).toLowerCase() === email);
-  if (!u || !ccCheck_(senha, u.Senha)) return { err: 'E-mail ou senha inválidos.' };
-  const t = Utilities.getUuid();
-  CacheService.getScriptCache().put('s_' + t, u.Email, 21600);
-  return { ok: { token: t } };
+  // login único: o usuário é o do sistema de Atendimentos; precisa ter acesso liberado ao Call Center
+  const r = login(email, senha);
+  if (!r || !r.success) return { err: 'E-mail ou senha inválidos.' };
+  const c = ccLoginInterno_(r.email);
+  if (!c) return { err: 'Seu usuário não tem acesso ao Call Center. Peça a um Admin para liberar.' };
+  return { ok: { token: c.token } };
 }
 
 function ccApiLogout(t) { CacheService.getScriptCache().remove('s_' + t); }
@@ -116,6 +114,87 @@ function ccOpc_() { const o = { Objetivo: [], Meio: [], Resultado: [] }; ccTab_(
 function ccPub_(u) { return { email: u.Email, nome: u.Nome, perfil: u.Perfil, foto: u.Foto, tema: u.Tema || 'Padrão', semestre: ccSemU_(u) }; }
 
 function ccSemU_(u) { const s = ccTab_('SEMESTRES').map(x => String(x.Semestre)); return s.indexOf(String(u.Semestre)) >= 0 ? String(u.Semestre) : s[s.length - 1]; }
+
+/* ---------- usuários unificados ----------
+   Os usuários são os do sistema de Atendimentos (aba "Usuarios" da planilha mestre). A coluna H dessa aba ("CallCenter",
+   Sim/Não) libera o acesso. Nome, perfil (Admin/Colab) e foto vêm de lá. A aba USUARIOS da planilha do Call Center
+   guarda só as preferências de cada pessoa (Tema e Semestre) e é preenchida sozinha no primeiro acesso. */
+function ccFlagAcesso_(flag, temPrefs) {
+  var f = String(flag == null ? '' : flag).trim().toLowerCase();
+  if (f === 'sim' || f === 's' || f === 'true') return true;
+  if (f === 'nao' || f === 'não' || f === 'n' || f === 'false') return false;
+  return !!temPrefs;      // coluna em branco: quem já usava o Call Center continua com acesso
+}
+
+// Usuários do sistema de Atendimentos
+function ccAtend_() {
+  var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var email = String(data[i][2] == null ? '' : data[i][2]).trim();
+    if (!email) continue;
+    out.push({ id: String(data[i][0]), nome: String(data[i][1] == null ? '' : data[i][1]).trim(), email: email,
+               perfil: String(data[i][4] == null ? '' : data[i][4]).trim(),
+               avatar: { tipo: String(data[i][5] || '').trim(), valor: String(data[i][6] || '') }, flag: data[i][7] });
+  }
+  return out;
+}
+
+// Foto no formato da tela do Call Center: 'emoji:X' ou imagem (data URL)
+function ccFoto_(av) {
+  if (av && av.tipo === 'emoji' && av.valor) return 'emoji:' + av.valor;
+  if (av && av.tipo === 'imagem' && av.valor) return av.valor;
+  return '';
+}
+
+function ccPrefsEmails_() {
+  try { var o = {}; ccTab_('USUARIOS').forEach(function(x) { o[String(x.Email).toLowerCase()] = 1; }); return o; }
+  catch (e) { return {}; }
+}
+
+function ccNomesPorEmail_() {
+  var o = {};
+  try { ccAtend_().forEach(function(a) { o[a.email.toLowerCase()] = a.nome; }); } catch (e) {}
+  return o;
+}
+
+// Usuário do Call Center = usuário do Atendimentos com acesso liberado (null se não existe ou não tem acesso)
+function ccUser_(email) {
+  var em = String(email || '').trim().toLowerCase();
+  if (!em) return null;
+  var a = ccAtend_().find(function(x) { return x.email.toLowerCase() === em; });
+  if (!a) return null;
+  var find = function() { return ccTab_('USUARIOS').find(function(x) { return String(x.Email).toLowerCase() === em; }); };
+  var p = find();
+  if (!ccFlagAcesso_(a.flag, !!p)) return null;
+  var perfil = a.perfil === 'Admin' ? 'Admin' : 'Colab';
+  if (!p) { ccAdd_('USUARIOS', { Email: em, Nome: a.nome, Perfil: perfil, Tema: 'Padrão' }); p = find(); }
+  return { Email: em, Nome: a.nome, Perfil: perfil, Foto: ccFoto_(a.avatar), Tema: p.Tema || 'Padrão', Semestre: p.Semestre || '', _row: p._row, _p: p };
+}
+
+// Lista de usuários com acesso (para responsáveis e cartões) + nomes/fotos de quem aparece nos registros mas não tem mais acesso
+function ccUsuariosInfo_(emails) {
+  var atend = ccAtend_(), tem = ccPrefsEmails_(), usuarios = [], vistos = {}, mapa = {};
+  atend.forEach(function(a) {
+    var em = a.email.toLowerCase();
+    mapa[em] = a;
+    if (!ccFlagAcesso_(a.flag, tem[em])) return;
+    vistos[em] = 1;
+    usuarios.push({ email: em, nome: a.nome, foto: ccFoto_(a.avatar), perfil: a.perfil === 'Admin' ? 'Admin' : 'Colab' });
+  });
+  usuarios.sort(function(x, y) { return x.nome.localeCompare(y.nome, 'pt', { sensitivity: 'base' }); });
+  var extras = [], prefs = null;
+  (emails || []).forEach(function(e) {
+    var em = String(e || '').trim().toLowerCase();
+    if (!em || vistos[em]) return;
+    vistos[em] = 1;
+    if (mapa[em]) { extras.push({ email: em, nome: mapa[em].nome, foto: ccFoto_(mapa[em].avatar) }); return; }
+    if (prefs === null) { try { prefs = ccTab_('USUARIOS'); } catch (x) { prefs = []; } }
+    var p = prefs.find(function(q) { return String(q.Email).toLowerCase() === em; });
+    if (p) extras.push({ email: em, nome: String(p.Nome || em), foto: String(p.Foto || '') });
+  });
+  return { usuarios: usuarios, extras: extras };
+}
 
 /* ---------- planilha de registros de cada semestre ----------
    Cada semestre pode ter a sua própria planilha para as abas REGISTROS e RESPONSAVEIS
@@ -154,9 +233,10 @@ function ccGarantirColunaSem_() {
 }
 
 function ccRegs_(sem) {
+  const nomes = ccNomesPorEmail_();       // nome atual do colaborador (cadastro de usuários do Atendimentos)
   return ccTab_('REGISTROS', ccSsReg_(sem)).filter(r => String(r.Semestre) === String(sem)).map(r => ({
     id: r.Id, cpf: r.CPF, aluno: r.Aluno, data: String(r.DataHora), objetivo: r.Objetivo, meio: r.Meio, resultado: r.Resultado,
-    obs: r.Observacao, colab: r.ColabEmail, colabNome: r.ColabNome, status: r.Status, editado: r.EditadoEm
+    obs: r.Observacao, colab: String(r.ColabEmail || '').toLowerCase(), colabNome: nomes[String(r.ColabEmail || '').toLowerCase()] || r.ColabNome, status: r.Status, editado: r.EditadoEm
   }));
 }
 
@@ -184,17 +264,19 @@ function ccTemAbas_() {
   return Object.keys(CC_HEAD).every(function(n) { return !!ss.getSheetByName(n); });
 }
 
-function ccLoginInterno_(email, senha) {
+function ccLoginInterno_(email) {
   if (!ccTemAbas_()) ccEnsure_();
-  var em = String(email || '').trim().toLowerCase();
-  var u = ccTab_('USUARIOS').find(function(x) { return String(x.Email).toLowerCase() === em; });
-  if (!u || !ccCheck_(senha, u.Senha)) return null;
+  var u = ccUser_(email);
+  if (!u) return null;                                  // sem cadastro ou sem acesso liberado ao Call Center
+  var p = u._p || {};
+  if (String(p.Nome || '') !== u.Nome || String(p.Perfil || '') !== u.Perfil || String(p.Email || '') !== u.Email)
+    ccUpd_('USUARIOS', u._row, { Email: u.Email, Nome: u.Nome, Perfil: u.Perfil });   // só para ficar legível na planilha
   var t = Utilities.getUuid();
   CacheService.getScriptCache().put('s_' + t, u.Email, 21600);
   var c = ccCfg_();
   var logo = String(c.logo || '');
   return {
-    token: t, nome: String(u.Nome || ''), perfil: String(u.Perfil || ''), email: String(u.Email || ''),
+    token: t, nome: u.Nome, perfil: u.Perfil, email: u.Email,
     nomeSistema: String(c.nomeSistema || 'Call Center - Aditamentos'),
     logo: /^data:image\//.test(logo) ? logo : '',
     sems: ccTab_('SEMESTRES').map(function(s) { return String(s.Semestre); }),
@@ -208,7 +290,7 @@ function ccAbrirPeriodo(token, periodo) {
     var email = CacheService.getScriptCache().get('s_' + token);
     var sessao = { success: false, sessao: true, message: 'Sua sessão no Call Center expirou. Entre novamente.' };
     if (!email) return sessao;
-    var u = ccTab_('USUARIOS').find(function(x) { return x.Email === email; });
+    var u = ccUser_(email);
     if (!u) return sessao;
     var p = String(periodo == null ? '' : periodo).trim();
     var sems = ccTab_('SEMESTRES').map(function(s) { return String(s.Semestre); });
@@ -253,11 +335,11 @@ function lerRegistrosCallCenter_(periodo, ctx) {
   var ultima = sh.getLastRow();
   if (ultima < 2) return;
   var vals = sh.getRange(2, 1, ultima - 1, 11).getValues();          // A..K
-  var alvo = String(periodo || '').trim(), tz = ccTz_(), semData = 0;
+  var alvo = String(periodo || '').trim(), tz = ccTz_(), semData = 0, nomes = ccNomesPorEmail_();
   for (var i = 0; i < vals.length; i++) {
     var r = vals[i];
     if (formatPeriodo_(r[1]) !== alvo) continue;                      // só o período selecionado
-    var nome = String(r[10] == null ? '' : r[10]).trim();
+    var nome = String(nomes[String(r[9] || '').trim().toLowerCase()] || (r[10] == null ? '' : r[10])).trim();   // nome atual pelo e-mail
     if (!nome) continue;
     var d = dataBR_(r[4], tz);
     if (!d) { semData++; continue; }
