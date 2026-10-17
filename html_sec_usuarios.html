@@ -23,17 +23,25 @@
             <option value="Admin">Admin</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Acesso ao Call Center</label>
+          <select id="u_cc">
+            <option value="nao">Não</option>
+            <option value="sim">Sim</option>
+          </select>
+        </div>
       </div>
       <button class="btn-criar-user" onclick="criarUsuario()">+ Cadastrar Usuário</button>
       <div class="feedback" id="fbUsuario"></div>
     </div>
+    <div id="usuariosAvisoCC" class="ind-avisos" style="margin-bottom:14px;"></div>
     <div class="user-table-wrap">
       <table class="user-table">
         <thead>
-          <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ação</th></tr>
+          <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Call Center</th><th>Ação</th></tr>
         </thead>
         <tbody id="usuariosBody">
-          <tr><td colspan="4" style="color:var(--cinza);">Carregando...</td></tr>
+          <tr><td colspan="5" style="color:var(--cinza);">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
