@@ -12,7 +12,7 @@ function login(email, senha) {
       if (String(data[i][2]).trim() === String(email).trim() &&
           String(data[i][3]).trim() === String(senha).trim()) {
         return { success: true, nome: data[i][1],
-                 perfil: data[i][4], id: String(data[i][0]),
+                 perfil: data[i][4], id: String(data[i][0]), email: String(data[i][2]).trim(),
                  avatar: { tipo: String(data[i][5] || '').trim(), valor: String(data[i][6] || '') } };
       }
     }
@@ -39,7 +39,8 @@ function usuarioPorId_(userId) {
   return null;
 }
 
-// Login único: confere o e-mail/senha nas duas bases. Cada sistema só é liberado onde a senha confere.
+// Login único: valida e-mail/senha no cadastro de usuários do sistema de Atendimentos (aba "Usuarios").
+// O acesso ao Call Center é liberado por usuário (coluna "CallCenter" = Sim/Não) e usa o mesmo nome, perfil e foto.
 function loginUnificado(email, senha) {
   email = String(email == null ? '' : email).trim();
   senha = String(senha == null ? '' : senha).trim();
@@ -47,9 +48,9 @@ function loginUnificado(email, senha) {
   try {
     var r = login(email, senha);
     if (r && r.success) reg = r; else if (r && r.message) msg = r.message;
-  } catch(e) { msg = 'Falha ao consultar o sistema de registro: ' + e.message; }
-  try { cc = ccLoginInterno_(email, senha); }
+  } catch(e) { msg = 'Falha ao consultar o cadastro de usuários: ' + e.message; }
+  if (!reg) return { success: false, message: msg || 'E-mail ou senha incorretos.' };
+  try { cc = ccLoginInterno_(reg.email); }          // null = sem acesso ao Call Center
   catch(e2) { ccErro = e2.message; }
-  if (!reg && !cc) return { success: false, message: msg || 'E-mail ou senha incorretos.' };
   return { success: true, registro: reg, cc: cc, ccErro: ccErro };
 }
