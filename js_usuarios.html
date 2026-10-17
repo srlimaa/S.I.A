@@ -2,16 +2,18 @@
 /* ══════════ USUÁRIOS ══════════ */
 var USUARIOS_LISTA=[];
 function carregarUsuarios(){
+  carregarAvisoCC();
   google.script.run
     .withSuccessHandler(function(lista){
       var tbody=document.getElementById('usuariosBody');
       USUARIOS_LISTA=lista||[];
       if(!lista||lista.length===0){
-        tbody.innerHTML='<tr><td colspan="4" style="color:var(--cinza);">Nenhum usuário cadastrado.</td></tr>';return;
+        tbody.innerHTML='<tr><td colspan="5" style="color:var(--cinza);">Nenhum usuário cadastrado.</td></tr>';return;
       }
       tbody.innerHTML=lista.map(function(u){
         return '<tr><td>'+u.nome+'</td><td>'+u.email+'</td>'+
           '<td><span class="badge-'+u.perfil.toLowerCase()+'">'+u.perfil+'</span></td>'+
+          '<td><span class="badge-atend" style="background:'+(u.cc?'#16a34a':'#94a3b8')+'">'+(u.cc?'Sim':'Não')+'</span></td>'+
           '<td><button class="btn-editar" onclick="abrirEdicaoUsuario(\''+u.id+'\')">Editar</button>'+
           '<button class="btn-excluir" onclick="excluirUsuario(\''+u.id+'\')">Excluir</button></td></tr>';
       }).join('');
@@ -24,6 +26,7 @@ function abrirEdicaoUsuario(id){
   document.getElementById('eu_nome').value=u.nome;
   document.getElementById('eu_email').value=u.email;
   document.getElementById('eu_perfil').value=u.perfil;
+  document.getElementById('eu_cc').value=u.cc?'sim':'nao';
   document.getElementById('eu_senha').value='';
   document.getElementById('fbEditUser').style.display='none';
   document.getElementById('editUserOverlay').classList.add('open');
@@ -60,7 +63,7 @@ function salvarEdicaoUsuario(){
       }else showFeedback('fbEditUser','Erro: '+r.message,false);
     })
     .withFailureHandler(function(err){liberar();showFeedback('fbEditUser','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
-    .editarUsuario(id,nome,email,senha,perfil,USUARIO.id);
+    .editarUsuario(id,nome,email,senha,perfil,USUARIO.id,document.getElementById('eu_cc').value);
 }
 function criarUsuario(){
   var nome=document.getElementById('u_nome').value.trim();
@@ -71,9 +74,9 @@ function criarUsuario(){
   google.script.run
     .withSuccessHandler(function(r){
       if(r.success){showFeedback('fbUsuario','✔ Usuário criado com sucesso!',true);
-        limparForm(['u_nome','u_email','u_senha']);carregarUsuarios();
+        limparForm(['u_nome','u_email','u_senha']);document.getElementById('u_cc').value='nao';carregarUsuarios();
       }else showFeedback('fbUsuario','Erro: '+r.message,false);
-    }).criarUsuario(nome,email,senha,perfil);
+    }).criarUsuario(nome,email,senha,perfil,document.getElementById('u_cc').value);
 }
 function excluirUsuario(id){
   if(!confirm('Confirmar exclusão do usuário?'))return;
@@ -82,4 +85,15 @@ function excluirUsuario(id){
     .excluirUsuario(id);
 }
 
+/* Usuários que só existiam na planilha do Call Center (cadastro antigo): precisam ser criados aqui */
+function carregarAvisoCC(){
+  var box=document.getElementById('usuariosAvisoCC');box.style.display='none';
+  google.script.run.withSuccessHandler(function(l){
+    if(!l||!l.length)return;
+    box.innerHTML='⚠️ Estas pessoas estão cadastradas só no Call Center e não conseguem mais entrar: '+
+      l.map(function(u){return escHtml(u.nome||u.email)+' ('+escHtml(u.email)+')';}).join(', ')+
+      '. Cadastre-as acima (com o mesmo e-mail) e marque "Acesso ao Call Center: Sim".';
+    box.style.display='block';
+  }).getUsuariosSoCallCenter(USUARIO.id);
+}
 </script>
