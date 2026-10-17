@@ -49,16 +49,41 @@ function getUsuarios() {
     var sheet = ss.getSheetByName('Usuarios');
     var data = sheet.getDataRange().getValues();
     var usuarios = [];
+    var tem = ccPrefsEmails_();          // quem já usava o Call Center (coluna em branco = mantém o acesso)
     for (var i = 1; i < data.length; i++) {
       if (data[i][0] !== '')
         usuarios.push({ id: String(data[i][0]), nome: data[i][1],
-                        email: data[i][2], perfil: data[i][4] });
+                        email: data[i][2], perfil: data[i][4],
+                        cc: ccFlagAcesso_(data[i][7], tem[String(data[i][2]).trim().toLowerCase()]) });
     }
     return usuarios;
   } catch(e) { return []; }
 }
 
-function criarUsuario(nome, email, senha, perfil) {
+// Coluna H da aba "Usuarios": CallCenter (Sim/Não) — libera o acesso ao sistema do Call Center
+function ccFlagTexto_(v) {
+  var s = String(v == null ? '' : v).trim().toLowerCase();
+  return (v === true || s === 'sim' || s === 's' || s === 'true' || s === '1') ? 'Sim' : 'Não';
+}
+
+function garantirColunaCC_(sheet) {
+  if (sheet.getMaxColumns() < 8) sheet.insertColumnsAfter(sheet.getMaxColumns(), 8 - sheet.getMaxColumns());
+  if (!String(sheet.getRange(1, 8).getValue()).trim()) sheet.getRange(1, 8).setValue('CallCenter');
+}
+
+// Usuários que existem só na planilha do Call Center (cadastro antigo) e ainda não foram criados aqui — só Admin
+function getUsuariosSoCallCenter(adminId) {
+  try {
+    if (!ehAdmin_(adminId)) return [];
+    var tem = {};
+    ccAtend_().forEach(function(a) { tem[a.email.toLowerCase()] = 1; });
+    return ccTab_('USUARIOS')
+      .filter(function(x) { return String(x.Email || '').trim() && !tem[String(x.Email).trim().toLowerCase()]; })
+      .map(function(x) { return { nome: String(x.Nome || ''), email: String(x.Email) }; });
+  } catch(e) { return []; }
+}
+
+function criarUsuario(nome, email, senha, perfil, cc) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Usuarios');
@@ -67,12 +92,13 @@ function criarUsuario(nome, email, senha, perfil) {
       if (String(data[i][2]).trim() === String(email).trim())
         return { success: false, message: 'Este e-mail já está cadastrado.' };
     }
-    sheet.appendRow([new Date().getTime().toString(), nome, email, senha, perfil]);
+    garantirColunaCC_(sheet);
+    sheet.appendRow([new Date().getTime().toString(), nome, email, senha, perfil, '', '', ccFlagTexto_(cc)]);
     return { success: true };
   } catch(e) { return { success: false, message: e.message }; }
 }
 
-function editarUsuario(id, nome, email, senha, perfil, adminId) {
+function editarUsuario(id, nome, email, senha, perfil, adminId, cc) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode editar usuários.' };
     nome  = String(nome  || '').trim();
@@ -106,12 +132,16 @@ function editarUsuario(id, nome, email, senha, perfil, adminId) {
     sheet.getRange(linha + 1, 3).setValue(email);
     sheet.getRange(linha + 1, 5).setValue(perfil);
     if (senha) sheet.getRange(linha + 1, 4).setNumberFormat('@').setValue(senha);   // texto: preserva zeros à esquerda
+    if (cc !== undefined && cc !== null && cc !== '') {                              // libera/retira o acesso ao Call Center
+      garantirColunaCC_(sheet);
+      sheet.getRange(linha + 1, 8).setValue(ccFlagTexto_(cc));
+    }
 
     // Se o nome mudou, acompanha o nome nos registros já salvos (todos os períodos)
     var renomeados = 0;
     if (nomeAntigo && nomeAntigo !== nome) renomeados = renomearColaborador_(nomeAntigo, nome);
 
-    return { success: true, nome: nome, email: email, perfil: perfil, renomeados: renomeados };
+    return { success: true, nome: nome, email: email, perfil: perfil, renomeados: renomeados, cc: ccFlagTexto_(cc) === 'Sim' };
   } catch(e) { return { success: false, message: e.message }; }
 }
 
