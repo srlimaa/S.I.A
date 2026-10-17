@@ -38,7 +38,7 @@ function mostrarSistemas(){
   var logo=cc&&CC_SESSAO.logo&&/^data:image\//.test(CC_SESSAO.logo)?'<img src="'+escHtml(CC_SESSAO.logo)+'" alt=""/>':'📞';
   document.getElementById('sisCCLogo').innerHTML=logo;
   document.getElementById('sisCCNome').textContent=(cc&&CC_SESSAO.nomeSistema)||'Call Center - Aditamentos';
-  document.getElementById('sisCCNota').textContent=cc?'Call Center de aditamentos':'Não reconhecido neste sistema (e-mail ou senha diferentes da base dele).';
+  document.getElementById('sisCCNota').textContent=cc?'Call Center de aditamentos':'Seu usuário não tem acesso ao Call Center. Peça a um Admin para liberar.';
 }
 function escolherSistema(s){
   if((s==='registro'&&!USUARIO)||(s==='cc'&&!CC_SESSAO))return;
