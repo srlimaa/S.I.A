@@ -6,8 +6,8 @@ var SPREADSHEET_ID = '18EeUvCq5RFdqynYoK3rtRsdFgQh3lUAaafdHrKiuE7I';
 var PERIODO_INICIAL = '2026.2';
 
 // Número da versão exibido no rodapé das Configurações. Suba +1 a cada atualização.
-// Versão 76 - 2026-10-17 - Call Center: painel (Admin) para atribuir responsáveis em lote por filtro, curso, status ou quantidade.
-var VERSAO_SISTEMA = '76';
+// Versão 77 - 2026-10-17 - Call Center: atribuição em lote agrupada por curso/turno/status, com escolha dos grupos e do responsável de cada um.
+var VERSAO_SISTEMA = '77';
 
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
