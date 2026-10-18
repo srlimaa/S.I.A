@@ -8,6 +8,21 @@
       <span class="oc-cont" id="ocCont"></span>
       <button type="button" class="btn-outline" onclick="ocCarregar()">↻ Atualizar</button>
     </div>
+    <div class="oc-barra">
+      <label>Responsável
+        <select id="ocFiltroResp" onchange="ocRender()">
+          <option value="todos">Todos</option>
+          <option value="livres">Sem responsável</option>
+          <option value="meus">Meus alunos</option>
+          <option value="outros">De outros colaboradores</option>
+        </select>
+      </label>
+      <button type="button" class="btn-outline" id="btnOcAssumirSel" onclick="ocAssumirSel()">👤 Assumir selecionados (0)</button>
+      <button type="button" class="btn-outline" id="btnOcLiberarSel" onclick="ocLiberarSel()">↩ Liberar selecionados</button>
+      <label>ou assumir os próximos
+        <input type="number" id="ocN" min="1" max="200" value="10"/> livres</label>
+      <button type="button" class="btn-outline" onclick="ocAssumirN()">Assumir</button>
+    </div>
     <div class="feedback" id="fbOcLista" style="margin:0 0 10px;"></div>
     <div class="oc-tabela" id="ocTabela"></div>
   </div>
