@@ -35,10 +35,10 @@ function carregarAvatares(){
 
 /* ── Janela de configurações ── */
 var CFG_ABAS={user:['tabCfgUser','cfgPaneEmoji'],pref:['tabCfgPref','cfgPanePref'],periodos:['tabCfgPeriodos','cfgPanePeriodos'],
-  planilhas:['tabCfgPlanilhas','cfgPanePlanilhas'],sistema:['tabCfgSis','cfgPaneEmoji'],nome:['tabCfgNome','cfgPaneNome'],nomelogin:['tabCfgNomeLogin','cfgPaneNomeLogin'],
+  planilhas:['tabCfgPlanilhas','cfgPanePlanilhas'],nome:['tabCfgNome','cfgPaneNome'],nomelogin:['tabCfgNomeLogin','cfgPaneNomeLogin'],
   login:['tabCfgLogin','cfgPaneLogin'],virtual:['tabCfgVirtual','cfgPaneVirtual'],assunto:['tabCfgAssunto','cfgPaneAssunto'],
   semestre:['tabCfgSemestre','cfgPaneSemestre']};
-var CFG_ABAS_ADMIN=['periodos','planilhas','sistema','nome','nomelogin','login','virtual','assunto','semestre'];
+var CFG_ABAS_ADMIN=['periodos','planilhas','nome','nomelogin','login','virtual','assunto','semestre'];
 function abrirConfig(){
   var adm=USUARIO.perfil==='Admin';
   CFG_ABAS_ADMIN.forEach(function(k){document.getElementById(CFG_ABAS[k][0]).style.display=adm?'':'none';});
