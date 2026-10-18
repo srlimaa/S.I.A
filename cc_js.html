@@ -72,22 +72,24 @@ function renderCC(){
   var A=D.alunos,cursos=Object.keys(cnt(A,function(a){return a.curso})).sort(),colabs=Object.keys(cnt(D.regs,function(r){return r.colab}));
   $('v-cc').innerHTML='<div class="kpi-row">'+kpi('total','📋','kT','Total de alunos no<br>Call Center')+kpi('nao','⏳','kN','Solicitado /<br>Não aditou')+kpi('enviado','🏦','kE','Solicitado /<br>Enviado ao banco')+kpi('registros','📝','kR','Total de registros<br>realizados')+'</div>'+
   '<div class="filters-row"><div class="filter-group" style="min-width:220px"><label>Pesquisar aluno</label><input type="text" id="fQ" placeholder="🔍 Digite o nome do aluno..."></div><div class="filter-group"><label>Status</label><div id="fS"></div></div><div class="filter-group"><label>Curso</label><div id="fC"></div></div><div class="filter-group"><label>Responsável</label><div id="fR"></div></div><div class="filter-group"><label>Colaborador</label><div id="fB"></div></div><div class="filter-group"><label>Banco — data de início</label><div id="fBI"></div></div><div class="filter-group"><label>Banco — data final</label><div id="fBF"></div></div><button class="btn-clear" id="fX">✕ Limpar</button></div>'+
-  '<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th>Status</th><th>Aluno</th><th>Curso / Turno</th><th>Comparecimento ao Banco</th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
+  (ADMIN?atrHtml():'')+'<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th>Status</th><th>Aluno</th><th>Curso / Turno</th><th>Comparecimento ao Banco</th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
   msMake('fS',CC.map(vt),linhas);msMake('fC',cursos.map(vt),linhas);
   msMake('fR',[{v:'-',t:'Sem responsável'}].concat(D.usuarios.map(function(x){return {v:x.email,t:x.nome}})),linhas);
   msMake('fB',colabs.map(function(e){return {v:e,t:D.umap[e]||e}}),linhas);
   msMake('fBI',bancoOpts('ini'),linhas);msMake('fBF',bancoOpts('fim'),linhas);
   $('fQ').oninput=linhas;
-  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fBI','fBF'],['fQ'],linhas)};kpisCC();linhas()}
+  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fBI','fBF'],['fQ'],linhas)};if(ADMIN)atrIniciar();kpisCC();linhas()}
 function kpisCC(){var A=D.alunos;$('kT').textContent=A.length;$('kN').textContent=A.filter(function(a){return a.status===CC[0]}).length;$('kE').textContent=A.filter(function(a){return a.status===CC[1]}).length;$('kR').textContent=D.regs.length}
-function linhas(){
+function filtrados(){
   var s=msv('fS'),c=msv('fC'),r=msv('fR'),b=msv('fB'),bs=bancoSet(msv('fBI'),msv('fBF')),q=nrm($('fQ').value.trim()),qd=q.replace(/\D/g,'');
-  var L=D.alunos.filter(function(a){
+  return D.alunos.filter(function(a){
     if(q&&nrm(a.nome).indexOf(q)<0&&!(qd&&a.cpf.indexOf(qd)>=0))return false;
     if(s.length&&s.indexOf(a.status)<0)return false;if(c.length&&c.indexOf(a.curso)<0)return false;
     if(r.length&&!r.some(function(x){return x==='-'?!D.resp[a.cpf]:D.resp[a.cpf]===x}))return false;
     if(b.length&&!(D.rmap[a.cpf]||[]).some(function(x){return b.indexOf(x.colab)>=0}))return false;
-    if(bs&&!bs[a.cpf])return false;return true});
+    if(bs&&!bs[a.cpf])return false;return true});}
+function linhas(){
+  var L=filtrados();
   $('tb').innerHTML=L.map(function(a){var feito=(D.rmap[a.cpf]||[]).length>0,env=a.status===CC[1],ul=D.last[a.cpf];
     var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
     var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+'</div>':'<span class="muted">—</span>';
@@ -96,7 +98,122 @@ function linhas(){
   $('tCount').textContent=L.length+' aluno(s)';
   if(!D.alunos.length&&D.diag)$('tCount').innerHTML='<b>Nenhum aluno com os status do Call Center.</b> Aba: '+esc(D.diag.aba)+' · linhas: '+D.diag.linhas+' · status na coluna AO: '+esc(JSON.stringify(D.diag.status));
   Array.prototype.forEach.call($('tb').querySelectorAll('tr'),function(tr){tr.onclick=function(e){if(e.target.tagName==='SELECT'||e.target.tagName==='OPTION')return;abrirAluno(tr.dataset.c)}});
-  Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){toast('Responsável atualizado.')})}})}
+  Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;atrAtualizar();call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){toast('Responsável atualizado.')})}});atrAtualizar()}
+
+/* ---------- atribuição de responsáveis em lote (somente Admin) ---------- */
+var ATR={aberto:false,plano:null,pessoas:{}};
+try{ATR.aberto=localStorage.getItem('ccAtrAberto')==='1'}catch(e){}
+function atrHtml(){
+  return '<div class="section-box atr-box"><div class="atr-head" id="atrHead"><h3>👥 Atribuir responsáveis em lote</h3><span class="muted" id="atrRes"></span><button type="button" class="btn-secondary" id="atrTog"></button></div>'+
+  '<div id="atrBody" style="display:none">'+
+    '<p class="sh">Atua sobre os alunos que aparecem na lista abaixo. Use os filtros (Status, Curso, Responsável, Banco…) para escolher quem entra e depois distribua entre as pessoas.</p>'+
+    '<div class="atr-sec"><div class="atr-lbl">1 · Quem recebe <a href="#" id="atrTodos">todos</a><a href="#" id="atrNenhum">nenhum</a></div><div class="atr-pessoas" id="atrPessoas"></div></div>'+
+    '<div class="atr-sec"><div class="atr-lbl">2 · Como distribuir</div><div class="atr-modos">'+
+      '<label class="atr-modo"><input type="radio" name="atrModo" value="igual" checked> Dividir igualmente <span class="muted">(alternando entre as pessoas)</span></label>'+
+      '<label class="atr-modo"><input type="radio" name="atrModo" value="grupo"> Agrupar por <select id="atrGrupo"><option value="curso">Curso</option><option value="turno">Turno</option><option value="status">Status</option></select> <span class="muted">(cada grupo fica com uma pessoa, equilibrando a quantidade)</span></label>'+
+      '<label class="atr-modo"><input type="radio" name="atrModo" value="qtd"> Quantidade por pessoa <input type="number" id="atrQtd" min="1" value="20"> <span class="muted">alunos para cada uma, na ordem da lista</span></label>'+
+      '<label class="atr-modo"><input type="radio" name="atrModo" value="remover"> Remover o responsável dos alunos da lista</label>'+
+    '</div></div>'+
+    '<div class="atr-sec atr-opts"><label><input type="checkbox" id="atrSo" checked> Somente alunos <b>sem responsável</b></label><label><input type="checkbox" id="atrCarga"> Equilibrar considerando os alunos que cada pessoa já tem</label></div>'+
+    '<div class="atr-acoes"><button type="button" class="btn-secondary" id="atrPrev">👁 Ver prévia</button><button type="button" class="btn-primary" id="atrApl" disabled>✔ Aplicar</button><span class="muted" id="atrSt"></span></div>'+
+    '<div id="atrPrevia"></div>'+
+  '</div></div>';
+}
+function atrIniciar(){
+  function abrir(){var b=$('atrBody');b.style.display=ATR.aberto?'':'none';$('atrTog').textContent=ATR.aberto?'Ocultar ▴':'Abrir ▾'}
+  abrir();
+  $('atrHead').onclick=function(){ATR.aberto=!ATR.aberto;try{localStorage.setItem('ccAtrAberto',ATR.aberto?'1':'0')}catch(e){}abrir()};
+  $('atrTodos').onclick=function(e){e.preventDefault();e.stopPropagation();D.usuarios.forEach(function(u){ATR.pessoas[u.email]=true});atrPessoas();atrLimpaPlano()};
+  $('atrNenhum').onclick=function(e){e.preventDefault();e.stopPropagation();ATR.pessoas={};atrPessoas();atrLimpaPlano()};
+  Array.prototype.forEach.call(document.querySelectorAll('#atrBody input,#atrBody select'),function(x){if(x.id!=='atrPrev'&&x.id!=='atrApl')x.onchange=atrLimpaPlano});
+  $('atrQtd').oninput=atrLimpaPlano;
+  $('atrPrev').onclick=atrPrevia;$('atrApl').onclick=atrAplicar;
+  atrPessoas();
+}
+function atrCarga(){var c={};Object.keys(D.resp).forEach(function(k){if(D.resp[k])c[D.resp[k]]=(c[D.resp[k]]||0)+1});return c}
+function atrPessoas(){
+  var c=atrCarga();
+  $('atrPessoas').innerHTML=D.usuarios.map(function(u){return '<label class="atr-chip'+(ATR.pessoas[u.email]?' on':'')+'"><input type="checkbox" data-e="'+esc(u.email)+'"'+(ATR.pessoas[u.email]?' checked':'')+'> '+esc(u.nome)+' <small>('+(c[u.email]||0)+')</small></label>'}).join('')||'<span class="muted">Nenhum usuário com acesso ao Call Center.</span>';
+  Array.prototype.forEach.call($('atrPessoas').querySelectorAll('input'),function(x){x.onchange=function(){if(x.checked)ATR.pessoas[x.getAttribute('data-e')]=true;else delete ATR.pessoas[x.getAttribute('data-e')];x.parentNode.className='atr-chip'+(x.checked?' on':'');atrLimpaPlano()}});
+}
+function atrLimpaPlano(){
+  ATR.plano=null;
+  if($('atrApl'))$('atrApl').disabled=true;
+  if($('atrPrevia'))$('atrPrevia').innerHTML='';
+}
+function atrAtualizar(){          // chamada a cada atualização da lista
+  if(!ADMIN||!$('atrRes'))return;
+  var L=filtrados();
+  $('atrRes').textContent=L.length+' aluno(s) na lista · '+L.filter(function(a){return !D.resp[a.cpf]}).length+' sem responsável';
+  atrPessoas();atrLimpaPlano();
+}
+// Monta o plano de distribuição {passos:[{email,nome,cpfs,det}], total, sobra} ou {erro}
+function atrPlano(){
+  var modo=document.querySelector('input[name=atrModo]:checked').value,L=filtrados();
+  if(modo==='remover'){
+    var rem=L.filter(function(a){return D.resp[a.cpf]});
+    if(!rem.length)return {erro:'Nenhum aluno da lista tem responsável.'};
+    return {modo:modo,passos:[{email:'',nome:'(sem responsável)',cpfs:rem.map(function(a){return a.cpf}),det:'',antes:0}],total:rem.length,sobra:0};
+  }
+  var pessoas=D.usuarios.filter(function(u){return ATR.pessoas[u.email]});
+  if(!pessoas.length)return {erro:'Marque ao menos uma pessoa em "Quem recebe".'};
+  var alvo=L.filter(function(a){return !$('atrSo').checked||!D.resp[a.cpf]});
+  if(!alvo.length)return {erro:'Nenhum aluno da lista se encaixa (confira os filtros e a opção "somente alunos sem responsável").'};
+  var emAlvo={};alvo.forEach(function(a){emAlvo[a.cpf]=1});
+  var base={};pessoas.forEach(function(u){base[u.email]=0});          // alunos que a pessoa já tem e que NÃO serão mexidos
+  D.alunos.forEach(function(a){if(!emAlvo[a.cpf]&&base[D.resp[a.cpf]]!==undefined)base[D.resp[a.cpf]]++});
+  var peso={};pessoas.forEach(function(u){peso[u.email]=$('atrCarga').checked?base[u.email]:0});
+  var por={},det={};pessoas.forEach(function(u){por[u.email]=[];det[u.email]={}});
+  function menor(){var b=pessoas[0];pessoas.forEach(function(u){if(peso[u.email]+por[u.email].length<peso[b.email]+por[b.email].length)b=u});return b}
+  var sobra=0;
+  if(modo==='igual'){
+    alvo.forEach(function(a){por[menor().email].push(a.cpf)});
+  }else if(modo==='grupo'){
+    var campo=$('atrGrupo').value,gr={};
+    alvo.forEach(function(a){var k=String(a[campo]||'—');(gr[k]=gr[k]||[]).push(a.cpf)});
+    Object.keys(gr).sort(function(x,y){return gr[y].length-gr[x].length||x.localeCompare(y,'pt')}).forEach(function(k){
+      var u=menor();Array.prototype.push.apply(por[u.email],gr[k]);det[u.email][k]=gr[k].length});
+  }else{        // qtd
+    var n=Math.max(1,parseInt($('atrQtd').value,10)||0),i=0;
+    pessoas.forEach(function(u){por[u.email]=alvo.slice(i,i+n).map(function(a){return a.cpf});i+=n});
+    sobra=Math.max(0,alvo.length-i);
+  }
+  var passos=pessoas.filter(function(u){return por[u.email].length}).map(function(u){
+    return {email:u.email,nome:u.nome,cpfs:por[u.email],antes:base[u.email],det:Object.keys(det[u.email]).map(function(k){return k+' ('+det[u.email][k]+')'}).join(', ')};
+  });
+  return {modo:modo,passos:passos,total:passos.reduce(function(s,p){return s+p.cpfs.length},0),sobra:sobra};
+}
+function atrPrevia(){
+  var p=atrPlano();atrLimpaPlano();
+  if(p.erro){$('atrPrevia').innerHTML='<div class="atr-aviso">'+esc(p.erro)+'</div>';return}
+  ATR.plano=p;
+  var rem=p.modo==='remover';
+  $('atrPrevia').innerHTML='<table class="atr-tab"><thead><tr><th>'+(rem?'Ação':'Responsável')+'</th><th>Alunos</th>'+(rem?'':'<th>Ficará com</th>')+'<th>Detalhe</th></tr></thead><tbody>'+
+    p.passos.map(function(s){return '<tr><td>'+esc(s.nome)+'</td><td><b>'+s.cpfs.length+'</b></td>'+(rem?'':'<td>'+(s.antes+s.cpfs.length)+' no total</td>')+'<td class="muted">'+esc(rem?'o responsável será retirado':s.det)+'</td></tr>'}).join('')+'</tbody></table>'+
+    (p.sobra?'<div class="atr-aviso">'+p.sobra+' aluno(s) da lista ficam sem atribuição (aumente a quantidade por pessoa ou marque mais gente).</div>':'');
+  $('atrApl').disabled=false;
+  $('atrSt').textContent=p.total+' aluno(s) · '+(rem?'remoção':p.passos.length+' pessoa(s)');
+}
+function atrAplicar(){
+  var p=ATR.plano;if(!p||!p.passos.length)return;
+  var rem=p.modo==='remover';
+  if(!confirm(rem?'Remover o responsável de '+p.total+' aluno(s)?':'Atribuir '+p.total+' aluno(s) a '+p.passos.length+' pessoa(s)?'))return;
+  $('atrApl').disabled=true;$('atrPrev').disabled=true;
+  var feitos=0;
+  function fim(ok,msg){$('atrPrev').disabled=false;if(ok){linhas();$('atrSt').textContent='✔ '+feitos+' aluno(s) '+(rem?'sem responsável':'atribuído(s)')+'.';toast(rem?'Responsáveis removidos.':'Responsáveis atribuídos.')}else{$('atrApl').disabled=false;$('atrSt').textContent='';toast(msg||'Falha ao atribuir.','err')}}
+  (function passo(i){
+    if(i>=p.passos.length){fim(true);return}
+    var s=p.passos[i],partes=[];
+    for(var k=0;k<s.cpfs.length;k+=2000)partes.push(s.cpfs.slice(k,k+2000));
+    $('atrSt').textContent='Aplicando '+(i+1)+' de '+p.passos.length+'…';
+    (function parte(j){
+      if(j>=partes.length){passo(i+1);return}
+      call('setRespLote',{sem:ME.semestre,cpfs:partes[j],email:s.email}).then(function(){
+        partes[j].forEach(function(c){if(s.email)D.resp[c]=s.email;else delete D.resp[c]});feitos+=partes[j].length;parte(j+1);
+      }).catch(function(e){fim(false,(e&&e.message)||String(e))});
+    })(0);
+  })(0);
+}
 
 /* ---------- janelas ---------- */
 function ov(html,cls,wrap){var o=document.createElement('div');o.className='ov'+(wrap?' '+wrap:'');o.innerHTML='<div class="'+(cls||'popup')+'">'+html+'</div>';o.onclick=function(e){if(e.target===o)o.remove()};$('mroot').appendChild(o);
@@ -225,11 +342,31 @@ function tOpc(bd){var T3=[['Objetivo','Objetivo do Contato'],['Meio','Meio de Co
   bd.innerHTML='<h2>Opções de Registro</h2><p class="sb-desc">Gerencie as opções disponíveis nos campos de registro de contato.</p>'+T3.map(function(t){return '<div><div class="lbl">'+t[1]+'</div><div class="opts-list">'+OPC[t[0]].map(function(v){return '<div class="opt-item"><span>'+esc(v)+'</span><button class="btn-del" title="Excluir" data-d="'+t[0]+'" data-v="'+esc(v)+'">🗑️</button></div>'}).join('')+'</div><div class="add-opt-row"><input id="n'+t[0]+'" placeholder="Nova opção..."><button class="btn-primary" data-a="'+t[0]+'">+ Adicionar</button></div></div>'}).join('');
   Array.prototype.forEach.call(bd.querySelectorAll('button[data-a]'),function(b){b.onclick=function(){call('opcAdd',{tipo:b.dataset.a,valor:$('n'+b.dataset.a).value.trim()}).then(function(x){OPC=x;tOpc(bd)})}});
   Array.prototype.forEach.call(bd.querySelectorAll('button[data-d]'),function(b){b.onclick=function(){if(confirm('Excluir "'+b.dataset.v+'"? Registros antigos continuam com esse texto.'))call('opcDel',{tipo:b.dataset.d,valor:b.dataset.v}).then(function(x){OPC=x;tOpc(bd)})}})}
-function tMarca(bd){bd.innerHTML='<h2>Logo e Nome do Sistema</h2><p class="sb-desc">Personalize a identidade visual do sistema.</p><div><div class="lbl">Logo do Sistema</div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+(CFG.logo?'<img src="'+esc(CFG.logo)+'" style="max-height:48px;max-width:160px">':'')+'<label class="btn-secondary" style="cursor:pointer">📁 Carregar Logo<input type="file" id="lf" accept="image/*" style="display:none"></label>'+(CFG.logo?'<button class="btn-secondary" id="lx">Remover</button>':'')+'</div></div><div class="form-field"><label>Nome exibido na tela de login</label><input id="n1" value="'+esc(CFG.nomeLogin)+'"></div><button class="btn-primary" id="s1">💾 Salvar nome do login</button><div class="form-field"><label>Nome exibido após o login (cabeçalho)</label><input id="n2" value="'+esc(CFG.nomeSistema)+'"></div><button class="btn-primary" id="s2">💾 Salvar nome do cabeçalho</button>';
-  function sv(k,v){call('cfgSave',{chave:k,valor:v}).then(function(c){CFG=c;cabecalho();tMarca(bd);toast('Salvo.')})}
-  $('s1').onclick=function(){sv('nomeLogin',$('n1').value)};$('s2').onclick=function(){sv('nomeSistema',$('n2').value)};
-  $('lf').onchange=function(){if(!this.files[0])return;lerImg(this.files[0],function(im){var k=Math.min(1,320/im.width,100/im.height),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);sv('logo',c.toDataURL('image/png'))})};
-  if($('lx'))$('lx').onclick=function(){sv('logo','')}}
+function tMarca(bd){
+  var dLogo=CFG.logo||'';
+  bd.innerHTML='<h2>Logo e Nome do Sistema</h2><p class="sb-desc">A logo e o nome aparecem no cabeçalho do Call Center.</p>'+
+    '<div><div class="lbl">Prévia — cabeçalho</div><div class="header" style="position:static;border:1px solid var(--border);border-radius:10px"><div class="header-brand"><div class="header-logo" id="pvLogo"></div><div><div class="header-name" id="pvNome"></div></div></div></div></div>'+
+    '<div><div class="lbl">Logo do Sistema</div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label class="btn-secondary" style="cursor:pointer">📁 Carregar Logo<input type="file" id="lf" accept="image/*" style="display:none"></label><button class="btn-secondary" id="lx">Remover logo</button></div></div>'+
+    '<div class="form-field"><label>Nome do sistema (exibido no cabeçalho)</label><input id="n2" maxlength="60" value="'+esc(CFG.nomeSistema)+'"></div>'+
+    '<button class="btn-primary" id="s2">💾 Salvar</button>';
+  function pv(){logoHtml($('pvLogo'),dLogo,'CC');$('pvNome').textContent=$('n2').value.trim()||'Call Center FIES'}
+  pv();
+  $('n2').oninput=pv;
+  $('lx').onclick=function(){dLogo='';pv()};
+  $('lf').onchange=function(){if(!this.files[0])return;lerImg(this.files[0],function(im){var k=Math.min(1,320/im.width,100/im.height),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);dLogo=c.toDataURL('image/png');pv()})};
+  $('s2').onclick=function(){
+    var nome=$('n2').value.trim();
+    if(!nome){toast('Informe o nome do sistema.','err');return}
+    var passos=[];
+    if(dLogo!==(CFG.logo||''))passos.push(['logo',dLogo]);
+    if(nome!==String(CFG.nomeSistema||''))passos.push(['nomeSistema',nome]);
+    if(!passos.length){toast('Nada para salvar.');return}
+    (function prox(i){
+      if(i>=passos.length){cabecalho();tMarca(bd);toast('Salvo.');return}
+      call('cfgSave',{chave:passos[i][0],valor:passos[i][1]}).then(function(c){CFG=c;prox(i+1)});
+    })(0);
+  };
+}
 function tSemCad(bd,o){call('semList').then(function(L){
   bd.innerHTML='<h2>Troca de Semestre / Planilhas</h2><p class=\"sb-desc\">Cadastre ou edite as planilhas de cada semestre. Cada semestre pode ter a sua própria planilha de registros: o sistema cria as abas e os cabeçalhos sozinho.</p><div style=\"overflow-x:auto\"><table class=\"users-table\"><thead><tr><th>Semestre</th><th>Base geral</th><th>Call Center</th><th>Registros</th><th>Ações</th></tr></thead><tbody>'+L.map(function(s,i){return '<tr><td><b>'+esc(s.sem)+'</b></td><td>'+(s.base?'✔ configurada':'—')+'</td><td>'+(s.cc?'✔ configurada':'—')+'</td><td>'+(s.reg?'✔ planilha própria':'Planilha principal')+(s.legado?'<div style=\"font-size:11px;color:#b45309\">⚠️ '+s.legado+' registro(s) antigo(s) continuam na planilha principal</div>':'')+'</td><td><button class=\"btn-icon-sm edit\" data-e=\"'+i+'\">✏️</button> <button class=\"btn-icon-sm del\" data-x=\"'+i+'\">🗑️</button></td></tr>'}).join('')+'</tbody></table></div>'+
   '<div class=\"form-field\"><label>Semestre (ex.: 2027.1)</label><input id=\"xs\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Base Geral (aba 1)</label><input id=\"xb\" placeholder=\"Cole o link ou ID da planilha\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Call Center / Aditamentos (aba \"Aditamento\")</label><input id=\"xc\" placeholder=\"Cole o link ou ID da planilha\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Registros deste semestre (onde os novos dados serão salvos)</label><input id=\"xr\" placeholder=\"Cole o link ou ID de uma planilha vazia (vazio = planilha principal)\"></div><div class=\"warn-box\">⚠️ Ao informar a planilha de Registros, o sistema cria nela as abas REGISTROS e RESPONSAVEIS com as colunas já nomeadas. Use uma planilha nova e dê acesso de editor à conta que executa o script. Registros que já estão em outra planilha não são movidos. Ao salvar um semestre existente, os links dele são substituídos.</div><button class=\"btn-primary\" id=\"xk\">🔄 Salvar semestre</button>';
