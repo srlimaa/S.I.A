@@ -48,6 +48,7 @@ function getUsuarios() {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName('Usuarios');
     var data = sheet.getDataRange().getValues();
+    migrarPerfilColab_(sheet, data);
     var usuarios = [];
     var tem = ccPrefsEmails_();          // quem já usava o Call Center (coluna em branco = mantém o acesso)
     for (var i = 1; i < data.length; i++) {
@@ -83,6 +84,24 @@ function getUsuariosSoCallCenter(adminId) {
   } catch(e) { return []; }
 }
 
+// Perfis: "Admin" e "Colab" (o antigo "Atend" passou a se chamar "Colab"). Vazio = valor inválido.
+function perfilNorm_(v) {
+  v = String(v == null ? '' : v).trim();
+  if (v === 'Admin') return 'Admin';
+  if (v === 'Colab' || v === 'Atend') return 'Colab';
+  return '';
+}
+
+// Renomeia, na aba Usuarios, o perfil antigo "Atend" para "Colab" (acontece sozinho, uma vez)
+function migrarPerfilColab_(sheet, data) {
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][4]).trim() === 'Atend') {
+      sheet.getRange(i + 1, 5).setValue('Colab');
+      data[i][4] = 'Colab';
+    }
+  }
+}
+
 function criarUsuario(nome, email, senha, perfil, cc) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -93,7 +112,7 @@ function criarUsuario(nome, email, senha, perfil, cc) {
         return { success: false, message: 'Este e-mail já está cadastrado.' };
     }
     garantirColunaCC_(sheet);
-    sheet.appendRow([new Date().getTime().toString(), nome, email, senha, perfil, '', '', ccFlagTexto_(cc)]);
+    sheet.appendRow([new Date().getTime().toString(), nome, email, senha, (perfilNorm_(perfil) || 'Colab'), '', '', ccFlagTexto_(cc)]);
     return { success: true };
   } catch(e) { return { success: false, message: e.message }; }
 }
@@ -104,8 +123,8 @@ function editarUsuario(id, nome, email, senha, perfil, adminId, cc) {
     nome  = String(nome  || '').trim();
     email = String(email || '').trim();
     senha = String(senha || '').trim();          // vazio = mantém a senha atual
-    perfil = String(perfil || '').trim();
-    if (perfil !== 'Admin' && perfil !== 'Atend') return { success: false, message: 'Perfil inválido.' };
+    perfil = perfilNorm_(perfil);
+    if (!perfil) return { success: false, message: 'Perfil inválido.' };
     if (!nome || !email) return { success: false, message: 'Nome e e-mail são obrigatórios.' };
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, message: 'E-mail inválido.' };
 
