@@ -22,11 +22,13 @@ function showSection(sec){
 }
 /* ── Tipo ── */
 function selecionarTipo(tipo){
+  var tmap={presencial:'formPresencial',ramal:'formRamal',email:'formEmail',virtual:'formVirtual'};
+  var jaAberto=tmap[tipo]&&document.getElementById(tmap[tipo]).classList.contains('visible');   // clicar de novo recolhe os campos
   document.querySelectorAll('.tipo-card').forEach(function(c){c.classList.remove('active');});
   ['formPresencial','formRamal','formEmail','formVirtual'].forEach(function(f){
     document.getElementById(f).classList.remove('visible');
   });
-  var tmap={presencial:'formPresencial',ramal:'formRamal',email:'formEmail',virtual:'formVirtual'};
+  if(jaAberto)return;
   document.querySelectorAll('.tipo-card').forEach(function(c){
     if(c.getAttribute('onclick')==="selecionarTipo('"+tipo+"')")c.classList.add('active');
   });
