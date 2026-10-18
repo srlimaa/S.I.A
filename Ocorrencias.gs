@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-// OCORRÊNCIAS / ANEXOS (UNILEÃO e UNIVS) — links das planilhas, pendentes, marcação de responsável e confirmação.
+// OCORRÊNCIAS / ANEXOS (UNILEÃO e UNIVS) — links das planilhas, pendentes, responsável, sincronização e confirmação.
 // ══════════════════════════════════════════════════════════════════════
 
 // ── Planilhas de ocorrências/anexos (registro manual; apenas leitura) ────────
@@ -126,50 +126,138 @@ function lerLogOcorrencias_(periodo) {
   return set;
 }
 
-// Marcação de "responsável": enquanto alguém está com a janela de um aluno aberta, ele fica marcado (some sozinho
-// se a janela for fechada ou o navegador parar de avisar). Evita que duas pessoas gerem a mesma ocorrência.
-var OC_CLAIM_TTL = 150;   // segundos sem "sinal de vida" até a marcação expirar
+// ── Responsável pelo aluno e sincronização rápida entre colaboradores ────────
+// O estado de cada período/planilha fica num único item do cache (lido em milissegundos, sem tocar na planilha):
+//   c = responsáveis  { "linha|cpf": { id, nome, desde, tipo: 'aberto' | 'atribuido', aberto: validade da janela aberta, ate: validade } }
+//   d = etapas confirmadas há pouco  { "linha|cpf": { oc: {nome,data,t}, an: {nome,data,t} } }  → os outros veem na hora
+// A planilha continua sendo a fonte da verdade; o cache só acelera a visualização.
+//   tipo 'aberto'    = alguém está com a janela do aluno aberta (expira em 2,5 min sem sinal de vida)
+//   tipo 'atribuido' = aluno reservado para o colaborador (vale 3 h, renovado enquanto ele usa a tela; some ao concluir ou liberar)
+var OC_ABERTO_TTL = 150;     // s
+var OC_ATRIB_TTL = 10800;    // s
+var OC_ST_TTL = 21600;       // s (máximo do cache: 6 h)
 
-function ocChaveClaim_(periodo, ies, linha, cpf) { return 'ocr|' + periodo + '|' + ies + '|' + linha + '|' + cpfNum_(cpf); }
+function ocItemKey_(linha, cpf) { return String(linha) + '|' + cpfNum_(cpf); }
 
-function ocClaimLer_(cache, chave) {
-  var v = cache.get(chave);
-  if (!v) return null;
-  try { return JSON.parse(v); } catch(e) { return null; }
+function ocStKey_(periodo, ies) { return 'ocs|' + periodo + '|' + ies; }
+
+function ocStLer_(cache, chave, agora) {
+  var st = { c: {}, d: {} };
+  try {
+    var v = cache.get(chave);
+    if (v) { var o = JSON.parse(v); st.c = o.c || {}; st.d = o.d || {}; }
+  } catch (e) {}
+  Object.keys(st.c).forEach(function(k) { if (!(st.c[k].ate > agora)) delete st.c[k]; });
+  Object.keys(st.d).forEach(function(k) {
+    var d = st.d[k], t = Math.max((d.oc && d.oc.t) || 0, (d.an && d.an.t) || 0);
+    if (agora - t > OC_ST_TTL * 1000) delete st.d[k];
+  });
+  return st;
 }
 
-// acao: 'abrir' | 'bater' (renova) | 'forcar' (assume mesmo ocupado) | 'liberar'
+function ocStGravar_(cache, chave, st) {
+  var txt = JSON.stringify({ c: st.c, d: st.d });
+  if (txt.length > 90000) txt = JSON.stringify({ c: st.c, d: {} });      // o cache limita cada item a ~100 KB
+  cache.put(chave, txt, OC_ST_TTL);
+}
+
+function ocRespPub_(c, agora) {
+  return { id: String(c.id), nome: c.nome, desde: c.desde, tipo: c.tipo, aberto: !!(c.aberto && c.aberto > agora) };
+}
+
+function ocHora_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm'); }
+
+// Janela de um aluno. acao: 'abrir' | 'bater' (renova) | 'forcar' (assume mesmo ocupado) | 'liberar' (fechou a janela) | 'soltar'
+// Fechar a janela NÃO tira um aluno atribuído ao colaborador; só 'soltar' (ou concluir) libera.
 function ocClaim(periodo, ies, linha, cpf, acao, userId) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(8000);
     var usr = usuarioPorId_(userId);
     if (!usr) return { success: false, message: 'Usuário não identificado.' };
-    var cache = CacheService.getScriptCache(), k = ocChaveClaim_(periodo, ies, linha, cpf);
-    var atual = ocClaimLer_(cache, k), meu = !!(atual && String(atual.id) === String(userId));
-    if (acao === 'liberar') { if (meu) cache.remove(k); return { success: true }; }
-    if (atual && !meu && acao !== 'forcar')
-      return { success: false, ocupado: true, resp: { nome: atual.nome, desde: atual.desde } };
-    var novo = meu ? atual : { id: String(userId), nome: usr.nome, desde: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm') };
-    cache.put(k, JSON.stringify(novo), OC_CLAIM_TTL);
-    return { success: true, resp: { nome: novo.nome, desde: novo.desde } };
+    var cache = CacheService.getScriptCache(), sk = ocStKey_(periodo, ies), agora = Date.now();
+    var st = ocStLer_(cache, sk, agora), k = ocItemKey_(linha, cpf), atual = st.c[k];
+    var meu = !!(atual && String(atual.id) === String(userId));
+    if (acao === 'liberar') {
+      if (meu) { if (atual.tipo === 'atribuido') atual.aberto = 0; else delete st.c[k]; ocStGravar_(cache, sk, st); }
+      return { success: true };
+    }
+    if (acao === 'soltar') { if (meu) { delete st.c[k]; ocStGravar_(cache, sk, st); } return { success: true }; }
+    if (atual && !meu && acao !== 'forcar') return { success: false, ocupado: true, resp: ocRespPub_(atual, agora) };
+    var aberto = agora + OC_ABERTO_TTL * 1000;
+    var c = meu ? atual : { id: String(userId), nome: usr.nome, desde: ocHora_(), tipo: 'aberto' };
+    c.aberto = aberto;
+    c.ate = c.tipo === 'atribuido' ? agora + OC_ATRIB_TTL * 1000 : aberto;
+    st.c[k] = c;
+    ocStGravar_(cache, sk, st);
+    return { success: true, resp: ocRespPub_(c, agora) };
   } catch(e) { return { success: false, message: e.message }; }
   finally { try { lock.releaseLock(); } catch(x) {} }
 }
 
-// Quem está com cada aluno da lista aberto agora. itens: [{linha, cpf}]  →  { linha: {nome, desde} }
-function getOcorrenciasResponsaveis(periodo, ies, itens) {
+// Atribui (ou libera) vários alunos de uma vez ao colaborador. itens: [{linha, cpf}]
+// modo: 'assumir' (pula quem já está com outra pessoa) | 'forcar' (assume mesmo assim) | 'soltar' (libera os que são dele)
+function ocAtribuir(periodo, ies, itens, userId, modo) {
+  var lock = LockService.getScriptLock();
   try {
-    var cache = CacheService.getScriptCache(), chaves = [], porChave = {};
-    (itens || []).forEach(function(it) { var k = ocChaveClaim_(periodo, ies, it.linha, it.cpf); chaves.push(k); porChave[k] = it.linha; });
-    var out = {};
-    if (!chaves.length) return { success: true, resp: out };
-    var achados = cache.getAll(chaves);
-    Object.keys(achados || {}).forEach(function(k) {
-      try { var c = JSON.parse(achados[k]); out[porChave[k]] = { nome: c.nome, desde: c.desde }; } catch(e) {}
+    lock.waitLock(10000);
+    var usr = usuarioPorId_(userId);
+    if (!usr) return { success: false, message: 'Usuário não identificado.' };
+    if (modo !== 'assumir' && modo !== 'forcar' && modo !== 'soltar') return { success: false, message: 'Ação inválida.' };
+    if (!OCORR_IES[ies]) return { success: false, message: 'Planilha inválida.' };
+    var cache = CacheService.getScriptCache(), sk = ocStKey_(periodo, ies), agora = Date.now();
+    var st = ocStLer_(cache, sk, agora), ok = 0, soltos = 0, ocupados = [], desde = ocHora_();
+    (itens || []).slice(0, 500).forEach(function(it) {
+      var k = ocItemKey_(it.linha, it.cpf), atual = st.c[k], meu = !!(atual && String(atual.id) === String(userId));
+      if (modo === 'soltar') { if (meu) { delete st.c[k]; soltos++; } return; }
+      if (atual && !meu && modo !== 'forcar') { ocupados.push({ linha: it.linha, nome: atual.nome }); return; }
+      if (meu) { atual.tipo = 'atribuido'; atual.ate = agora + OC_ATRIB_TTL * 1000; ok++; return; }
+      st.c[k] = { id: String(userId), nome: usr.nome, desde: desde, tipo: 'atribuido', aberto: 0, ate: agora + OC_ATRIB_TTL * 1000 };
+      ok++;
     });
-    return { success: true, resp: out };
+    ocStGravar_(cache, sk, st);
+    return { success: true, ok: ok, soltos: soltos, ocupados: ocupados };
   } catch(e) { return { success: false, message: e.message }; }
+  finally { try { lock.releaseLock(); } catch(x) {} }
+}
+
+// Sincronização leve (chamada a cada poucos segundos): quem está com cada aluno da lista e o que já foi concluído por outras pessoas.
+// Só lê o cache; renova as atribuições de quem está sincronizando.  itens: [{linha, cpf}]
+function ocSync(periodo, ies, itens, userId) {
+  try {
+    if (!OCORR_IES[ies]) return { success: false, message: 'Planilha inválida.' };
+    var cache = CacheService.getScriptCache(), sk = ocStKey_(periodo, ies), agora = Date.now();
+    var st = ocStLer_(cache, sk, agora);
+    var renovar = Object.keys(st.c).some(function(k) {
+      var c = st.c[k];
+      return c.tipo === 'atribuido' && String(c.id) === String(userId) && c.ate - agora < OC_ATRIB_TTL * 500;
+    });
+    if (renovar) {
+      var lock = LockService.getScriptLock();
+      try {
+        lock.waitLock(3000);
+        st = ocStLer_(cache, sk, agora);
+        Object.keys(st.c).forEach(function(k) {
+          var c = st.c[k];
+          if (c.tipo === 'atribuido' && String(c.id) === String(userId)) c.ate = agora + OC_ATRIB_TTL * 1000;
+        });
+        ocStGravar_(cache, sk, st);
+      } catch(e0) {} finally { try { lock.releaseLock(); } catch(x) {} }
+    }
+    var resp = {}, feitos = {};
+    (itens || []).forEach(function(it) {
+      var k = ocItemKey_(it.linha, it.cpf), c = st.c[k], d = st.d[k];
+      if (c) resp[it.linha] = ocRespPub_(c, agora);
+      if (d) feitos[it.linha] = { oc: d.oc ? { nome: d.oc.nome, data: d.oc.data } : null, an: d.an ? { nome: d.an.nome, data: d.an.data } : null };
+    });
+    return { success: true, resp: resp, feitos: feitos };
+  } catch(e) { return { success: false, message: e.message }; }
+}
+
+// Quem está com cada aluno da lista agora (mantida por compatibilidade). itens: [{linha, cpf}]  →  { linha: {nome, desde} }
+function getOcorrenciasResponsaveis(periodo, ies, itens) {
+  var r = ocSync(periodo, ies, itens, '');
+  return r.success ? { success: true, resp: r.resp } : r;
 }
 
 // Lista só os pendentes. Ocorrência pendente: a DATA (coluna D) está vazia — mesmo que haja nome na coluna C —, com algo na coluna L.
@@ -208,8 +296,8 @@ function getOcorrenciasPendentes(periodo, ies) {
         temAnexo: temAnexo, ocPend: ocPend, anPend: anPend, resp: null
       });
     }
-    var rs = getOcorrenciasResponsaveis(periodo, ies, itens.map(function(it) { return { linha: it.linha, cpf: it.cpf }; }));
-    if (rs.success) itens.forEach(function(it) { it.resp = rs.resp[it.linha] || null; });
+    var agoraP = Date.now(), stP = ocStLer_(CacheService.getScriptCache(), ocStKey_(periodo, ies), agoraP);
+    itens.forEach(function(it) { var c = stP.c[ocItemKey_(it.linha, it.cpf)]; it.resp = c ? ocRespPub_(c, agoraP) : null; });
     return { success: true, itens: itens, rotulo: conf.rotulo };
   } catch(e) { return { success: false, message: 'Não foi possível ler a planilha: ' + e.message }; }
 }
@@ -235,7 +323,8 @@ function confirmarOcorrencia(periodo, ies, linha, cpf, etapa, obs, userId, dataC
       return { success: false, mudou: true, message: 'A planilha foi alterada e esta linha mudou de lugar. Clique em Atualizar e tente novamente.' };
 
     // outra pessoa está com este aluno aberto?
-    var cl = ocClaimLer_(CacheService.getScriptCache(), ocChaveClaim_(periodo, ies, linha, cpf));
+    var cacheOc = CacheService.getScriptCache(), skOc = ocStKey_(periodo, ies), kOc = ocItemKey_(linha, cpf);
+    var cl = ocStLer_(cacheOc, skOc, Date.now()).c[kOc];
     if (cl && String(cl.id) !== String(userId))
       return { success: false, ocupado: true, resp: { nome: cl.nome, desde: cl.desde }, message: cl.nome + ' está com este aluno aberto. Aguarde ou assuma o aluno antes de confirmar.' };
 
@@ -275,6 +364,17 @@ function confirmarOcorrencia(periodo, ies, linha, cpf, etapa, obs, userId, dataC
       rg.setValues([[String(agora.getTime()), Utilities.formatDate(agora, tz, 'dd/MM/yyyy HH:mm:ss'), conf.rotulo, linha,
                      String(row[0]), String(row[1]), etapa, usr.nome, dataBR, String(obs || '').trim()]]);
     } catch(e2) { aviso = 'Registrado na planilha de ocorrências, mas não foi possível gravar a cópia no sistema: ' + e2.message; }
+
+    // avisa os outros colaboradores na hora (cache) e libera o aluno quando não restar nenhuma etapa pendente
+    try {
+      var stOc = ocStLer_(cacheOc, skOc, Date.now());
+      var dm = stOc.d[kOc] || (stOc.d[kOc] = {});
+      dm[etapa === 'Ocorrência' ? 'oc' : 'an'] = { nome: usr.nome, data: dataBR, t: Date.now() };
+      var restam = etapa === 'Ocorrência' ? (!semAnexo_(row[13]) && vazio_(row[5])) : vazio_(row[3]);
+      var meuCl = stOc.c[kOc];
+      if (!restam && meuCl && String(meuCl.id) === String(userId)) delete stOc.c[kOc];
+      ocStGravar_(cacheOc, skOc, stOc);
+    } catch(e3) {}
 
     return { success: true, etapa: etapa, colaborador: usr.nome, data: dataBR, aviso: aviso };
   } catch(e) { return { success: false, message: e.message }; }
