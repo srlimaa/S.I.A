@@ -101,7 +101,7 @@ function linhas(){
   Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;atrAtualizar();call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){toast('Responsável atualizado.')})}});atrAtualizar()}
 
 /* ---------- atribuição de responsáveis em lote (somente Admin) ---------- */
-var ATR={aberto:false,plano:null,pessoas:{}};
+var ATR={aberto:false,plano:null,pessoas:{},grupos:{},gl:[],gc:{},campo:''};
 try{ATR.aberto=localStorage.getItem('ccAtrAberto')==='1'}catch(e){}
 function atrHtml(){
   return '<div class="section-box atr-box"><div class="atr-head" id="atrHead"><h3>👥 Atribuir responsáveis em lote</h3><span class="muted" id="atrRes"></span><button type="button" class="btn-secondary" id="atrTog"></button></div>'+
@@ -110,7 +110,8 @@ function atrHtml(){
     '<div class="atr-sec"><div class="atr-lbl">1 · Quem recebe <a href="#" id="atrTodos">todos</a><a href="#" id="atrNenhum">nenhum</a></div><div class="atr-pessoas" id="atrPessoas"></div></div>'+
     '<div class="atr-sec"><div class="atr-lbl">2 · Como distribuir</div><div class="atr-modos">'+
       '<label class="atr-modo"><input type="radio" name="atrModo" value="igual" checked> Dividir igualmente <span class="muted">(alternando entre as pessoas)</span></label>'+
-      '<label class="atr-modo"><input type="radio" name="atrModo" value="grupo"> Agrupar por <select id="atrGrupo"><option value="curso">Curso</option><option value="turno">Turno</option><option value="status">Status</option></select> <span class="muted">(cada grupo fica com uma pessoa, equilibrando a quantidade)</span></label>'+
+      '<label class="atr-modo"><input type="radio" name="atrModo" value="grupo"> Agrupar por <select id="atrGrupo"><option value="curso">Curso</option><option value="turno">Turno</option><option value="status">Status</option></select> <span class="muted">(cada grupo fica com uma pessoa)</span></label>'+
+      '<div class="atr-grupos" id="atrGrupos" style="display:none"></div>'+
       '<label class="atr-modo"><input type="radio" name="atrModo" value="qtd"> Quantidade por pessoa <input type="number" id="atrQtd" min="1" value="20"> <span class="muted">alunos para cada uma, na ordem da lista</span></label>'+
       '<label class="atr-modo"><input type="radio" name="atrModo" value="remover"> Remover o responsável dos alunos da lista</label>'+
     '</div></div>'+
@@ -125,8 +126,9 @@ function atrIniciar(){
   $('atrHead').onclick=function(){ATR.aberto=!ATR.aberto;try{localStorage.setItem('ccAtrAberto',ATR.aberto?'1':'0')}catch(e){}abrir()};
   $('atrTodos').onclick=function(e){e.preventDefault();e.stopPropagation();D.usuarios.forEach(function(u){ATR.pessoas[u.email]=true});atrPessoas();atrLimpaPlano()};
   $('atrNenhum').onclick=function(e){e.preventDefault();e.stopPropagation();ATR.pessoas={};atrPessoas();atrLimpaPlano()};
-  Array.prototype.forEach.call(document.querySelectorAll('#atrBody input,#atrBody select'),function(x){if(x.id!=='atrPrev'&&x.id!=='atrApl')x.onchange=atrLimpaPlano});
+  Array.prototype.forEach.call(document.querySelectorAll('#atrBody input,#atrBody select'),function(x){if(x.id!=='atrPrev'&&x.id!=='atrApl')x.onchange=atrMudou});
   $('atrQtd').oninput=atrLimpaPlano;
+  atrGruposRender();
   $('atrPrev').onclick=atrPrevia;$('atrApl').onclick=atrAplicar;
   atrPessoas();
 }
@@ -145,43 +147,92 @@ function atrAtualizar(){          // chamada a cada atualização da lista
   if(!ADMIN||!$('atrRes'))return;
   var L=filtrados();
   $('atrRes').textContent=L.length+' aluno(s) na lista · '+L.filter(function(a){return !D.resp[a.cpf]}).length+' sem responsável';
-  atrPessoas();atrLimpaPlano();
+  atrPessoas();atrGruposRender();atrLimpaPlano();
 }
-// Monta o plano de distribuição {passos:[{email,nome,cpfs,det}], total, sobra} ou {erro}
+function atrModo(){return document.querySelector('input[name=atrModo]:checked').value}
+function atrAlvo(){var so=$('atrSo').checked;return filtrados().filter(function(a){return !so||!D.resp[a.cpf]})}
+function atrMudou(){atrGruposRender();atrLimpaPlano()}
+var ATR_ROT={curso:'cursos',turno:'turnos',status:'status'};
+// Lista os valores existentes (cursos, turnos ou status) entre os alunos que entram, para marcar e escolher o responsável de cada um
+function atrGruposRender(){
+  var box=$('atrGrupos');if(!box)return;
+  if(atrModo()!=='grupo'){box.style.display='none';return}
+  box.style.display='';
+  var campo=$('atrGrupo').value;
+  if(ATR.campo!==campo){ATR.campo=campo;ATR.grupos={}}
+  var cnt={};atrAlvo().forEach(function(a){var k=String(a[campo]||'—');cnt[k]=(cnt[k]||0)+1});
+  var keys=Object.keys(cnt).sort(function(x,y){return cnt[y]-cnt[x]||x.localeCompare(y,'pt')});
+  ATR.gl=keys;ATR.gc=cnt;
+  keys.forEach(function(k){if(!ATR.grupos[k])ATR.grupos[k]={on:true,resp:''}});
+  if(!keys.length){box.innerHTML='<span class="muted">Nenhum aluno entra com os filtros atuais.</span>';return}
+  var opts=function(sel){return '<option value="">Automático</option>'+D.usuarios.map(function(u){return '<option value="'+esc(u.email)+'"'+(sel===u.email?' selected':'')+'>'+esc(u.nome)+'</option>'}).join('')};
+  box.innerHTML='<div class="atr-gcab"><span class="atr-lbl">Escolha os '+ATR_ROT[campo]+' <a href="#" id="atrGAll">todos</a><a href="#" id="atrGNone">nenhum</a></span>'+
+    '<span class="atr-gdef">Definir o responsável dos marcados: <select id="atrGBulk">'+opts('')+'</select> <button type="button" class="btn-secondary" id="atrGSet">Definir</button></span></div>'+
+    keys.map(function(k,i){var g=ATR.grupos[k];
+      return '<div class="atr-grow"><label class="atr-gnome"><input type="checkbox" data-i="'+i+'"'+(g.on?' checked':'')+'> <span>'+esc(k)+'</span> <small>('+cnt[k]+' aluno(s))</small></label>'+
+             '<select data-i="'+i+'">'+opts(g.resp)+'</select></div>'}).join('')+
+    '<div class="muted" id="atrGRes"></div><div class="muted">“Automático”: o sistema equilibra entre as pessoas marcadas em “Quem recebe”.</div>';
+  Array.prototype.forEach.call(box.querySelectorAll('input[data-i]'),function(x){x.onchange=function(){atrGMarca(+x.getAttribute('data-i'),x.checked)}});
+  Array.prototype.forEach.call(box.querySelectorAll('select[data-i]'),function(x){x.onchange=function(){atrGResp(+x.getAttribute('data-i'),x.value)}});
+  $('atrGAll').onclick=function(e){e.preventDefault();atrGTodos(true)};
+  $('atrGNone').onclick=function(e){e.preventDefault();atrGTodos(false)};
+  $('atrGSet').onclick=function(){atrGDefinir($('atrGBulk').value)};
+  atrGResumo();
+}
+function atrGMarca(i,on){var k=ATR.gl[i];if(k===undefined)return;ATR.grupos[k].on=!!on;atrGResumo();atrLimpaPlano()}
+function atrGResp(i,email){var k=ATR.gl[i];if(k===undefined)return;ATR.grupos[k].resp=email||'';atrLimpaPlano()}
+function atrGTodos(on){ATR.gl.forEach(function(k){ATR.grupos[k].on=!!on});atrGruposRender();atrLimpaPlano()}
+function atrGDefinir(email){ATR.gl.forEach(function(k){if(ATR.grupos[k].on)ATR.grupos[k].resp=email||''});atrGruposRender();atrLimpaPlano()}
+function atrGResumo(){
+  var el=$('atrGRes');if(!el)return;
+  var m=ATR.gl.filter(function(k){return ATR.grupos[k].on}),n=m.reduce(function(s,k){return s+ATR.gc[k]},0);
+  el.textContent=m.length+' de '+ATR.gl.length+' marcado(s) · '+n+' aluno(s)';
+}
+// Monta o plano de distribuição {passos:[{email,nome,cpfs,det,antes}], total, sobra, ignorados} ou {erro}
 function atrPlano(){
-  var modo=document.querySelector('input[name=atrModo]:checked').value,L=filtrados();
+  var modo=atrModo(),L=filtrados();
   if(modo==='remover'){
     var rem=L.filter(function(a){return D.resp[a.cpf]});
     if(!rem.length)return {erro:'Nenhum aluno da lista tem responsável.'};
-    return {modo:modo,passos:[{email:'',nome:'(sem responsável)',cpfs:rem.map(function(a){return a.cpf}),det:'',antes:0}],total:rem.length,sobra:0};
+    return {modo:modo,passos:[{email:'',nome:'(sem responsável)',cpfs:rem.map(function(a){return a.cpf}),det:'',antes:0}],total:rem.length,sobra:0,ignorados:0};
   }
   var pessoas=D.usuarios.filter(function(u){return ATR.pessoas[u.email]});
-  if(!pessoas.length)return {erro:'Marque ao menos uma pessoa em "Quem recebe".'};
-  var alvo=L.filter(function(a){return !$('atrSo').checked||!D.resp[a.cpf]});
+  var alvo=atrAlvo();
   if(!alvo.length)return {erro:'Nenhum aluno da lista se encaixa (confira os filtros e a opção "somente alunos sem responsável").'};
+  var campo=$('atrGrupo').value,gr={},sel=[],ignorados=0;
+  if(modo==='grupo'){
+    alvo.forEach(function(a){var k=String(a[campo]||'—');(gr[k]=gr[k]||[]).push(a.cpf)});
+    sel=Object.keys(gr).filter(function(k){var g=ATR.grupos[k];return !g||g.on!==false});
+    if(!sel.length)return {erro:'Marque ao menos um grupo na lista de '+ATR_ROT[campo]+'.'};
+    ignorados=alvo.length-sel.reduce(function(s,k){return s+gr[k].length},0);
+    var fixo=function(k){var e=ATR.grupos[k]&&ATR.grupos[k].resp;return e&&D.usuarios.some(function(u){return u.email===e})?e:''};
+    if(sel.some(function(k){return !fixo(k)})&&!pessoas.length)return {erro:'Há grupos em "Automático": marque pessoas em "Quem recebe" ou escolha o responsável de cada grupo.'};
+    alvo=alvo.filter(function(a){return sel.indexOf(String(a[campo]||'—'))>=0});
+  }else if(!pessoas.length)return {erro:'Marque ao menos uma pessoa em "Quem recebe".'};
+  var envol=pessoas.slice();                                   // marcadas + responsáveis escolhidos nos grupos
+  if(modo==='grupo')sel.forEach(function(k){var e=fixo(k);if(e&&!envol.some(function(u){return u.email===e}))envol.push(D.usuarios.filter(function(u){return u.email===e})[0])});
   var emAlvo={};alvo.forEach(function(a){emAlvo[a.cpf]=1});
-  var base={};pessoas.forEach(function(u){base[u.email]=0});          // alunos que a pessoa já tem e que NÃO serão mexidos
-  D.alunos.forEach(function(a){if(!emAlvo[a.cpf]&&base[D.resp[a.cpf]]!==undefined)base[D.resp[a.cpf]]++});
-  var peso={};pessoas.forEach(function(u){peso[u.email]=$('atrCarga').checked?base[u.email]:0});
-  var por={},det={};pessoas.forEach(function(u){por[u.email]=[];det[u.email]={}});
+  var base={},peso={},por={},det={};
+  envol.forEach(function(u){base[u.email]=0;por[u.email]=[];det[u.email]={}});
+  D.alunos.forEach(function(a){if(!emAlvo[a.cpf]&&base[D.resp[a.cpf]]!==undefined)base[D.resp[a.cpf]]++});   // o que a pessoa já tem e não será mexido
+  envol.forEach(function(u){peso[u.email]=$('atrCarga').checked?base[u.email]:0});
   function menor(){var b=pessoas[0];pessoas.forEach(function(u){if(peso[u.email]+por[u.email].length<peso[b.email]+por[b.email].length)b=u});return b}
   var sobra=0;
   if(modo==='igual'){
     alvo.forEach(function(a){por[menor().email].push(a.cpf)});
   }else if(modo==='grupo'){
-    var campo=$('atrGrupo').value,gr={};
-    alvo.forEach(function(a){var k=String(a[campo]||'—');(gr[k]=gr[k]||[]).push(a.cpf)});
-    Object.keys(gr).sort(function(x,y){return gr[y].length-gr[x].length||x.localeCompare(y,'pt')}).forEach(function(k){
-      var u=menor();Array.prototype.push.apply(por[u.email],gr[k]);det[u.email][k]=gr[k].length});
+    var ord=sel.slice().sort(function(x,y){return gr[y].length-gr[x].length||x.localeCompare(y,'pt')});
+    ord.filter(fixo).forEach(function(k){var e=fixo(k);Array.prototype.push.apply(por[e],gr[k]);det[e][k]=gr[k].length});          // escolhidos à mão primeiro
+    ord.filter(function(k){return !fixo(k)}).forEach(function(k){var u=menor();Array.prototype.push.apply(por[u.email],gr[k]);det[u.email][k]=gr[k].length});   // o resto, equilibrado
   }else{        // qtd
     var n=Math.max(1,parseInt($('atrQtd').value,10)||0),i=0;
     pessoas.forEach(function(u){por[u.email]=alvo.slice(i,i+n).map(function(a){return a.cpf});i+=n});
     sobra=Math.max(0,alvo.length-i);
   }
-  var passos=pessoas.filter(function(u){return por[u.email].length}).map(function(u){
+  var passos=envol.filter(function(u){return por[u.email].length}).map(function(u){
     return {email:u.email,nome:u.nome,cpfs:por[u.email],antes:base[u.email],det:Object.keys(det[u.email]).map(function(k){return k+' ('+det[u.email][k]+')'}).join(', ')};
   });
-  return {modo:modo,passos:passos,total:passos.reduce(function(s,p){return s+p.cpfs.length},0),sobra:sobra};
+  return {modo:modo,passos:passos,total:passos.reduce(function(s,p){return s+p.cpfs.length},0),sobra:sobra,ignorados:ignorados};
 }
 function atrPrevia(){
   var p=atrPlano();atrLimpaPlano();
@@ -190,6 +241,7 @@ function atrPrevia(){
   var rem=p.modo==='remover';
   $('atrPrevia').innerHTML='<table class="atr-tab"><thead><tr><th>'+(rem?'Ação':'Responsável')+'</th><th>Alunos</th>'+(rem?'':'<th>Ficará com</th>')+'<th>Detalhe</th></tr></thead><tbody>'+
     p.passos.map(function(s){return '<tr><td>'+esc(s.nome)+'</td><td><b>'+s.cpfs.length+'</b></td>'+(rem?'':'<td>'+(s.antes+s.cpfs.length)+' no total</td>')+'<td class="muted">'+esc(rem?'o responsável será retirado':s.det)+'</td></tr>'}).join('')+'</tbody></table>'+
+    (p.ignorados?'<div class="atr-info">'+p.ignorados+' aluno(s) de grupos desmarcados não serão alterados.</div>':'')+
     (p.sobra?'<div class="atr-aviso">'+p.sobra+' aluno(s) da lista ficam sem atribuição (aumente a quantidade por pessoa ou marque mais gente).</div>':'');
   $('atrApl').disabled=false;
   $('atrSt').textContent=p.total+' aluno(s) · '+(rem?'remoção':p.passos.length+' pessoa(s)');
