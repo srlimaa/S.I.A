@@ -61,7 +61,7 @@ const CC_API = {
 
   // Atribui (ou remove) o responsável de vários alunos de uma vez. email vazio = remover o responsável.
   setRespLote: {
-    f: (u, a) => {
+    admin: 1, f: (u, a) => {
       const cpfs = (Array.isArray(a.cpfs) ? a.cpfs : []).map(x => String(x)).filter(Boolean);
       if (!cpfs.length) throw new Error('Nenhum aluno selecionado.');
       if (cpfs.length > 5000) throw new Error('Seleção grande demais. Aplique em partes menores.');
