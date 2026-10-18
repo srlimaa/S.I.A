@@ -1,75 +1,118 @@
 <script>
-/* ══════════ NOME DO SISTEMA ══════════ */
+/* ══════════ NOME E LOGO DO SISTEMA · TELA DE LOGIN ══════════ */
 var NOME_PADRAO='Sistema de Atendimentos',SUBTITULO_PADRAO='UNILEÃO — Integração / FIES';
-var NOME_SISTEMA=NOME_PADRAO,SUBTITULO_LOGIN=SUBTITULO_PADRAO,NOME_LOGIN='';   // NOME_LOGIN vazio = usa NOME_SISTEMA
+var NOME_SISTEMA=NOME_PADRAO,SUBTITULO_LOGIN=SUBTITULO_PADRAO,NOME_LOGIN='';   // NOME_LOGIN vazio = o login usa NOME_SISTEMA
 function aplicarNomes(){
-  document.getElementById('loginTitulo').textContent=NOME_LOGIN||NOME_SISTEMA;   // só a tela de login
+  document.getElementById('loginTitulo').textContent=NOME_LOGIN||NOME_SISTEMA;   // título só da tela de login
   var sub=document.getElementById('loginSub');
   sub.textContent=SUBTITULO_LOGIN;sub.style.display=SUBTITULO_LOGIN?'':'none';
-  document.getElementById('topbarTitulo').textContent=NOME_SISTEMA;
+  document.getElementById('topbarTitulo').textContent=NOME_SISTEMA;              // topo e após o login
   document.title=NOME_SISTEMA;
 }
+
+/* ── Aba "Nome do sistema": logo + nome (topo, escolha do sistema e aba do navegador) ── */
+var NM_DRAFT={tipo:'emoji',valor:'🏛️'};
 function nmIniciar(){
+  NM_DRAFT=(CFG_SISTEMA&&CFG_SISTEMA.tipo&&CFG_SISTEMA.valor)?{tipo:CFG_SISTEMA.tipo,valor:CFG_SISTEMA.valor}:{tipo:'emoji',valor:'🏛️'};
   document.getElementById('nmNome').value=NOME_SISTEMA;
-  document.getElementById('nmSub').value=SUBTITULO_LOGIN;
+  document.getElementById('nmEmoji').value=NM_DRAFT.tipo==='emoji'?NM_DRAFT.valor:'';
+  document.getElementById('nmSug').innerHTML=SUG_SIS.map(function(e){
+    return '<button type="button" class="emoji-btn" onclick="nmEscolherEmoji(this.textContent)">'+e+'</button>';}).join('');
   nmPreview();
 }
 function nmPreview(){
-  var n=document.getElementById('nmNome').value.trim()||NOME_PADRAO,s=document.getElementById('nmSub').value.trim();
-  document.getElementById('nmPrevTop').innerHTML='<span class="brand-icon">'+brandHTML(CFG_SISTEMA,26)+'</span><strong>'+escHtml(n)+'</strong>';
-  document.getElementById('nmPrevLogo').innerHTML=brandHTML(CFG_SISTEMA,30);
-  document.getElementById('nmPrevNome').textContent=n;
-  document.getElementById('nmPrevSub').textContent=s;
+  var n=(document.getElementById('nmNome').value||'').trim()||NOME_PADRAO;
+  document.getElementById('nmPrevTop').innerHTML='<span class="brand-icon">'+brandHTML(NM_DRAFT,26)+'</span><strong>'+escHtml(n)+'</strong>';
+}
+function nmEscolherEmoji(e){document.getElementById('nmEmoji').value=e;nmEmojiInput();}
+function nmEmojiInput(){
+  var inp=document.getElementById('nmEmoji'),e=primeiroEmoji(inp.value);
+  inp.value=e;
+  NM_DRAFT=e?{tipo:'emoji',valor:e}:{tipo:'emoji',valor:'🏛️'};
+  nmPreview();
+}
+function nmArquivo(inp){
+  var f=inp.files&&inp.files[0];inp.value='';
+  if(!f)return;
+  abrirCropper(f,{
+    aspects:[{label:'Quadrado (1:1)',ratio:1,outW:256},{label:'Horizontal (3:1)',ratio:3,outW:450}],
+    maxChars:45000,
+    onDone:function(url){
+      NM_DRAFT={tipo:'imagem',valor:url};
+      document.getElementById('nmEmoji').value='';
+      nmPreview();
+    }
+  });
 }
 function nmRestaurar(){
+  NM_DRAFT={tipo:'emoji',valor:'🏛️'};
+  document.getElementById('nmEmoji').value='🏛️';
   document.getElementById('nmNome').value=NOME_PADRAO;
-  document.getElementById('nmSub').value=SUBTITULO_PADRAO;
   nmPreview();
 }
 function nmSalvar(){
   var nome=document.getElementById('nmNome').value.replace(/\s+/g,' ').trim();
-  var sub=document.getElementById('nmSub').value.replace(/\s+/g,' ').trim();
   if(!nome){showFeedback('fbCfg','Informe o nome do sistema.',false);return;}
-  if(/[<>]/.test(nome+sub)){showFeedback('fbCfg','O texto não pode conter < ou >.',false);return;}
+  if(/[<>]/.test(nome)){showFeedback('fbCfg','O texto não pode conter < ou >.',false);return;}
   var btn=document.getElementById('btnNomeSalvar');btn.disabled=true;btn.textContent='Salvando...';
-  function liberar(){btn.disabled=false;btn.textContent='Salvar nome';}
+  function liberar(){btn.disabled=false;btn.textContent='Salvar';}
+  function falha(msg){liberar();showFeedback('fbCfg','Erro: '+msg,false);}
+  var semResp='sem resposta do servidor. Confira se a nova versão do script foi implantada.';
+  function salvarNome(){
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(!r||!r.success){falha((r&&r.message)||semResp);return;}
+        liberar();
+        NOME_SISTEMA=r.nome;aplicarNomes();
+        showFeedback('fbCfg','✔ Nome e logo do sistema atualizados!',true);
+      })
+      .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar com o servidor.');})
+      .salvarNomeSistema(nome,null,USUARIO.id);                       // null = não mexe no subtítulo do login
+  }
+  var mudouLogo=!(CFG_SISTEMA&&CFG_SISTEMA.tipo===NM_DRAFT.tipo&&CFG_SISTEMA.valor===NM_DRAFT.valor);
+  if(!mudouLogo){salvarNome();return;}
   google.script.run
     .withSuccessHandler(function(r){
-      liberar();
-      if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
-      NOME_SISTEMA=r.nome;SUBTITULO_LOGIN=r.subtitulo;aplicarNomes();
-      showFeedback('fbCfg','✔ Nome do sistema atualizado!',true);
+      if(!r||!r.success){falha((r&&r.message)||semResp);return;}
+      CFG_SISTEMA={tipo:r.tipo,valor:r.valor};aplicarBrand();
+      salvarNome();
     })
-    .withFailureHandler(function(err){liberar();showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
-    .salvarNomeSistema(nome,sub,USUARIO.id);
+    .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar com o servidor.');})
+    .salvarConfigSistema(NM_DRAFT.tipo,NM_DRAFT.valor,USUARIO.id);
 }
 
-/* ── Nome exclusivo da tela de login ── */
+/* ── Aba "Nome no login": título e subtítulo só da tela de login ── */
 function nlIniciar(){
   document.getElementById('nlNome').value=NOME_LOGIN;
+  document.getElementById('nlSub').value=SUBTITULO_LOGIN;
   nlPreview();
 }
 function nlPreview(){
   var n=document.getElementById('nlNome').value.trim()||NOME_SISTEMA;
   document.getElementById('nlPrevLogo').innerHTML=brandHTML(CFG_SISTEMA,30);
   document.getElementById('nlPrevNome').textContent=n;
-  document.getElementById('nlPrevSub').textContent=SUBTITULO_LOGIN;
+  document.getElementById('nlPrevSub').textContent=document.getElementById('nlSub').value.trim();
 }
-function nlRestaurar(){document.getElementById('nlNome').value='';nlPreview();}
+function nlRestaurar(){
+  document.getElementById('nlNome').value='';
+  document.getElementById('nlSub').value=SUBTITULO_PADRAO;
+  nlPreview();
+}
 function nlSalvar(){
   var nome=document.getElementById('nlNome').value.replace(/\s+/g,' ').trim();
-  if(/[<>]/.test(nome)){showFeedback('fbCfg','O texto não pode conter < ou >.',false);return;}
+  var sub=document.getElementById('nlSub').value.replace(/\s+/g,' ').trim();
+  if(/[<>]/.test(nome+sub)){showFeedback('fbCfg','O texto não pode conter < ou >.',false);return;}
   var btn=document.getElementById('btnNomeLoginSalvar');btn.disabled=true;btn.textContent='Salvando...';
-  function liberar(){btn.disabled=false;btn.textContent='Salvar nome do login';}
+  function liberar(){btn.disabled=false;btn.textContent='Salvar';}
   google.script.run
     .withSuccessHandler(function(r){
       liberar();
       if(!r||!r.success){showFeedback('fbCfg','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
-      NOME_LOGIN=(r.nome!=null?r.nome:r.nomeLogin)||'';aplicarNomes();   // aceita r.nome (NomeLogin.gs) ou r.nomeLogin
-      showFeedback('fbCfg',NOME_LOGIN?'✔ Nome da tela de login atualizado!':'✔ O login voltou a usar o nome do sistema.',true);
+      NOME_LOGIN=(r.nome!=null?r.nome:'')||'';SUBTITULO_LOGIN=(r.subtitulo!=null?r.subtitulo:sub);aplicarNomes();
+      showFeedback('fbCfg','✔ Tela de login atualizada!',true);
     })
     .withFailureHandler(function(err){liberar();showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
-    .salvarNomeLogin(nome,USUARIO.id);
+    .salvarTelaLogin(nome,sub,USUARIO.id);
 }
 
 </script>
