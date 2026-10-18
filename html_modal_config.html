@@ -13,7 +13,6 @@
       <div class="cfg-grupo" id="cfgGrupoAdmin" style="display:none;">Administração</div>
       <button class="cfg-tab" id="tabCfgPeriodos" onclick="cfgTab('periodos')" style="display:none;">📅 Períodos letivos</button>
       <button class="cfg-tab" id="tabCfgPlanilhas" onclick="cfgTab('planilhas')" style="display:none;">🔗 Planilhas</button>
-      <button class="cfg-tab" id="tabCfgSis" onclick="cfgTab('sistema')" style="display:none;">🏛️ Logo do sistema</button>
       <button class="cfg-tab" id="tabCfgNome" onclick="cfgTab('nome')" style="display:none;">🏷️ Nome do sistema</button>
       <button class="cfg-tab" id="tabCfgNomeLogin" onclick="cfgTab('nomelogin')" style="display:none;">🔐 Nome no login</button>
       <button class="cfg-tab" id="tabCfgLogin" onclick="cfgTab('login')" style="display:none;">🖼️ Fundo do login</button>
@@ -132,31 +131,36 @@
       <div class="feedback" id="fbCC" style="margin-top:12px;"></div>
     </div>
     <div id="cfgPaneNome" style="display:none;">
+      <p class="cfg-hint">Logo e nome do sistema: aparecem no topo do sistema e na escolha do sistema (o nome também na aba do navegador). A logo também aparece na tela de login. O título da tela de login é definido em “Nome no login”. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — topo do sistema</label>
       <div class="cfg-preview sistema" id="nmPrevTop"></div>
-      <label class="cfg-label">Prévia — tela de login</label>
-      <div class="nm-prev-login"><div><div id="nmPrevLogo" style="font-size:26px;line-height:1;margin-bottom:4px;"></div><div class="t" id="nmPrevNome"></div><div class="s" id="nmPrevSub"></div></div></div>
-      <label class="cfg-label">Nome do sistema</label>
-      <input type="text" class="cfg-input" id="nmNome" maxlength="60" style="font-size:14px;margin-bottom:14px;" oninput="nmPreview()"/>
-      <label class="cfg-label">Subtítulo da tela de login <small style="font-weight:400;color:var(--cinza);">(texto abaixo do nome)</small></label>
-      <input type="text" class="cfg-input" id="nmSub" maxlength="100" style="font-size:14px;" oninput="nmPreview()"/>
-      <p class="cfg-hint" style="margin-top:6px;">Deixe o subtítulo em branco para ocultá-lo. O nome aparece no topo do sistema, na escolha do sistema e na aba do navegador (e também no login, a menos que você defina um nome só para o login). Somente Admin pode alterar.</p>
+      <label class="cfg-label">Logo do sistema</label>
+      <input type="text" class="cfg-input" id="nmEmoji" placeholder="Digite ou escolha um emoji" oninput="nmEmojiInput()"/>
+      <div class="emoji-sug" id="nmSug"></div>
       <div class="cfg-btns">
+        <button type="button" class="btn-outline" onclick="document.getElementById('nmFile').click()">📷 Escolher imagem</button>
+      </div>
+      <input type="file" id="nmFile" accept="image/*" style="display:none;" onchange="nmArquivo(this)"/>
+      <label class="cfg-label">Nome do sistema</label>
+      <input type="text" class="cfg-input" id="nmNome" maxlength="60" style="font-size:14px;" oninput="nmPreview()"/>
+      <div class="cfg-btns" style="margin-top:12px;">
         <button type="button" class="btn-outline" onclick="nmRestaurar()">↺ Restaurar padrão</button>
       </div>
-      <button class="btn-salvar-edit" id="btnNomeSalvar" onclick="nmSalvar()">Salvar nome</button>
+      <button class="btn-salvar-edit" id="btnNomeSalvar" onclick="nmSalvar()">Salvar</button>
     </div>
     <div id="cfgPaneNomeLogin" style="display:none;">
-      <p class="cfg-hint">Define o título que aparece <strong>somente na tela de login</strong>. O nome da escolha do sistema, do topo do sistema e da aba do navegador não muda.</p>
+      <p class="cfg-hint">Define o título e o subtítulo que aparecem <strong>somente na tela de login</strong>. O nome do topo do sistema e o da escolha do sistema não mudam. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — tela de login</label>
       <div class="nm-prev-login"><div><div id="nlPrevLogo" style="font-size:26px;line-height:1;margin-bottom:4px;"></div><div class="t" id="nlPrevNome"></div><div class="s" id="nlPrevSub"></div></div></div>
       <label class="cfg-label">Nome na tela de login</label>
-      <input type="text" class="cfg-input" id="nlNome" maxlength="60" style="font-size:14px;" oninput="nlPreview()"/>
-      <p class="cfg-hint" style="margin-top:6px;">Deixe em branco para usar o nome do sistema. O subtítulo do login continua sendo editado em “Nome do sistema”. Somente Admin pode alterar.</p>
+      <input type="text" class="cfg-input" id="nlNome" maxlength="60" style="font-size:14px;margin-bottom:14px;" oninput="nlPreview()"/>
+      <label class="cfg-label">Subtítulo da tela de login <small style="font-weight:400;color:var(--cinza);">(texto abaixo do nome)</small></label>
+      <input type="text" class="cfg-input" id="nlSub" maxlength="100" style="font-size:14px;" oninput="nlPreview()"/>
+      <p class="cfg-hint" style="margin-top:6px;">Deixe o nome em branco para usar o nome do sistema e o subtítulo em branco para ocultá-lo.</p>
       <div class="cfg-btns">
-        <button type="button" class="btn-outline" onclick="nlRestaurar()">↺ Usar o nome do sistema</button>
+        <button type="button" class="btn-outline" onclick="nlRestaurar()">↺ Restaurar padrão</button>
       </div>
-      <button class="btn-salvar-edit" id="btnNomeLoginSalvar" onclick="nlSalvar()">Salvar nome do login</button>
+      <button class="btn-salvar-edit" id="btnNomeLoginSalvar" onclick="nlSalvar()">Salvar</button>
     </div>
     <div id="cfgPaneLogin" style="display:none;">
       <div class="fundo-preview" id="fundoPreview"><span>Prévia da tela de login e de período</span></div>
