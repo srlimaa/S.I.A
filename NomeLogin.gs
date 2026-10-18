@@ -21,3 +21,19 @@ function salvarNomeLogin(nome, adminId) {
     return { success: true, nome: nome };
   } catch (e) { return { success: false, message: e.message }; }
 }
+
+// Título e subtítulo exibidos SOMENTE na tela de login — só Admin.
+// Nome vazio = usa o nome do sistema · subtítulo vazio = oculta o subtítulo.
+function salvarTelaLogin(nome, subtitulo, adminId) {
+  try {
+    if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar a tela de login.' };
+    nome = String(nome == null ? '' : nome).replace(/\s+/g, ' ').trim();
+    subtitulo = String(subtitulo == null ? '' : subtitulo).replace(/\s+/g, ' ').trim();
+    if (nome.length > 60) return { success: false, message: 'O nome pode ter no máximo 60 caracteres.' };
+    if (subtitulo.length > 100) return { success: false, message: 'O subtítulo pode ter no máximo 100 caracteres.' };
+    if (/[<>]/.test(nome + subtitulo)) return { success: false, message: 'O texto não pode conter < ou >.' };
+    setConfig_('nome_login', nome);
+    setConfig_('subtitulo_login', subtitulo);
+    return { success: true, nome: nome, subtitulo: subtitulo };
+  } catch (e) { return { success: false, message: e.message }; }
+}
