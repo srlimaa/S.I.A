@@ -16,6 +16,19 @@
       <input type="text" id="filtroTexto" placeholder="🔍 Buscar por nome..."
              oninput="renderHistorico()" style="min-width:200px;"/>
     </div>
+    <div class="filtros-bar" style="align-items:center;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--cinza);">Data
+        <input type="date" id="filtroHistData" onchange="histFiltroData()"/></label>
+      <select id="filtroHistMes" onchange="histFiltroMes()" title="Filtrar por mês">
+        <option value="">Mês</option>
+      </select>
+      <select id="filtroHistSem" onchange="histFiltroSem()" title="Filtrar por semestre">
+        <option value="">Semestre</option>
+      </select>
+      <button type="button" class="btn-filtrar" onclick="histHoje()">Hoje</button>
+      <button type="button" class="btn-outline" onclick="histTodos()">Ver todos</button>
+    </div>
+    <p class="cfg-hint" id="histFiltroInfo" style="margin:-8px 0 14px;"></p>
     <div class="feedback" id="fbHist" style="margin:0 0 14px;"></div>
     <div id="histListContainer" class="hist-list">
       <p class="loading-msg">Carregando...</p>
