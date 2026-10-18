@@ -12,7 +12,7 @@ function login(email, senha) {
       if (String(data[i][2]).trim() === String(email).trim() &&
           String(data[i][3]).trim() === String(senha).trim()) {
         return { success: true, nome: data[i][1],
-                 perfil: data[i][4], id: String(data[i][0]), email: String(data[i][2]).trim(),
+                 perfil: (String(data[i][4]).trim() === 'Atend' ? 'Colab' : data[i][4]), id: String(data[i][0]), email: String(data[i][2]).trim(),
                  avatar: { tipo: String(data[i][5] || '').trim(), valor: String(data[i][6] || '') } };
       }
     }
