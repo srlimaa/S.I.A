@@ -155,4 +155,20 @@
   .rq-chip.on{border-color:var(--azul2);background:rgba(37,99,235,.10);color:var(--azul2);}
   .rq-chip input{margin:0;accent-color:var(--azul2);}
   .rq-todas{border:0;background:none;color:var(--azul2);font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;}
+  /* Ocorrências: responsável, seleção e etapas pendentes */
+  .oc-barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:13px;color:var(--cinza);}
+  .oc-barra label{display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+  .oc-barra select,.oc-barra input[type=number]{padding:7px 10px;border:1.5px solid var(--borda);border-radius:8px;font-size:13px;background:var(--white);color:var(--texto);outline:none;}
+  .oc-barra input[type=number]{width:70px;}
+  .oc-barra .btn-outline{padding:7px 12px;font-size:13px;}
+  .oc-sel{width:36px;text-align:center;}
+  .oc-sel input{width:16px;height:16px;accent-color:var(--azul2);cursor:pointer;}
+  .oc-tabela tr.oc-meu td{background:rgba(22,163,74,.09);}
+  .oc-tabela tr.oc-outro td{background:rgba(234,88,12,.07);}
+  .oc-tag{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin:0 4px 2px 0;white-space:nowrap;}
+  .oc-tag.pend{background:rgba(234,88,12,.14);color:#c2410c;}
+  .oc-tag.ok{background:rgba(22,163,74,.15);color:#15803d;}
+  .oc-chip small{font-weight:500;opacity:.8;}
+  [data-theme="dark"] .oc-tag.pend{color:#fdba74;}
+  [data-theme="dark"] .oc-tag.ok{color:#86efac;}
 </style>
