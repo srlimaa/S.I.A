@@ -126,4 +126,18 @@ canvas.crop{border:1px solid var(--border);border-radius:50%;touch-action:none;c
 @media(max-width:760px){.settings-panel{flex-direction:column;border-radius:0}.settings-nav{width:100%;flex-direction:row;border:0;border-bottom:1px solid var(--border);padding:0}.sn-title,.sn-divider,.sn-admin-label{display:none}.sn-item{white-space:nowrap;border-left:0;border-bottom:3px solid transparent}.sn-item.active{border-bottom-color:var(--red)}.header{padding:0 12px}.header-uname,.header-role{display:none}.reg-grid{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.tab-pane{padding:14px 12px}}
 #login-screen{display:none!important}
 
+/* atribuição de responsáveis em lote */
+.atr-box{display:flex;flex-direction:column;gap:12px}
+.atr-head{display:flex;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap}.atr-head h3{margin:0;font-size:15px}.atr-head .btn-secondary{margin-left:auto;pointer-events:none}
+.atr-sec{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.atr-lbl{font-size:11px;font-weight:700;color:var(--text-sec);text-transform:uppercase;letter-spacing:.5px}.atr-lbl a{color:var(--red);text-decoration:none;font-weight:600;text-transform:none;letter-spacing:0;margin-left:10px}
+.atr-pessoas{display:flex;flex-wrap:wrap;gap:8px}
+.atr-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--border);border-radius:99px;font-size:13px;cursor:pointer;background:var(--surface2)}.atr-chip.on{border-color:var(--red);background:var(--info-bg)}.atr-chip small{color:var(--text-muted)}
+.atr-modos{display:flex;flex-direction:column;gap:8px}
+.atr-modo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;cursor:pointer}.atr-modo input[type=radio]{width:auto}.atr-modo select,.atr-modo input[type=number]{width:auto;padding:5px 8px}.atr-modo input[type=number]{width:80px}
+.atr-opts{flex-direction:row;flex-wrap:wrap;gap:18px;font-size:13px}.atr-opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.atr-acoes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}.atr-acoes button:disabled{opacity:.5;cursor:not-allowed}
+.atr-tab{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}.atr-tab th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-sec);padding:6px 8px;border-bottom:1.5px solid var(--border)}.atr-tab td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.atr-aviso{margin-top:8px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--warn-bg);color:var(--warn);font-size:12.5px}
+
 </style>
