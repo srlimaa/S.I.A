@@ -1,6 +1,7 @@
 <script>
 /* ══════════ HISTÓRICO ══════════ */
 function carregarHistorico(){
+  histResetHoje();          // ao abrir a tela, só os registros do dia
   document.getElementById('histListContainer').innerHTML='<p class="loading-msg">Carregando...</p>';
   google.script.run
     .withSuccessHandler(function(res){
@@ -9,6 +10,7 @@ function carregarHistorico(){
           '<p class="loading-msg" style="color:#dc2626;">Erro: '+res.error+'</p>';return;
       }
       HISTORICO_CACHE=Array.isArray(res)?res:[];
+      histPreencherFiltros();
       renderHistorico();
     })
     .withFailureHandler(function(){
@@ -22,12 +24,22 @@ function renderHistorico(){
   var filtroTipo=document.getElementById('filtroTipo').value;
   var filtroColab=document.getElementById('filtroColab').value;
   var filtroTexto=(document.getElementById('filtroTexto').value||'').toLowerCase().trim();
+  var fData=document.getElementById('filtroHistData').value;      // AAAA-MM-DD
+  var fMes=document.getElementById('filtroHistMes').value;        // MM/AAAA
+  var fSem=document.getElementById('filtroHistSem').value;        // AAAA.S
   var lista=HISTORICO_CACHE.filter(function(item){
     if(filtroTipo&&item.tipo!==filtroTipo)return false;
     if(filtroColab==='meus'){
       var c=(item.colaborador||'').trim().toLowerCase();
       var r=(item.registradoPor||'').trim().toLowerCase();
       if(c!==USUARIO.nome.toLowerCase()&&r!==USUARIO.nome.toLowerCase())return false;
+    }
+    if(fData||fMes||fSem){                       // data / mês / semestre (item.data = DD/MM/AAAA)
+      var p=String(item.data||'').split('/');
+      if(p.length!==3)return false;
+      if(fData&&(p[2]+'-'+p[1]+'-'+p[0])!==fData)return false;
+      if(fMes&&(p[1]+'/'+p[2])!==fMes)return false;
+      if(fSem&&(p[2]+'.'+(parseInt(p[1],10)<=6?'1':'2'))!==fSem)return false;
     }
     if(filtroTexto){
       var hay=[item.colaborador,item.registradoPor,item.data].join(' ').toLowerCase();
@@ -40,7 +52,12 @@ function renderHistorico(){
     return b.data.split('/').reverse().join('-').localeCompare(a.data.split('/').reverse().join('-'));
   });
   var container=document.getElementById('histListContainer');
-  if(lista.length===0){container.innerHTML='<p class="empty-msg">Nenhum registro encontrado.</p>';return;}
+  histInfo(fData,fMes,fSem,lista.length);
+  if(lista.length===0){
+    container.innerHTML='<p class="empty-msg">'+(fData&&fData===histHojeISO()
+      ?'Nenhum registro hoje. Use os filtros acima para consultar outros dias.':'Nenhum registro encontrado.')+'</p>';
+    window._histFiltered=[];return;
+  }
   container.innerHTML=lista.map(function(item){
     var tc=item.tipo.replace(/[^a-zA-Z]/g,'');
     return '<div class="hist-item '+tc+'" onclick="abrirModal(\''+item.id+'\')">'+
@@ -50,6 +67,70 @@ function renderHistorico(){
       '</div><span class="hist-badge badge-'+tc+'">'+item.tipo+'</span></div>';
   }).join('');
   window._histFiltered=lista;
+}
+
+/* ── Filtros de data, mês e semestre (ao abrir: só o dia de hoje) ── */
+function histHojeISO(){
+  var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+function histResetHoje(){
+  document.getElementById('filtroHistData').value=histHojeISO();
+  document.getElementById('filtroHistMes').value='';
+  document.getElementById('filtroHistSem').value='';
+}
+function histFiltroData(){
+  if(document.getElementById('filtroHistData').value){
+    document.getElementById('filtroHistMes').value='';document.getElementById('filtroHistSem').value='';
+  }
+  renderHistorico();
+}
+function histFiltroMes(){
+  if(document.getElementById('filtroHistMes').value){
+    document.getElementById('filtroHistData').value='';document.getElementById('filtroHistSem').value='';
+  }
+  renderHistorico();
+}
+function histFiltroSem(){
+  if(document.getElementById('filtroHistSem').value){
+    document.getElementById('filtroHistData').value='';document.getElementById('filtroHistMes').value='';
+  }
+  renderHistorico();
+}
+function histHoje(){histResetHoje();renderHistorico();}
+function histTodos(){
+  document.getElementById('filtroHistData').value='';
+  document.getElementById('filtroHistMes').value='';
+  document.getElementById('filtroHistSem').value='';
+  renderHistorico();
+}
+// Monta as listas de mês e semestre com o que existe nos registros carregados
+function histPreencherFiltros(){
+  var meses={},sems={};
+  HISTORICO_CACHE.forEach(function(it){
+    var p=String(it.data||'').split('/');
+    if(p.length!==3)return;
+    meses[p[1]+'/'+p[2]]=true;
+    sems[p[2]+'.'+(parseInt(p[1],10)<=6?'1':'2')]=true;
+  });
+  var ml=Object.keys(meses).sort(function(a,b){
+    var pa=a.split('/'),pb=b.split('/');return new Date(pb[1],pb[0]-1)-new Date(pa[1],pa[0]-1);   // mais recente primeiro
+  });
+  var sl=Object.keys(sems).sort().reverse();
+  var sm=document.getElementById('filtroHistMes'),ss=document.getElementById('filtroHistSem'),vm=sm.value,vs=ss.value;
+  sm.innerHTML='<option value="">Mês</option>'+ml.map(function(m){return '<option value="'+m+'">'+mesesLabel(m)+'</option>';}).join('');
+  ss.innerHTML='<option value="">Semestre</option>'+sl.map(function(s){return '<option value="'+s+'">'+s+' — '+semestreTexto(s)+'</option>';}).join('');
+  sm.value=vm;ss.value=vs;
+}
+function histInfo(fData,fMes,fSem,n){
+  var txt;
+  if(fData){
+    var br=fData.split('-').reverse().join('/');
+    txt=(fData===histHojeISO()?'Hoje ('+br+')':'Dia '+br);
+  }else if(fMes)txt='Mês '+mesesLabel(fMes);
+  else if(fSem)txt='Semestre '+fSem+' ('+semestreTexto(fSem)+')';
+  else txt='Todos os registros do período';
+  document.getElementById('histFiltroInfo').textContent='📅 '+txt+' · '+n+' registro(s)';
 }
 
 var MODAL_ITEM=null,MODAL_EDITANDO=false;
