@@ -13,7 +13,7 @@ function carregarUsuarios(){
       tbody.innerHTML=lista.map(function(u){
         return '<tr><td>'+u.nome+'</td><td>'+u.email+'</td>'+
           '<td><span class="badge-'+u.perfil.toLowerCase()+'">'+u.perfil+'</span></td>'+
-          '<td><span class="badge-atend" style="background:'+(u.cc?'#16a34a':'#94a3b8')+'">'+(u.cc?'Sim':'Não')+'</span></td>'+
+          '<td><span class="badge-colab" style="background:'+(u.cc?'#16a34a':'#94a3b8')+'">'+(u.cc?'Sim':'Não')+'</span></td>'+
           '<td><button class="btn-editar" onclick="abrirEdicaoUsuario(\''+u.id+'\')">Editar</button>'+
           '<button class="btn-excluir" onclick="excluirUsuario(\''+u.id+'\')">Excluir</button></td></tr>';
       }).join('');
