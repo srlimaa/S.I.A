@@ -1,42 +1,78 @@
 <script>
 /* ══════════ OCORRÊNCIAS (UNILEÃO / UNIVS) ══════════ */
-var OC={ies:null,itens:[],cur:null,rotulo:{unileao:'Unileão',univs:'Univs'},poll:null,beat:null};
+var OC={ies:null,itens:[],cur:null,rotulo:{unileao:'Unileão',univs:'Univs'},poll:null,beat:null,reload:null,sel:{},vis:[],sig:'',busy:false,visHook:false};
 function dataLocalISO(){var d=new Date(),p=function(n){return String(n).padStart(2,'0');};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function ocKey(it){return it.linha+'|'+String(it.cpf==null?'':it.cpf).replace(/\D/g,'');}
+function ocEu(r){return !!(r&&USUARIO&&String(r.id)===String(USUARIO.id));}
 function ocMsg(t){document.getElementById('ocTabela').innerHTML='<p class="ind-msg" style="padding:20px;">'+t+'</p>';document.getElementById('ocCont').textContent='';}
 function abrirOcorrencias(ies){
-  OC.ies=ies;OC.itens=[];OC.cur=null;
+  OC.ies=ies;OC.itens=[];OC.cur=null;OC.sel={};OC.vis=[];OC.sig='';OC.busy=false;
   document.getElementById('ocTitulo').textContent='📁 Ocorrências - '+OC.rotulo[ies]+' — pendentes';
   document.getElementById('ocBusca').value='';
+  document.getElementById('ocFiltroResp').value='todos';
   document.getElementById('fbOcLista').style.display='none';
   document.getElementById('ocOverlay').classList.add('open');
   ocCarregar();
-  clearInterval(OC.poll);OC.poll=setInterval(ocAtualizarResp,20000);       // quem está com cada aluno
+  ocIniciarSync();
+}
+/* Atualização automática: a cada 5 s só consulta quem está com cada aluno e o que já foi concluído (leve, sem ler a planilha);
+   a lista completa é relida a cada 2 min (e no botão Atualizar). */
+function ocIniciarSync(){
+  clearInterval(OC.poll);OC.poll=setInterval(ocSync,5000);
+  clearInterval(OC.reload);OC.reload=setInterval(function(){if(!OC.cur&&!document.hidden)ocCarregar(true);},120000);
+  if(!OC.visHook){OC.visHook=true;document.addEventListener('visibilitychange',function(){if(!document.hidden)ocSync();});}
 }
 function ocFechar(){
   if(OC.cur)ocFecharPopup();
-  clearInterval(OC.poll);OC.poll=null;
+  clearInterval(OC.poll);OC.poll=null;clearInterval(OC.reload);OC.reload=null;
   document.getElementById('ocPopOverlay').classList.remove('open');document.getElementById('ocOverlay').classList.remove('open');
 }
-function ocCarregar(){
-  var ies=OC.ies;ocMsg('Carregando ocorrências...');
-  document.getElementById('fbOcLista').style.display='none';
+function ocCarregar(silencioso){
+  var ies=OC.ies;
+  if(!silencioso){ocMsg('Carregando ocorrências...');document.getElementById('fbOcLista').style.display='none';}
   google.script.run
     .withSuccessHandler(function(r){
       if(OC.ies!==ies)return;
-      if(!r||!r.success){ocMsg('<span style="color:#dc2626;">'+escHtml((r&&r.message)||'Falha ao ler as ocorrências. Confira se a nova versão do script foi implantada.')+'</span>');return;}
-      OC.itens=r.itens||[];ocRender();
+      if(!r||!r.success){
+        if(!silencioso)ocMsg('<span style="color:#dc2626;">'+escHtml((r&&r.message)||'Falha ao ler as ocorrências. Confira se a nova versão do script foi implantada.')+'</span>');
+        return;
+      }
+      OC.itens=r.itens||[];
+      var manter={};OC.itens.forEach(function(it){var k=ocKey(it);if(OC.sel[k])manter[k]=true;});OC.sel=manter;   // a seleção sobrevive à atualização
+      ocRender();
     })
-    .withFailureHandler(function(err){if(OC.ies===ies)ocMsg('<span style="color:#dc2626;">Falha ao carregar: '+escHtml((err&&err.message)||'sem conexão')+'</span>');})
+    .withFailureHandler(function(err){if(!silencioso&&OC.ies===ies)ocMsg('<span style="color:#dc2626;">Falha ao carregar: '+escHtml((err&&err.message)||'sem conexão')+'</span>');})
     .getOcorrenciasPendentes(PERIODO,ies);
 }
-function ocAtualizarResp(){
-  if(!OC.ies||!OC.itens.length||!document.getElementById('ocOverlay').classList.contains('open'))return;
-  var ies=OC.ies;
-  google.script.run.withSuccessHandler(function(r){
-    if(OC.ies!==ies||!r||!r.success)return;
-    OC.itens.forEach(function(it){it.resp=r.resp[it.linha]||null;});
-    ocRender();
-  }).getOcorrenciasResponsaveis(PERIODO,ies,OC.itens.map(function(it){return {linha:it.linha,cpf:it.cpf};}));
+function ocSync(){
+  if(OC.busy||!OC.ies||!OC.itens.length||document.hidden||!document.getElementById('ocOverlay').classList.contains('open'))return;
+  var ies=OC.ies;OC.busy=true;
+  google.script.run
+    .withSuccessHandler(function(r){OC.busy=false;if(OC.ies!==ies||!r||!r.success)return;ocAplicarSync(r);})
+    .withFailureHandler(function(){OC.busy=false;})
+    .ocSync(PERIODO,ies,OC.itens.map(function(it){return {linha:it.linha,cpf:it.cpf};}),USUARIO.id);
+}
+function ocAplicarSync(r){
+  OC.itens.forEach(function(it){
+    it.resp=r.resp[it.linha]||null;
+    var f=r.feitos[it.linha]||null;it.feitos=f;
+    if(f&&f.oc)it.ocPend=false;
+    if(f&&f.an)it.anPend=false;
+  });
+  // quem foi concluído por outra pessoa sai da lista (exceto o aluno que está aberto aqui)
+  var concl=0;
+  OC.itens=OC.itens.filter(function(it){
+    if(it.ocPend||(it.temAnexo&&it.anPend)||OC.cur===it)return true;
+    delete OC.sel[ocKey(it)];concl++;return false;
+  });
+  if(concl)showFeedback('fbOcLista','✔ '+concl+' aluno(s) concluído(s) por outros colaboradores saíram da lista.',true);
+  // alguém assumiu o aluno que está aberto aqui
+  var c=OC.cur;
+  if(c&&c._meu&&c.resp&&!ocEu(c.resp)){c._meu=false;c._ocupado=c.resp;ocPopBanner();ocPopEstado();}
+  if(concl||ocSig()!==OC.sig)ocRender();
+}
+function ocSig(){
+  return JSON.stringify(OC.itens.map(function(it){var r=it.resp;return [it.linha,r&&r.id,r&&r.aberto,r&&r.tipo,it.ocPend,it.anPend];}));
 }
 function ocLink(l,vazioTxt){
   if(!l||(!l.url&&!l.texto))return '<span class="oc-nil">'+(vazioTxt||'—')+'</span>';
@@ -46,27 +82,97 @@ function ocLink(l,vazioTxt){
   return '<a class="oc-link" href="'+escHtml(l.url)+'" target="_blank" rel="noopener noreferrer" title="'+escHtml(l.texto||l.url)+'">🔗 '+escHtml(t)+'</a>';
 }
 function ocChipResp(r){
-  if(!r)return '<span class="oc-nil">—</span>';
-  var eu=USUARIO&&String(r.nome).trim().toLowerCase()===String(USUARIO.nome).trim().toLowerCase();
-  return '<span class="oc-chip" title="Com este aluno aberto desde '+escHtml(r.desde||'')+'">'+avatarHTML(avatarDe(r.nome),22)+escHtml(eu?'Você':r.nome)+'</span>';
+  if(!r)return '<span class="oc-nil">Livre</span>';
+  var eu=ocEu(r);
+  var dica=(r.aberto?'Com a janela deste aluno aberta agora':'Aluno atribuído')+(r.desde?' desde '+r.desde:'');
+  return '<span class="oc-chip" title="'+escHtml(dica)+'">'+avatarHTML(avatarDe(r.nome),22)+escHtml(eu?'Você':r.nome)+(r.aberto?' <small>· aberto agora</small>':'')+'</span>';
+}
+function ocPendCel(it){
+  var p=[];
+  p.push(it.ocPend?'<span class="oc-tag pend">Ocorrência</span>':'<span class="oc-tag ok" title="'+escHtml(it.feitos&&it.feitos.oc?'Concluída por '+it.feitos.oc.nome:'')+'">✔ Ocorrência</span>');
+  if(it.temAnexo)p.push(it.anPend?'<span class="oc-tag pend">Anexo</span>':'<span class="oc-tag ok" title="'+escHtml(it.feitos&&it.feitos.an?'Concluído por '+it.feitos.an.nome:'')+'">✔ Anexo</span>');
+  return p.join('');
 }
 function ocRender(){
+  var tab=document.getElementById('ocTabela'),sc=tab.scrollTop,scx=tab.scrollLeft;
   var q=semAcento(document.getElementById('ocBusca').value||'').trim(),qd=q.replace(/\D/g,'');
-  var linhas=[];
+  var filtro=document.getElementById('ocFiltroResp').value;
+  var linhas=[],vis=[],livres=0,meus=0,outros=0;
   OC.itens.forEach(function(it,i){
+    var r=it.resp,eu=ocEu(r);
+    if(!r)livres++;else if(eu)meus++;else outros++;
+    if(filtro==='livres'&&r)return;
+    if(filtro==='meus'&&!eu)return;
+    if(filtro==='outros'&&!(r&&!eu))return;
     if(q&&semAcento(it.nome).indexOf(q)===-1&&!(qd&&String(it.cpf).replace(/\D/g,'').indexOf(qd)!==-1))return;
-    linhas.push('<tr><td>'+escHtml(it.cpf)+'</td>'+
+    vis.push(i);
+    linhas.push('<tr class="'+(eu?'oc-meu':(r?'oc-outro':''))+'">'+
+      '<td class="oc-sel"><input type="checkbox"'+(OC.sel[ocKey(it)]?' checked':'')+' onchange="ocSelItem('+i+',this.checked)"/></td>'+
+      '<td>'+escHtml(it.cpf)+'</td>'+
       '<td><button type="button" class="oc-aluno" onclick="ocAbrir('+i+')">'+escHtml(it.nome||'(sem nome)')+'</button></td>'+
-      '<td>'+ocChipResp(it.resp)+'</td>'+
+      '<td>'+ocChipResp(r)+'</td><td>'+ocPendCel(it)+'</td>'+
       '<td>'+escHtml(it.dataInfo)+'</td><td>'+escHtml(it.semestre)+'</td><td>'+escHtml(it.tipo)+'</td><td>'+escHtml(it.obs)+'</td>'+
       '<td>'+ocLink(it.arquivo)+'</td><td>'+(it.temAnexo?ocLink(it.anexo):'<span class="oc-nil">—</span>')+'</td></tr>');
   });
-  document.getElementById('ocCont').textContent=OC.itens.length+' pendente(s)'+(q?' · '+linhas.length+' na busca':'');
-  if(!OC.itens.length){document.getElementById('ocTabela').innerHTML='<p class="ind-msg" style="padding:20px;">🎉 Nenhuma ocorrência pendente.</p>';return;}
-  if(!linhas.length){document.getElementById('ocTabela').innerHTML='<p class="ind-msg" style="padding:20px;">Nenhum resultado para a busca.</p>';return;}
-  document.getElementById('ocTabela').innerHTML='<table><thead><tr><th>CPF</th><th>Nome do aluno</th><th>Responsável</th><th>Data a ser informada</th><th>Semestre referência</th>'+
+  OC.vis=vis;
+  document.getElementById('ocCont').textContent=OC.itens.length+' pendente(s) · livres '+livres+' · meus '+meus+' · de outros '+outros+
+    (vis.length!==OC.itens.length?' · mostrando '+vis.length:'');
+  if(!OC.itens.length){tab.innerHTML='<p class="ind-msg" style="padding:20px;">🎉 Nenhuma ocorrência pendente.</p>';OC.sig=ocSig();ocSelCont();return;}
+  if(!linhas.length){tab.innerHTML='<p class="ind-msg" style="padding:20px;">Nenhum resultado para a busca/filtro.</p>';OC.sig=ocSig();ocSelCont();return;}
+  var todos=vis.every(function(i){return OC.sel[ocKey(OC.itens[i])];});
+  tab.innerHTML='<table><thead><tr><th class="oc-sel"><input type="checkbox"'+(todos?' checked':'')+' title="Selecionar todos os que aparecem" onchange="ocSelTodos(this.checked)"/></th>'+
+    '<th>CPF</th><th>Nome do aluno</th><th>Responsável</th><th>Pendente</th><th>Data a ser informada</th><th>Semestre referência</th>'+
     '<th>Tipo de ocorrência</th><th>Obs. ref. à mala</th><th>Nome do arquivo</th><th>Arquivo de anexo</th></tr></thead><tbody>'+linhas.join('')+'</tbody></table>';
+  tab.scrollTop=sc;tab.scrollLeft=scx;          // a lista não "pula" a cada atualização
+  OC.sig=ocSig();ocSelCont();
 }
+
+/* ── Seleção e atribuição de responsável em lote ── */
+function ocItensSel(){return OC.itens.filter(function(it){return OC.sel[ocKey(it)];});}
+function ocSelCont(){
+  var n=ocItensSel().length;
+  var b=document.getElementById('btnOcAssumirSel');if(b)b.textContent='👤 Assumir selecionados ('+n+')';
+}
+function ocSelItem(i,on){var it=OC.itens[i];if(!it)return;if(on)OC.sel[ocKey(it)]=true;else delete OC.sel[ocKey(it)];ocSelCont();}
+function ocSelTodos(on){
+  OC.vis.forEach(function(i){var k=ocKey(OC.itens[i]);if(on)OC.sel[k]=true;else delete OC.sel[k];});
+  ocRender();
+}
+function ocAssumirSel(){ocAtribuir(ocItensSel(),'assumir');}
+function ocLiberarSel(){ocAtribuir(ocItensSel(),'soltar');}
+function ocAssumirN(){
+  var n=Math.max(1,Math.min(200,parseInt(document.getElementById('ocN').value,10)||0));
+  var lista=OC.vis.map(function(i){return OC.itens[i];}).filter(function(it){return !it.resp;}).slice(0,n);
+  if(!lista.length){showFeedback('fbOcLista','Não há alunos livres na lista atual.',false);return;}
+  ocAtribuir(lista,'assumir');
+}
+function ocAtribuir(lista,modo){
+  if(!lista.length){showFeedback('fbOcLista','Selecione ao menos um aluno.',false);return;}
+  var ies=OC.ies;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(OC.ies!==ies)return;
+      if(!r||!r.success){showFeedback('fbOcLista','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);return;}
+      if(modo==='soltar'){
+        lista.forEach(function(it){if(it.resp&&ocEu(it.resp))it.resp=null;delete OC.sel[ocKey(it)];});
+        ocRender();showFeedback('fbOcLista','✔ '+(r.soltos||0)+' aluno(s) liberado(s).',true);ocSync();return;
+      }
+      var ocup={};(r.ocupados||[]).forEach(function(o){ocup[o.linha]=o.nome;});
+      lista.forEach(function(it){
+        if(ocup[it.linha]===undefined){it.resp={id:String(USUARIO.id),nome:USUARIO.nome,desde:'',tipo:'atribuido',aberto:false};delete OC.sel[ocKey(it)];}
+      });
+      ocRender();
+      var nomes=[],vistos={};(r.ocupados||[]).forEach(function(o){if(!vistos[o.nome]){vistos[o.nome]=1;nomes.push(o.nome);}});
+      showFeedback('fbOcLista','✔ '+r.ok+' aluno(s) agora com você.'+(nomes.length?' '+r.ocupados.length+' já estavam com: '+nomes.join(', ')+'.':''),true);
+      if(nomes.length&&modo==='assumir'&&confirm(r.ocupados.length+' aluno(s) já estão com outro colaborador ('+nomes.join(', ')+'). Assumir também esses?'))
+        ocAtribuir(lista.filter(function(it){return ocup[it.linha]!==undefined;}),'forcar');
+      else ocSync();
+    })
+    .withFailureHandler(function(err){showFeedback('fbOcLista','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
+    .ocAtribuir(PERIODO,ies,lista.map(function(it){return {linha:it.linha,cpf:it.cpf};}),USUARIO.id,modo);
+}
+
+/* ── Janela de um aluno ── */
 function ocPopInfo(it){
   function campo(l,v){return '<div><small>'+l+'</small><b>'+(v?escHtml(v):'—')+'</b></div>';}
   document.getElementById('ocPopInfo').innerHTML=campo('Data a ser informada',it.dataInfo)+campo('Semestre referência',it.semestre)+campo('Tipo de ocorrência',it.tipo);
@@ -75,11 +181,11 @@ function ocPopBanner(){
   var it=OC.cur,bx=document.getElementById('ocPopResp');if(!it)return;
   if(it._ocupado){
     bx.className='oc-resp outro';
-    bx.innerHTML=avatarHTML(avatarDe(it._ocupado.nome),40)+'<div class="txt"><b>'+escHtml(it._ocupado.nome)+'</b> está com este aluno aberto'+(it._ocupado.desde?' desde '+escHtml(it._ocupado.desde):'')+
+    bx.innerHTML=avatarHTML(avatarDe(it._ocupado.nome),40)+'<div class="txt"><b>'+escHtml(it._ocupado.nome)+'</b> está com este aluno'+(it._ocupado.aberto?' aberto':'')+(it._ocupado.desde?' desde '+escHtml(it._ocupado.desde):'')+
       '. Para não gerar a ocorrência duas vezes, aguarde ou assuma o aluno.</div><button type="button" onclick="ocAssumir()">Assumir</button>';
   }else if(it._meu){
     bx.className='oc-resp';
-    bx.innerHTML=avatarHTML(avatarDe(USUARIO.nome),40)+'<div class="txt"><b>Você é o responsável</b> por este aluno enquanto esta janela estiver aberta. Os outros usuários veem que ele está em atendimento.</div>';
+    bx.innerHTML=avatarHTML(avatarDe(USUARIO.nome),40)+'<div class="txt"><b>Você é o responsável</b> por este aluno. Os outros colaboradores veem que ele está com você.</div>';
   }else{
     bx.className='oc-resp espera';bx.textContent='Verificando se alguém já está com este aluno...';
   }
@@ -98,7 +204,7 @@ function ocAbrir(i){
   google.script.run
     .withSuccessHandler(function(r){
       if(OC.cur!==it)return;
-      if(r&&r.success){it._meu=true;it._ocupado=null;ocBeat(it);}
+      if(r&&r.success){it._meu=true;it._ocupado=null;it.resp=r.resp||it.resp;ocBeat(it);}
       else if(r&&r.ocupado){it._meu=false;it._ocupado=r.resp||{nome:'Outro usuário'};}
       else{it._meu=true;}      // falha ao marcar: não bloqueia o trabalho
       ocPopBanner();ocPopEstado();
@@ -106,7 +212,7 @@ function ocAbrir(i){
     .withFailureHandler(function(){if(OC.cur===it){it._meu=true;ocPopBanner();ocPopEstado();}})
     .ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'abrir',USUARIO.id);
 }
-function ocBeat(it){         // mantém a marcação de responsável enquanto a janela estiver aberta
+function ocBeat(it){         // mantém a marcação de "aberto agora" enquanto a janela estiver aberta
   clearInterval(OC.beat);
   OC.beat=setInterval(function(){
     if(OC.cur!==it||!it._meu){clearInterval(OC.beat);return;}
@@ -118,10 +224,10 @@ function ocBeat(it){         // mantém a marcação de responsável enquanto a 
 }
 function ocAssumir(){
   var it=OC.cur;if(!it||!it._ocupado)return;
-  if(!confirm(it._ocupado.nome+' está com este aluno aberto. Assumir mesmo assim?'))return;
+  if(!confirm(it._ocupado.nome+' está com este aluno. Assumir mesmo assim?'))return;
   google.script.run.withSuccessHandler(function(r){
     if(OC.cur!==it)return;
-    if(r&&r.success){it._meu=true;it._ocupado=null;ocBeat(it);}
+    if(r&&r.success){it._meu=true;it._ocupado=null;it.resp=r.resp||it.resp;ocBeat(it);}
     ocPopBanner();ocPopEstado();
   }).ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'forcar',USUARIO.id);
 }
@@ -147,6 +253,7 @@ function ocConfirmar(etapa){
     .withSuccessHandler(function(r){
       if(!r||!r.success){falha((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.',r&&r.jaFeito,r&&r.ocupado?r.resp:null);return;}
       if(etapa==='Ocorrência')it.ocPend=false;else it.anPend=false;
+      if(!it.ocPend&&!(it.temAnexo&&it.anPend))it.resp=null;     // concluído: o servidor já liberou o aluno
       INDICADORES_CACHE={};RANQUE_DADOS=null;
       ocPopEstado();
       showFeedback('fbOcPop','✔ '+etapa+' registrada em '+r.data+' por '+r.colaborador+'.'+(r.aviso?' '+r.aviso:''),true);
@@ -159,9 +266,9 @@ function ocFecharPopup(){
   clearInterval(OC.beat);OC.beat=null;
   document.getElementById('ocPopOverlay').classList.remove('open');
   if(it){
-    if(it._meu)google.script.run.ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'liberar',USUARIO.id);   // libera o aluno para os outros
-    it._meu=false;it._ocupado=null;it.resp=null;
-    if(!it.ocPend&&!(it.temAnexo&&it.anPend)){OC.itens=OC.itens.filter(function(x){return x!==it;});}   // tudo concluído: sai da lista
+    if(it._meu)google.script.run.withSuccessHandler(function(){ocSync();}).ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'liberar',USUARIO.id);   // some o "aberto agora"; atribuição continua
+    it._meu=false;it._ocupado=null;
+    if(!it.ocPend&&!(it.temAnexo&&it.anPend)){OC.itens=OC.itens.filter(function(x){return x!==it;});delete OC.sel[ocKey(it)];}   // tudo concluído: sai da lista
   }
   OC.cur=null;ocRender();
 }
