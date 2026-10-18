@@ -76,19 +76,21 @@ function getConfigSistema() {
   } catch(e) { return padrao; }
 }
 
-// Nome do sistema (topo e login) e subtítulo da tela de login — só Admin
+// Nome do sistema (topo do sistema, escolha do sistema e aba do navegador) — só Admin.
+// subtitulo = null/undefined: não altera o subtítulo da tela de login (ele é editado em salvarTelaLogin).
 function salvarNomeSistema(nome, subtitulo, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar o nome do sistema.' };
     nome = String(nome == null ? '' : nome).replace(/\s+/g, ' ').trim();
-    subtitulo = String(subtitulo == null ? '' : subtitulo).replace(/\s+/g, ' ').trim();
+    var mudaSub = (subtitulo !== null && subtitulo !== undefined);
+    subtitulo = mudaSub ? String(subtitulo).replace(/\s+/g, ' ').trim() : '';
     if (!nome) return { success: false, message: 'Informe o nome do sistema.' };
     if (nome.length > 60) return { success: false, message: 'O nome pode ter no máximo 60 caracteres.' };
     if (subtitulo.length > 100) return { success: false, message: 'O subtítulo pode ter no máximo 100 caracteres.' };
     if (/[<>]/.test(nome + subtitulo)) return { success: false, message: 'O texto não pode conter < ou >.' };
     setConfig_('nome_sistema', nome);
-    setConfig_('subtitulo_login', subtitulo);
-    return { success: true, nome: nome, subtitulo: subtitulo };
+    if (mudaSub) setConfig_('subtitulo_login', subtitulo);
+    return { success: true, nome: nome };
   } catch(e) { return { success: false, message: e.message }; }
 }
 
