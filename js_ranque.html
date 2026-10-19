@@ -85,9 +85,9 @@ function rqAtivChips(){
   }).join('')+(at.length<RQ_ATIVS.length?'<button type="button" class="rq-todas" onclick="rqAtivTodas()">Todas</button>':'')+'</div>';
 }
 function rqCardH4(titulo,col,card,excel){
-  return '<h4 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+
-    '<button type="button" class="exp-mini" title="Baixar este cartão em imagem (.jpg)" onclick="rqBaixarJpg(\''+col+'\',\''+card+'\')">🖼️ JPG</button>'+
-    (excel?'<button type="button" class="exp-mini" title="Baixar esta lista em Excel" onclick="rqBaixarExcel(\''+col+'\')">📊 Excel</button>':'')+'</span></h4>';
+  var ac=[{rot:'🖼️ Imagem (.jpg)',dica:'Baixar este cartão em imagem (.jpg)',f:function(){rqBaixarJpg(col,card);}}];
+  if(excel)ac.push({rot:'📊 Excel (.xlsx)',f:function(){rqBaixarExcel(col);}});
+  return '<h4 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+dlBtn('rq_'+col+'_'+card,ac)+'</span></h4>';
 }
 function rqColuna(col,titulo,lista,unidade,extraTopo){
   var max=lista.length?lista[0].v:0;
@@ -122,8 +122,8 @@ function renderRanque(){
   else if(de||ate)txt+=' · de '+(de?de.split('-').reverse().join('/'):'início')+' até '+(ate?ate.split('-').reverse().join('/'):'hoje');
   document.getElementById('rqResumo').textContent=txt+'. Registro do Atendimento soma '+(atSel.length===RQ_ATIVS.length?'Presencial, Ramal, E-mail, Ocorrências e Anexos (Unileão e Univs)':atSel.join(', '))+'.';
   RQ_ULT={reg:reg,fe:fe,at:at,atSel:atSel,porAt:porAt,fech:fech,atrib:atrib,filtro:txtFiltroDatas(RQ_SEM,de,ate),dias:datas.length};
-  cont.innerHTML='<div class="exp-bar no-img"><button type="button" class="btn-outline" onclick="rqBaixarJpg()">🖼️ Baixar todos os cartões (.jpg)</button>'+
-    '<button type="button" class="btn-outline" onclick="rqBaixarExcel()">📊 Baixar Excel (todas as listas)</button><span class="exp-fb" id="rqDlFb"></span></div>'+
+  cont.innerHTML='<div class="exp-bar no-img">'+dlBtn('rq_todos',[{rot:'🖼️ Todos os cartões (.jpg)',desc:'Um arquivo por cartão',f:function(){rqBaixarJpg();}},
+      {rot:'📊 Excel (.xlsx)',desc:'Todas as listas',f:function(){rqBaixarExcel();}}])+'<span class="exp-fb" id="rqDlFb"></span></div>'+
     '<div class="rq-grid">'+
     rqColuna('reg','📋 Registro do Atendimento',reg,'registros',rqAtivChips())+
     rqColuna('fe','💬 Atendimento InfoBip — Fechadas',fe,'fechadas')+
