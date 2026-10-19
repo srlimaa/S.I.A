@@ -7,7 +7,9 @@ var PERIODO_INICIAL = '2026.2';
 
 // Número da versão exibido no rodapé das Configurações. Suba +1 a cada atualização.
 // Versão 77 - 2026-10-17 - Call Center: atribuição em lote agrupada por curso/turno/status, com escolha dos grupos e do responsável de cada um.
-var VERSAO_SISTEMA = '77';
+// Versão 78 - 2026-10-18 - Call Center: colunas da lista ordenáveis por clique (aluno, curso, status, início e fim do banco) e data final vencida com fundo vermelho.
+// Versão 79 - 2026-10-18 - Call Center: botão de download (JPG e Excel) nos gráficos, cartões e tabelas dos Indicadores; cartões do colaborador só com Responsável por, Contatos realizados e não realizados.
+var VERSAO_SISTEMA = '79';
 
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
