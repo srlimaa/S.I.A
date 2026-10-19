@@ -147,4 +147,16 @@ canvas.crop{border:1px solid var(--border);border-radius:50%;touch-action:none;c
 .atr-gnome{flex:1;min-width:200px;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}.atr-gnome small{color:var(--text-muted)}
 .atr-grow select{width:190px;padding:5px 8px}
 
+.sortable{cursor:pointer;user-select:none}.sortable:hover{color:var(--red)}
+.th-sub{margin-top:3px;font-size:10px;letter-spacing:.4px}.th-sub .sortable{padding:1px 4px;border-radius:4px}.th-sub .sortable:hover{background:var(--bg)}
+.sort-ind{font-size:10px;opacity:.45;margin-left:3px}.sort-ind.on{opacity:1;color:var(--red)}.sort-ind sup{font-size:8px;margin-left:1px}
+.banco-dates .d-venc{display:inline-block;background:#e74c3c;color:#000;font-weight:700;border-radius:6px;padding:2px 8px;margin-top:2px}
+.banco-dates .d-venc .d-label{color:#000}
+.dl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.dl-head>div,.dl-head>h4{flex:1;min-width:0}.dl-head h4{font-size:13px;font-weight:700;margin:0 0 8px}
+.dl-wrap{flex:none}.dl-btn{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--text-sec);border:1.5px solid var(--border);border-radius:var(--radius-sm);transition:all var(--t)}
+.dl-btn:hover{border-color:var(--red);color:var(--red);background:var(--bg)}.dl-btn.busy{opacity:.45;pointer-events:none}
+.sub-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px}
+.colab-card{position:relative}.colab-card .dl-wrap{position:absolute;top:10px;right:10px}.colab-card .dl-btn{width:28px;height:28px}.colab-card .cc-name{padding-right:34px}
+.dl-menu{position:fixed;z-index:10000;min-width:190px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 6px 28px rgba(0,0,0,.25);overflow:hidden}
+.dl-menu button{display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:0;font-size:13px;color:var(--text)}.dl-menu button:hover{background:var(--bg);color:var(--red)}
 </style>
