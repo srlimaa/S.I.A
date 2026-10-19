@@ -179,9 +179,9 @@ function limparFiltrosReu(){
 var REU_ULT=null;
 var REU_TIT={kpis:'Cartões',barras:'Total por atividade',rosca:'Participação por atividade',dias:'Total por dia/mês',tabela:'Indicador por atividade'};
 function reuH3(titulo,chave,excel){
-  return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+
-    '<button type="button" class="exp-mini" title="Baixar em imagem (.jpg)" onclick="reuBaixarJpg(\''+chave+'\')">🖼️ JPG</button>'+
-    (excel?'<button type="button" class="exp-mini" title="Baixar em Excel" onclick="reuBaixarExcel()">📊 Excel</button>':'')+'</span></h3>';
+  var ac=[{rot:'🖼️ Imagem (.jpg)',dica:'Baixar em imagem (.jpg)',f:function(){reuBaixarJpg(chave);}}];
+  if(excel)ac.push({rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}});
+  return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+dlBtn('reu_'+chave,ac)+'</span></h3>';
 }
 // chave opcional: sem argumento baixa cartões + gráficos + tabela
 function reuBaixarJpg(chave){
@@ -239,9 +239,8 @@ function renderReuniao(manter){
   REU_ULT={rotCol:rotCol,ativs:ativs,dias:dias,porAtiv:porAtiv,total:total,mostraTotal:!(modo!=='dia'&&dias.length===1),
     filtro:txtFiltroDatas(REU_SEM,document.getElementById('reuDe').value,document.getElementById('reuAte').value)+(tm?' · '+tm:''),
     modo:modo};
-  var html='<div class="exp-bar no-img"><button type="button" class="btn-outline" onclick="reuBaixarJpg()">🖼️ Baixar tudo (.jpg)</button>'+
-    '<button type="button" class="btn-outline" onclick="reuBaixarJpg(\'kpis\')">🎴 Baixar cartões (.jpg)</button>'+
-    '<button type="button" class="btn-outline" onclick="reuBaixarExcel()">📊 Baixar Excel</button><span class="exp-fb" id="reuDlFb"></span></div>'+
+  var html='<div class="exp-bar no-img">'+dlBtn('reu_todos',[{rot:'🖼️ Tudo (.jpg)',desc:'Cartões, gráficos e tabela',f:function(){reuBaixarJpg();}},
+      {rot:'🎴 Cartões (.jpg)',f:function(){reuBaixarJpg('kpis');}},{rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}}])+'<span class="exp-fb" id="reuDlFb"></span></div>'+
     '<div class="reu-kpis" data-exp="kpis"><div class="reu-kpi main"><span>Total geral</span><strong>'+nf(total)+'</strong><small>'+
     diasReg+(diasReg===1?' dia':' dias')+' com registros</small></div>';
   itens.forEach(function(it){
