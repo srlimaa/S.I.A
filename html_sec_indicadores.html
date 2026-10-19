@@ -64,7 +64,7 @@
       <button class="btn-filtrar btn-sem" id="btnSemInd" onclick="indSemestre()" title="Total do semestre inteiro (ex.: 2026.2 = julho a dezembro)">📅 Semestre</button>
       <button class="btn-filtrar" style="background:var(--cinza);" onclick="limparFiltrosInd()">Limpar</button>
       <div class="dl-wrap">
-        <button class="btn-filtrar" style="background:var(--verde);" onclick="toggleDl(event)">⬇️ Baixar ▾</button>
+        <button type="button" class="dl-ico" aria-label="Baixar" title="Baixar" onclick="toggleDl(event)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg></button>
         <div class="dl-menu" id="dlMenu">
           <button onclick="baixarExcel()">📗 Excel (.xlsx)<small>Tabela completa, com os filtros atuais</small></button>
           <button onclick="baixarImagens()">🖼️ Imagens JPG<small>Um arquivo por dia (em .zip quando houver vários)</small></button>
