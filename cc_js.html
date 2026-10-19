@@ -68,30 +68,67 @@ function dkey(s){var m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3
 function bancoOpts(k){var s={};D.alunos.forEach(function(a){if(a.banco&&a.banco[k])s[a.banco[k]]=1});return Object.keys(s).sort(function(x,y){return dkey(x)<dkey(y)?-1:1}).map(vt)}
 function bancoSet(ini,fim){if(!ini.length&&!fim.length)return null;var o={};D.alunos.forEach(function(a){if(!a.banco)return;if(ini.length&&ini.indexOf(a.banco.ini)<0)return;if(fim.length&&fim.indexOf(a.banco.fim)<0)return;o[a.cpf]=1});return o}
 function nrm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
+/* ---------- datas do banco: vencimento e ordenação por coluna ---------- */
+function dk(s){var m=String(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+m[2]+m[1]:''}
+function hojeKey(){var d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)}
+function vencida(fim){var k=dk(fim);return !!k&&k<hojeKey()}
+var SORT=[];   // critérios em ordem de prioridade: [{k:coluna,d:1|-1}]
+var SORTV={
+  status:function(a){return nrm(a.status)},
+  aluno:function(a){return nrm(a.nome)},
+  curso:function(a){return nrm(a.curso)+'|'+nrm(a.turno)},
+  ini:function(a){return a.status===CC[1]&&a.banco?dk(a.banco.ini):''},
+  fim:function(a){return a.status===CC[1]&&a.banco?dk(a.banco.fim):''}
+};
+function ordenar(L){
+  if(!SORT.length)return L;
+  var ix=L.map(function(a,i){return {a:a,i:i}});
+  ix.sort(function(x,y){
+    for(var s=0;s<SORT.length;s++){
+      var f=SORTV[SORT[s].k],u=f(x.a),v=f(y.a);
+      if(u===v)continue;
+      if(u==='')return 1;if(v==='')return -1;        // vazios sempre no fim
+      return SORT[s].d*(u<v?-1:1)}
+    return x.i-y.i});
+  return ix.map(function(o){return o.a})}
+function sortClick(k){
+  var i=-1;SORT.forEach(function(s,j){if(s.k===k)i=j});
+  if(i===0){if(SORT[0].d===1)SORT[0].d=-1;else SORT.shift()}   // 1º clique A→Z · 2º Z→A · 3º remove
+  else{if(i>0)SORT.splice(i,1);SORT.unshift({k:k,d:1})}          // a coluna clicada passa a ser a principal; as anteriores desempatam
+  sortMarks();linhas()}
+function sortMarks(){
+  Array.prototype.forEach.call(document.querySelectorAll('#v-cc .sortable'),function(th){
+    var p=-1;SORT.forEach(function(s,j){if(s.k===th.dataset.k)p=j});
+    th.innerHTML=esc(th.dataset.l)+' <span class="sort-ind'+(p<0?'':' on')+'">'+(p<0?'⇅':(SORT[p].d===1?'▲':'▼')+(SORT.length>1?'<sup>'+(p+1)+'</sup>':''))+'</span>';
+    th.title=p<0?'Clique para ordenar':'Ordenando ('+(SORT[p].d===1?'crescente':'decrescente')+') · clique para alternar'})}
+function sortBind(){
+  Array.prototype.forEach.call(document.querySelectorAll('#v-cc .sortable'),function(th){th.onclick=function(){sortClick(th.dataset.k)}});
+  sortMarks()}
 function renderCC(){
   var A=D.alunos,cursos=Object.keys(cnt(A,function(a){return a.curso})).sort(),colabs=Object.keys(cnt(D.regs,function(r){return r.colab}));
   $('v-cc').innerHTML='<div class="kpi-row">'+kpi('total','📋','kT','Total de alunos no<br>Call Center')+kpi('nao','⏳','kN','Solicitado /<br>Não aditou')+kpi('enviado','🏦','kE','Solicitado /<br>Enviado ao banco')+kpi('registros','📝','kR','Total de registros<br>realizados')+'</div>'+
   '<div class="filters-row"><div class="filter-group" style="min-width:220px"><label>Pesquisar aluno</label><input type="text" id="fQ" placeholder="🔍 Digite o nome do aluno..."></div><div class="filter-group"><label>Status</label><div id="fS"></div></div><div class="filter-group"><label>Curso</label><div id="fC"></div></div><div class="filter-group"><label>Responsável</label><div id="fR"></div></div><div class="filter-group"><label>Colaborador</label><div id="fB"></div></div><div class="filter-group"><label>Banco — data de início</label><div id="fBI"></div></div><div class="filter-group"><label>Banco — data final</label><div id="fBF"></div></div><button class="btn-clear" id="fX">✕ Limpar</button></div>'+
-  (ADMIN?atrHtml():'')+'<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th>Status</th><th>Aluno</th><th>Curso / Turno</th><th>Comparecimento ao Banco</th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
+  (ADMIN?atrHtml():'')+'<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th class="sortable" data-k="status" data-l="Status">Status</th><th class="sortable" data-k="aluno" data-l="Aluno">Aluno</th><th class="sortable" data-k="curso" data-l="Curso / Turno">Curso / Turno</th><th>Comparecimento ao Banco<div class="th-sub"><span class="sortable" data-k="ini" data-l="Início">Início</span> · <span class="sortable" data-k="fim" data-l="Fim">Fim</span></div></th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
   msMake('fS',CC.map(vt),linhas);msMake('fC',cursos.map(vt),linhas);
   msMake('fR',[{v:'-',t:'Sem responsável'}].concat(D.usuarios.map(function(x){return {v:x.email,t:x.nome}})),linhas);
   msMake('fB',colabs.map(function(e){return {v:e,t:D.umap[e]||e}}),linhas);
   msMake('fBI',bancoOpts('ini'),linhas);msMake('fBF',bancoOpts('fim'),linhas);
   $('fQ').oninput=linhas;
-  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fBI','fBF'],['fQ'],linhas)};if(ADMIN)atrIniciar();kpisCC();linhas()}
+  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fBI','fBF'],['fQ'],linhas)};if(ADMIN)atrIniciar();sortBind();kpisCC();linhas()}
 function kpisCC(){var A=D.alunos;$('kT').textContent=A.length;$('kN').textContent=A.filter(function(a){return a.status===CC[0]}).length;$('kE').textContent=A.filter(function(a){return a.status===CC[1]}).length;$('kR').textContent=D.regs.length}
 function filtrados(){
   var s=msv('fS'),c=msv('fC'),r=msv('fR'),b=msv('fB'),bs=bancoSet(msv('fBI'),msv('fBF')),q=nrm($('fQ').value.trim()),qd=q.replace(/\D/g,'');
-  return D.alunos.filter(function(a){
+  return ordenar(D.alunos.filter(function(a){
     if(q&&nrm(a.nome).indexOf(q)<0&&!(qd&&a.cpf.indexOf(qd)>=0))return false;
     if(s.length&&s.indexOf(a.status)<0)return false;if(c.length&&c.indexOf(a.curso)<0)return false;
     if(r.length&&!r.some(function(x){return x==='-'?!D.resp[a.cpf]:D.resp[a.cpf]===x}))return false;
     if(b.length&&!(D.rmap[a.cpf]||[]).some(function(x){return b.indexOf(x.colab)>=0}))return false;
-    if(bs&&!bs[a.cpf])return false;return true});}
+    if(bs&&!bs[a.cpf])return false;return true}));}
 function linhas(){
   var L=filtrados();
   $('tb').innerHTML=L.map(function(a){var feito=(D.rmap[a.cpf]||[]).length>0,env=a.status===CC[1],ul=D.last[a.cpf];
-    var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
+    var vc=env&&a.banco&&a.banco.fim&&vencida(a.banco.fim);
+    var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div class="'+(vc?'d-venc':'')+'"'+(vc?' title="Data final vencida"':'')+'><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
     var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+'</div>':'<span class="muted">—</span>';
     var ob=ul&&ul.obs?'<div class="obs-cell" title="'+esc(ul.obs)+'">'+esc(ul.obs)+'</div>':'<span class="muted">—</span>';
     return '<tr data-c="'+a.cpf+'"><td><span class="status-badge '+(env?'enviado':'nao')+'">'+esc(a.status)+'</span></td><td><div class="td-name">'+esc(a.nome)+'</div><div class="td-sub">CPF '+esc(a.cpfFmt)+'</div></td><td>'+esc(a.curso)+'<div class="td-sub">'+esc(a.turno)+'</div></td><td>'+banco+'</td><td><span class="contato-badge '+(feito?'sim':'nao')+'">'+(feito?'Sim':'Não')+'</span></td><td>'+res+'</td><td>'+ob+'</td><td><select class="resp-select" data-c="'+a.cpf+'"><option value="">—</option>'+D.usuarios.map(function(x){return '<option value="'+esc(x.email)+'"'+(D.resp[a.cpf]===x.email?' selected':'')+'>'+esc(x.nome)+'</option>'}).join('')+'</select></td></tr>'}).join('');
@@ -305,7 +342,7 @@ function chart(id,type,labels,sets,stack){if(CH[id])CH[id].destroy();var el=$(id
   var ds=sets.map(function(s,i){var col=(pie||(one&&type==='bar'&&labels.length<=12))?labels.map(function(_,k){return PAL[k%PAL.length]}):PAL[i%PAL.length];return {label:s.l,data:s.d,backgroundColor:col,borderColor:pie?'transparent':PAL[i%PAL.length],borderRadius:pie?0:4}});
   var txt=getComputedStyle(document.body).color,grid='rgba(128,138,160,.2)';
   CH[id]=new Chart(el,{type:pie?'doughnut':type,data:{labels:labels,datasets:ds},options:{maintainAspectRatio:false,cutout:pie?'55%':undefined,plugins:{legend:{display:pie||sets.length>1,position:pie?'right':'top',labels:{color:txt,boxWidth:12}}},scales:pie?{}:{x:{stacked:!!stack,ticks:{color:txt},grid:{display:false}},y:{stacked:!!stack,beginAtZero:true,ticks:{color:txt,precision:0},grid:{color:grid}}}}})}
-function box(id,t,sub){return '<div class="section-box"><h3>'+t+'</h3>'+(sub?'<p class="sh">'+sub+'</p>':'')+'<div class="ch"><canvas id="'+id+'"></canvas></div></div>'}
+function box(id,t,sub,f){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+t+'</h3>'+(sub?'<p class="sh">'+sub+'</p>':'')+'</div>'+dlBtn('bx_'+id,t.replace(/^\S+\s/,''),f)+'</div><div class="ch"><canvas id="'+id+'"></canvas></div></div>'}
 function filtroData(R,m,i,f,e){return R.filter(function(r){var d=r.data.slice(0,10);return(!m.length||m.indexOf(d.slice(0,7))>=0)&&(!i||d>=i)&&(!f||d<=f)&&(!e||d===e)})}
 function pivot(rows,data,cols,first){if(!rows.length)return '<p class="muted" style="padding:12px">Sem dados.</p>';var tot={};
   var h='<table class="dyn-table"><thead><tr><th>'+first+'</th>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>';
@@ -319,11 +356,11 @@ function renderGer(){
   if(!D)return;var Lg=D.light,cursos=Object.keys(cnt(Lg,function(x){return x[1]})).sort(),turnos=Object.keys(cnt(Lg,function(x){return x[2]})).sort();
   var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort(),mo=mesOpts(meses);
   $('v-ger').innerHTML='<div class="filters-row">'+fms('gS','Status')+fms('gC','Curso')+fms('gT','Turno')+'<button class="btn-clear" id="gX">✕ Limpar</button></div>'+
-  '<div class="section-box"><h3>📊 Resumo Geral de Status</h3><p class="sh">Totais por status — base geral de aditamentos '+esc(D.sem)+' · considera apenas alunos Matriculados com FIES'+(D.diag?' ('+D.diag.indicador+' de '+D.diag.total+' na base)':'')+'</p><div class="ind-kpi-row" id="gK"></div></div>'+
-  '<div class="grid2">'+box('gc1','📈 Distribuição por Status','Comparativo entre todos os status da base')+box('gc2','🥧 Composição Percentual','Participação de cada status no total')+'</div>'+
-  '<div class="grid2">'+box('gc3','🎓 Top 10 cursos','Cursos com mais alunos na seleção')+box('gc4','🕐 Alunos por turno','Distribuição por turno')+'</div>'+
-  '<div class="section-box"><h3>📅 Evolução Diária de Registros</h3><p class="sh">Quantidade de contatos registrados por dia</p><div class="filters-row inner">'+fms('dM','Mês')+fdate('dE','Data específica')+fdate('dI','Data inicial')+fdate('dF','Data final')+'<button class="btn-clear" id="dX">✕ Limpar</button></div><div class="ch"><canvas id="gc5"></canvas></div></div>'+
-  '<div class="section-box"><h3>📞 Resultado de Contato — Call Center</h3><p class="sh">Totais do resultado do contato registrado pela equipe (sem separar por colaborador)</p><div class="filters-row inner">'+fms('rMs','Mês')+fdate('rE','Data específica')+fdate('rI','Data inicial')+fdate('rF','Data final')+fms('rSt','Status')+fms('rRs','Resultado')+'<button class="btn-clear" id="rX">✕ Limpar</button></div><div class="grid2" style="margin-bottom:16px"><div class="ch"><canvas id="gc6"></canvas></div><div class="ch"><canvas id="gc7"></canvas></div></div><h3 style="font-size:13px;margin-bottom:8px">Totais por data e resultado</h3><div id="piv"></div></div>';
+  '<div class="section-box" id="bx_gK"><div class="dl-head"><div><h3>📊 Resumo Geral de Status</h3><p class="sh">Totais por status — base geral de aditamentos '+esc(D.sem)+' · considera apenas alunos Matriculados com FIES'+(D.diag?' ('+D.diag.indicador+' de '+D.diag.total+' na base)':'')+'</p></div>'+dlBtn('bx_gK','Resumo Geral de Status','gS,gC,gT')+'</div><div class="ind-kpi-row" id="gK"></div></div>'+
+  '<div class="grid2">'+box('gc1','📈 Distribuição por Status','Comparativo entre todos os status da base','gS,gC,gT')+box('gc2','🥧 Composição Percentual','Participação de cada status no total','gS,gC,gT')+'</div>'+
+  '<div class="grid2">'+box('gc3','🎓 Top 10 cursos','Cursos com mais alunos na seleção','gS,gC,gT')+box('gc4','🕐 Alunos por turno','Distribuição por turno','gS,gC,gT')+'</div>'+
+  '<div class="section-box" id="bx_gc5"><div class="dl-head"><div><h3>📅 Evolução Diária de Registros</h3><p class="sh">Quantidade de contatos registrados por dia</p></div>'+dlBtn('bx_gc5','Evolução diária de registros','dM,dE,dI,dF')+'</div><div class="filters-row inner no-img">'+fms('dM','Mês')+fdate('dE','Data específica')+fdate('dI','Data inicial')+fdate('dF','Data final')+'<button class="btn-clear" id="dX">✕ Limpar</button></div><div class="ch"><canvas id="gc5"></canvas></div></div>'+
+  '<div class="section-box"><h3>📞 Resultado de Contato — Call Center</h3><p class="sh">Totais do resultado do contato registrado pela equipe (sem separar por colaborador)</p><div class="filters-row inner no-img">'+fms('rMs','Mês')+fdate('rE','Data específica')+fdate('rI','Data inicial')+fdate('rF','Data final')+fms('rSt','Status')+fms('rRs','Resultado')+'<button class="btn-clear" id="rX">✕ Limpar</button></div><div class="grid2" style="margin-bottom:16px"><div class="sub-box" id="bx_gc6"><div class="dl-head"><h4>Resultados por total</h4>'+dlBtn('bx_gc6','Resultado de contato - total','rMs,rE,rI,rF,rSt,rRs')+'</div><div class="ch"><canvas id="gc6"></canvas></div></div><div class="sub-box" id="bx_gc7"><div class="dl-head"><h4>Composição percentual</h4>'+dlBtn('bx_gc7','Resultado de contato - composição','rMs,rE,rI,rF,rSt,rRs')+'</div><div class="ch"><canvas id="gc7"></canvas></div></div></div><div class="sub-box" id="bx_piv"><div class="dl-head"><h4>Totais por data e resultado</h4>'+dlBtn('bx_piv','Totais por data e resultado','rMs,rE,rI,rF,rSt,rRs','piv')+'</div><div id="piv"></div></div></div>';
   msMake('gS',STATUS7.map(vt),gBase);msMake('gC',cursos.map(vt),gBase);msMake('gT',turnos.map(vt),gBase);
   msMake('dM',mo,gDia);msMake('rMs',mo,gRes);msMake('rSt',CC.map(vt),gRes);msMake('rRs',OPC.Resultado.map(vt),gRes);
   ['dE','dI','dF'].forEach(function(i){$(i).onchange=gDia});['rE','rI','rF'].forEach(function(i){$(i).onchange=gRes});
@@ -347,11 +384,11 @@ function gRes(){var st=msv('rSt'),rs=msv('rRs');
 function renderCol(){
   if(!D)return;var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort();
   $('v-col').innerHTML='<div class="filters-row">'+fms('cM','Mês')+fdate('cI','Data inicial')+fdate('cF','Data final')+fms('cB','Colaborador')+fms('cBI','Banco — data de início')+fms('cBF','Banco — data final')+'<button class="btn-clear" id="cX">✕ Limpar</button></div>'+
-  '<div class="colab-grid" id="cK"></div>'+
-  '<div class="grid2">'+box('cc1','📊 Comparativo por Colaborador','Contatos realizados por colaborador')+box('cc2','📞 Resultado por colaborador','Distribuição dos resultados registrados')+'</div>'+
-  '<div class="grid2">'+box('cc3','👥 Alunos por responsável','Divisão da carteira de alunos')+box('cc4','📅 Registros por dia','Evolução diária na seleção')+'</div>'+
-  '<div class="section-box"><h3>📋 Tabela Detalhada por Colaborador</h3><p class="sh">Responsabilidades, contatos e resultados</p><div id="cT"></div></div>'+
-  '<div class="section-box"><h3>🗓️ Registros por colaborador e dia</h3><div id="cP"></div></div>';
+  '<div class="section-box" id="bx_cK"><div class="dl-head"><div><h3>👥 Cartões por Colaborador</h3><p class="sh">Responsável por, contatos realizados e contatos não realizados</p></div>'+dlBtn('bx_cK','Cartões por colaborador',FCOL)+'</div><div class="colab-grid" id="cK"></div></div>'+
+  '<div class="grid2">'+box('cc1','📊 Comparativo por Colaborador','Contatos realizados por colaborador',FCOL)+box('cc2','📞 Resultado por colaborador','Distribuição dos resultados registrados',FCOL)+'</div>'+
+  '<div class="grid2">'+box('cc3','👥 Alunos por responsável','Divisão da carteira de alunos',FCOL)+box('cc4','📅 Registros por dia','Evolução diária na seleção',FCOL)+'</div>'+
+  '<div class="section-box" id="bx_cT"><div class="dl-head"><div><h3>📋 Tabela Detalhada por Colaborador</h3><p class="sh">Responsabilidades, contatos e resultados</p></div>'+dlBtn('bx_cT','Tabela detalhada por colaborador',FCOL,'cT')+'</div><div id="cT"></div></div>'+
+  '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL,'cP')+'</div><div id="cP"></div></div>';
   msMake('cM',mesOpts(meses),cAtu);msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
   ['cI','cF'].forEach(function(i){$(i).onchange=cAtu});$('cX').onclick=function(){limpar(['cM','cB','cBI','cBF'],['cI','cF'],cAtu)};cAtu()}
 function cAtu(){var cb=msv('cB'),nm=function(e){return D.umap[e]||e},bs=bancoSet(msv('cBI'),msv('cBF'));
@@ -359,17 +396,20 @@ function cAtu(){var cb=msv('cB'),nm=function(e){return D.umap[e]||e},bs=bancoSet
   var respN=cnt(Object.keys(D.resp).filter(function(c){return D.resp[c]&&(!bs||bs[c])}),function(c){return D.resp[c]});
   var us=D.usuarios.filter(function(u){return!cb.length||cb.indexOf(u.email)>=0});
   var res=OPC.Resultado;
-  $('cK').innerHTML=us.map(function(u){var mine=R.filter(function(r){return r.colab===u.email}),rc=cnt(mine,function(r){return r.resultado});
-    return '<div class="colab-card"><div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div><div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+(respN[u.email]||0)+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div>'+
-    res.map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+(rc[x]||0)+'</span></div>'}).join('')+'</div>'}).join('')||'<p class="muted">Sem usuários na seleção.</p>';
+  var aset={};D.alunos.forEach(function(a){aset[a.cpf]=1});
+  var naoN={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];            // responsável definido e nenhum contato registrado ainda
+    if(!e||(bs&&!bs[c])||!aset[c]||(D.rmap[c]||[]).length)return;naoN[e]=(naoN[e]||0)+1});
+  $('cK').innerHTML=us.map(function(u,i){var mine=R.filter(function(r){return r.colab===u.email}),rc=cnt(mine,function(r){return r.resultado});
+    return '<div class="colab-card" id="cd_'+i+'">'+dlBtn('cd_'+i,'Cartão '+u.nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div><div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+(respN[u.email]||0)+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div><div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+(naoN[u.email]||0)+'</span></div>'+
+    res.filter(function(x){return rc[x]>0}).map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+(rc[x]||0)+'</span></div>'}).join('')+'</div>'}).join('')||'<p class="muted">Sem usuários na seleção.</p>';
   var ks=us.map(function(u){return u.nome});
   chart('cc1','bar',ks,[{l:'Contatos',d:us.map(function(u){return R.filter(function(r){return r.colab===u.email}).length})}]);
   chart('cc2','bar',ks,res.map(function(rs){return {l:rs,d:us.map(function(u){return R.filter(function(r){return r.colab===u.email&&r.resultado===rs}).length})}}),true);
   var ru=us.filter(function(u){return respN[u.email]});chart('cc3','pie',ru.map(function(u){return u.nome}),[{l:'Alunos',d:ru.map(function(u){return respN[u.email]})}]);
   var dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).sort(),m={};R.forEach(function(r){var d=r.data.slice(0,10);m[d]=m[d]||{};m[d][nm(r.colab)]=(m[d][nm(r.colab)]||0)+1});
   chart('cc4','bar',dias.map(ddmm),[{l:'Registros',d:dias.map(function(d){return Object.keys(m[d]).reduce(function(s,k){return s+m[d][k]},0)})}]);
-  var rowsT=us.map(function(u){var o={'Responsável por':respN[u.email]||0,'Contatos':R.filter(function(r){return r.colab===u.email}).length};res.forEach(function(rs){o[rs]=R.filter(function(r){return r.colab===u.email&&r.resultado===rs}).length});return o});
-  var cols=['Responsável por','Contatos'].concat(res);
+  var rowsT=us.map(function(u){var o={'Responsável por':respN[u.email]||0,'Contatos':R.filter(function(r){return r.colab===u.email}).length,'Contatos não realizados':naoN[u.email]||0};res.forEach(function(rs){o[rs]=R.filter(function(r){return r.colab===u.email&&r.resultado===rs}).length});return o});
+  var cols=['Responsável por','Contatos','Contatos não realizados'].concat(res);
   $('cT').innerHTML=us.length?'<div class="dyn-wrap"><table class="dyn-table"><thead><tr><th>Colaborador</th>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+us.map(function(u,i){return '<tr><td>'+esc(u.nome)+'</td>'+cols.map(function(c){return '<td class="num">'+rowsT[i][c]+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>':'<p class="muted">Sem dados.</p>';
   $('cP').innerHTML=pivot(dias.map(ddmm),dias.map(function(d){return m[d]}),Object.keys(cnt(R,function(r){return nm(r.colab)})),'Data')}
 
@@ -425,5 +465,247 @@ function tSemCad(bd,o){call('semList').then(function(L){
   Array.prototype.forEach.call(bd.querySelectorAll('[data-e]'),function(b){b.onclick=function(){var s=L[b.dataset.e];$('xs').value=s.sem;$('xb').value=s.base;$('xc').value=s.cc;$('xr').value=s.reg||''}});
   Array.prototype.forEach.call(bd.querySelectorAll('[data-x]'),function(b){b.onclick=function(){var s=L[b.dataset.x];if(confirm('Excluir o semestre '+s.sem+'? Os registros já feitos permanecem na aba REGISTROS.'))call('semDel',{sem:s.sem}).then(function(){SEMS=SEMS.filter(function(x){return x!==s.sem});tSemCad(bd,o)})}});
   $('xk').onclick=function(){call('semSave',{sem:$('xs').value,base:$('xb').value,cc:$('xc').value,reg:$('xr').value}).then(function(l){SEMS=l.map(function(x){return x.sem});toast('Semestre salvo.');tSemCad(bd,o)})}})}
+
+/* ══════════ DOWNLOAD DE GRÁFICOS, CARTÕES E TABELAS (JPG / Excel) ══════════ */
+var FCOL='cM,cI,cF,cB,cBI,cBF';   // filtros da aba Indicador - Colaborador
+var CRC_T=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function u16(v){return [v&255,(v>>>8)&255];}
+function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+function juntarBytes(arrs){
+  var n=0;arrs.forEach(function(a){n+=a.length;});
+  var out=new Uint8Array(n),o=0;
+  arrs.forEach(function(a){out.set(a,o);o+=a.length;});
+  return out;
+}
+// ZIP sem compressão (suficiente para .xlsx e para lotes de JPG)
+function zipStore(files){
+  var enc=new TextEncoder(),partes=[],central=[],offset=0;
+  files.forEach(function(f){
+    var nome=enc.encode(f.nome),crc=crc32(f.dados),tam=f.dados.length;
+    var lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(tam),u32(tam),u16(nome.length),u16(0)));
+    partes.push(lh,nome,f.dados);
+    central.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(tam),u32(tam),
+      u16(nome.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))),nome);
+    offset+=lh.length+nome.length+tam;
+  });
+  var cd=juntarBytes(central);
+  var fim=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(offset),u16(0)));
+  return juntarBytes(partes.concat([cd,fim]));
+}
+function baixarBytes(nome,bytes,mime){
+  var blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=nome;a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+}
+function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function colLetra(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+var FONTE_IMG='"Segoe UI",Roboto,Arial,sans-serif';
+function dataUrlBytes(url){
+  var b=atob(url.split(',')[1]),a=new Uint8Array(b.length);
+  for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
+  return a;
+}
+var JPG_IGN=/(^|-)(block|inline)(-|$)|^inset|^perspective-origin$|^transform-origin$|^animation|^transition|^-webkit-locale$/;
+function estiloInline(o){
+  var cs=getComputedStyle(o),t='';
+  for(var i=0;i<cs.length;i++){var p=cs[i];if(JPG_IGN.test(p))continue;t+=p+':'+cs.getPropertyValue(p)+';';}
+  return t;
+}
+function corFundoTela(){
+  var c=getComputedStyle(document.body).backgroundColor;
+  return (!c||c==='rgba(0, 0, 0, 0)'||c==='transparent')?'#ffffff':c;
+}
+function corEhEscura(c){
+  var m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return false;
+  return (0.299*m[0]+0.587*m[1]+0.114*m[2])<128;
+}
+// Copia o bloco (com os estilos aplicados) e devolve uma imagem do conteúdo COMPLETO (sem barras de rolagem)
+function domParaImagem(el){
+  return new Promise(function(res,rej){
+    try{
+      var clone=el.cloneNode(true);
+      var oo=[el].concat([].slice.call(el.querySelectorAll('*'))),cc=[clone].concat([].slice.call(clone.querySelectorAll('*')));
+      oo.forEach(function(o,i){cc[i].setAttribute('style',estiloInline(o));});
+      // remove o que não deve sair na imagem (botões, dicas, etc.)
+      [].slice.call(clone.querySelectorAll('.no-img,.ch-dica,script')).forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});
+      // rolagens: mostra o conteúdo inteiro
+      oo.forEach(function(o,i){
+        var c=cc[i];if(!c||!c.parentNode&&c!==clone)return;
+        var cs=getComputedStyle(o);if(cs.textOverflow==='ellipsis')return;
+        var ox=/(auto|scroll|hidden)/.test(cs.overflowX),oy=/(auto|scroll|hidden)/.test(cs.overflowY),a;
+        if(ox&&o.scrollWidth>o.clientWidth+1){
+          var ex=o.scrollWidth-o.clientWidth;
+          c.style.setProperty('width',o.scrollWidth+'px');c.style.setProperty('flex','none');c.style.setProperty('overflow-x','visible');
+          for(a=c.parentNode;a&&a.nodeType===1;a=a.parentNode){
+            a.style.setProperty('width',((parseFloat(a.style.width)||0)+ex)+'px');a.style.setProperty('min-width','0');
+            if(a===clone)break;
+          }
+        }
+        if(oy&&o.scrollHeight>o.clientHeight+1){
+          c.style.setProperty('max-height','none');c.style.setProperty('height',o.scrollHeight+'px');c.style.setProperty('overflow-y','visible');
+          for(a=c.parentNode;a&&a.nodeType===1;a=a.parentNode){
+            a.style.setProperty('height','auto');a.style.setProperty('max-height','none');
+            if(a===clone)break;
+          }
+        }
+      });
+      clone.style.setProperty('margin','0');clone.style.setProperty('height','auto');clone.style.setProperty('min-height','0');
+      oo.forEach(function(o,i){          // canvas (Chart.js) -> imagem
+        if(o.tagName==='CANVAS'&&cc[i]&&cc[i].parentNode){
+          try{var im=document.createElement('img');im.setAttribute('style',cc[i].getAttribute('style')||'');
+            im.setAttribute('src',o.toDataURL('image/png'));cc[i].parentNode.replaceChild(im,cc[i]);}catch(e2){}
+        }
+      });
+      var host=document.createElement('div');
+      host.style.cssText='position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;';
+      host.appendChild(clone);document.body.appendChild(host);
+      var r=clone.getBoundingClientRect(),W=Math.ceil(r.width),H=Math.ceil(r.height);
+      var xml=new XMLSerializer().serializeToString(clone);
+      document.body.removeChild(host);
+      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><foreignObject x="0" y="0" width="'+W+'" height="'+H+'">'+xml+'</foreignObject></svg>';
+      var img=new Image();
+      img.onload=function(){res({img:img,W:W,H:H});};
+      img.onerror=function(){rej(new Error('o navegador não conseguiu desenhar este bloco'));};
+      img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    }catch(e){rej(e);}
+  });
+}
+// Monta o JPG final: título + subtítulo + bloco + rodapé. Devolve os bytes.
+function blocoParaJpg(el,titulo,sub){
+  return domParaImagem(el).then(function(b){
+    var S=2,mg=28,bg=corFundoTela(),esc=corEhEscura(bg);
+    var cabH=sub?78:56,W=Math.max(b.W+mg*2,360),H=cabH+b.H+mg+20;
+    var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
+    var x=cv.getContext('2d');x.scale(S,S);
+    x.fillStyle=bg;x.fillRect(0,0,W,H);
+    x.textBaseline='middle';x.textAlign='left';
+    x.fillStyle=esc?'#e2e8f0':'#1e3a5f';x.font='700 22px '+FONTE_IMG;x.fillText(titulo,mg,mg+8);
+    if(sub){x.fillStyle=esc?'#94a3b8':'#64748b';x.font='400 13px '+FONTE_IMG;x.fillText(sub,mg,mg+38);}
+    x.drawImage(b.img,mg,cabH,b.W,b.H);
+    x.fillStyle=esc?'#64748b':'#94a3b8';x.font='400 11px '+FONTE_IMG;x.textAlign='right';
+    var ag=new Date();
+    x.fillText('Gerado em '+ag.toLocaleDateString('pt-BR')+' '+ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),W-mg,H-14);
+    return dataUrlBytes(cv.toDataURL('image/jpeg',0.93));
+  });
+}
+function nomeArq(s){
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+function xlsxTabelas(abas){
+  var HD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  var enc=new TextEncoder(),usados={};
+  abas.forEach(function(a,i){
+    var n=String(a.nome||'Planilha'+(i+1)).replace(/[\[\]:*?\/\\]/g,'-').slice(0,31),b=n,k=2;
+    while(usados[n.toLowerCase()]){n=b.slice(0,28)+' '+(k++);}
+    usados[n.toLowerCase()]=1;a._n=n;
+  });
+  var sheets=abas.map(function(a){
+    var rows=[a.cab.map(function(t){return {v:t,s:1};})];
+    a.linhas.forEach(function(l,ri){
+      var ult=a.totalUltima&&ri===a.linhas.length-1;
+      rows.push(l.map(function(v){
+        var num=typeof v==='number';
+        return {v:(v===''||v===null||v===undefined)?null:v,s:ult?(num?5:4):(num?3:2)};
+      }));
+    });
+    var sd='';
+    rows.forEach(function(r,ri){
+      sd+='<row r="'+(ri+1)+'">';
+      r.forEach(function(c,ci){
+        var ref=colLetra(ci)+(ri+1);
+        if(c.v===null)sd+='<c r="'+ref+'" s="'+c.s+'"/>';
+        else if(typeof c.v==='number')sd+='<c r="'+ref+'" s="'+c.s+'"><v>'+c.v+'</v></c>';
+        else sd+='<c r="'+ref+'" s="'+c.s+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(c.v)+'</t></is></c>';
+      });
+      sd+='</row>';
+    });
+    var cols='<cols>'+a.cab.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+((a.larg&&a.larg[i])||16)+'" customWidth="1"/>';}).join('')+'</cols>';
+    return HD+'<worksheet '+NS+'><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+      '<sheetFormatPr defaultRowHeight="18"/>'+cols+'<sheetData>'+sd+'</sheetData></worksheet>';
+  });
+  var borda='<border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>';
+  function xf(font,fill,h){return '<xf numFmtId="0" fontId="'+font+'" fillId="'+fill+'" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'+h+'" vertical="center"/></xf>';}
+  var styles=HD+'<styleSheet '+NS+'>'+
+    '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'+
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3A5F"/><bgColor indexed="64"/></patternFill></fill>'+
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+borda+'</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+    xf(2,2,'center')+xf(0,0,'left')+xf(0,0,'center')+xf(1,3,'left')+xf(1,3,'center')+
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var wb=HD+'<workbook '+NS+' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
+    abas.map(function(a,i){return '<sheet name="'+xmlEsc(a._n)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>';}).join('')+'</sheets></workbook>';
+  var wbRels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    abas.map(function(a,i){return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>';}).join('')+
+    '<Relationship Id="rId'+(abas.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var rels=HD+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var ct=HD+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    abas.map(function(a,i){return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';}).join('')+
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  var arq=[{nome:'[Content_Types].xml',dados:enc.encode(ct)},{nome:'_rels/.rels',dados:enc.encode(rels)},
+    {nome:'xl/workbook.xml',dados:enc.encode(wb)},{nome:'xl/_rels/workbook.xml.rels',dados:enc.encode(wbRels)},{nome:'xl/styles.xml',dados:enc.encode(styles)}];
+  sheets.forEach(function(s,i){arq.push({nome:'xl/worksheets/sheet'+(i+1)+'.xml',dados:enc.encode(s)});});
+  return zipStore(arq);
+}
+var DL_ICONE='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>';
+// t = id do bloco a exportar · n = nome do arquivo · f = ids dos filtros (vão no cabeçalho da imagem) · x = ids das tabelas (se houver, abre a escolha Imagem/Excel)
+function dlBtn(t,n,f,x){return '<span class="dl-wrap no-img"><button type="button" class="dl-btn" data-dt="'+t+'" data-dn="'+esc(n)+'" data-df="'+(f||'')+'" data-dx="'+(x||'')+'" title="'+(x?'Baixar (imagem ou Excel)':'Baixar imagem (.jpg)')+'">'+DL_ICONE+'</button></span>'}
+function listFiltros(f){
+  var out=[];
+  (f||'').split(',').forEach(function(id){
+    id=id.trim();if(!id)return;var el=$(id);if(!el)return;
+    var g=el.closest('.filter-group'),lb=g&&g.querySelector('label')?g.querySelector('label').textContent:id;
+    if(MS[id]){var s=MS[id].sel;if(!s.length)return;
+      out.push([lb,MS[id].opts.filter(function(o){return s.indexOf(o.v)>=0}).map(function(o){return o.t}).join(', ')])}
+    else if(el.value)out.push([lb,/^\d{4}-\d{2}-\d{2}$/.test(el.value)?ddmm(el.value):el.value])});
+  return out}
+function dlSub(f){
+  var t='Semestre '+(ME&&ME.semestre||''),l=listFiltros(f);
+  if(l.length)t+=' · '+l.map(function(x){return x[0]+': '+x[1]}).join(' · ');
+  return t.length>150?t.slice(0,147)+'…':t}
+function dlArq(n,ext){return 'CallCenter_'+nomeArq(ME.semestre)+'_'+nomeArq(n)+'.'+ext}
+function dlImagem(b){
+  var el=$(b.dataset.dt);if(!el){toast('Nada para baixar.','err');return}
+  b.classList.add('busy');toast('Gerando imagem...');
+  blocoParaJpg(el,CFG.nomeSistema||'Call Center FIES',dlSub(b.dataset.df)).then(function(bytes){
+    var nome=dlArq(b.dataset.dn,'jpg');baixarBytes(nome,bytes,'image/jpeg');toast('Imagem baixada: '+nome);
+  }).catch(function(e){toast('Erro ao gerar a imagem: '+((e&&e.message)||e),'err')})
+  .then(function(){b.classList.remove('busy')})}
+function tabelaParaAba(t,nome){
+  var cab=[].map.call(t.querySelectorAll('thead th'),function(th){return th.textContent.trim()});
+  var linhas=[].map.call(t.querySelectorAll('tbody tr'),function(tr){
+    return [].map.call(tr.children,function(td,i){var s=td.textContent.trim();return(i>0&&/^-?\d+$/.test(s))?Number(s):s})});
+  if(!cab.length||!linhas.length)return null;
+  return {nome:nome,cab:cab,linhas:linhas,larg:cab.map(function(c,i){return i===0?30:Math.max(14,c.length+4)}),
+          totalUltima:String(linhas[linhas.length-1][0]).toLowerCase()==='total'}}
+function dlExcel(b){
+  var abas=[];
+  (b.dataset.dx||'').split(',').forEach(function(id){var t=document.querySelector('#'+id+' table');if(t){var a=tabelaParaAba(t,b.dataset.dn);if(a)abas.push(a)}});
+  if(!abas.length){toast('Não há dados na tabela para baixar.','err');return}
+  abas.push({nome:'Filtros',cab:['Item','Valor'],larg:[26,70],linhas:[['Semestre',ME.semestre]].concat(listFiltros(b.dataset.df))});
+  try{var nome=dlArq(b.dataset.dn,'xlsx');
+    baixarBytes(nome,xlsxTabelas(abas),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');toast('Planilha baixada: '+nome)}
+  catch(e){toast('Erro ao gerar a planilha: '+e.message,'err')}}
+function fecharDlMenu(){var m=$('dlMenu');if(m)m.remove()}
+function abrirDlMenu(b){
+  fecharDlMenu();var m=document.createElement('div');m.id='dlMenu';m.className='dl-menu';
+  m.innerHTML='<button type="button" data-k="img">🖼️ Imagem (.jpg)</button><button type="button" data-k="xls">📊 Excel (.xlsx)</button>';
+  document.body.appendChild(m);var r=b.getBoundingClientRect();
+  m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,r.right-m.offsetWidth)+'px';
+  m.onclick=function(e){e.stopPropagation();var k=e.target.getAttribute('data-k');if(!k)return;fecharDlMenu();if(k==='img')dlImagem(b);else dlExcel(b)}}
+document.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('.dl-btn'):null;
+  if(!b){fecharDlMenu();return}
+  if(b.dataset.dx){var aberto=$('dlMenu');fecharDlMenu();if(!aberto)abrirDlMenu(b)}else dlImagem(b)});
+window.addEventListener('scroll',fecharDlMenu,true);
+
 parent.postMessage({ccb:1,t:'pronto'},'*');
 </script>
