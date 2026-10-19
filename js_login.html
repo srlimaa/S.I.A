@@ -2,6 +2,18 @@
 var USUARIO=null,PERIODO=null,HISTORICO_CACHE=[],INDICADORES_CACHE={};
 var CC_SESSAO=null,SISTEMA=null,ABERTO=null,NOME_LOGADO='',CC_HTML=null;
 
+/* ── Mostrar / ocultar a senha (olho) ── */
+function alternarSenha(){
+  var inp=document.getElementById('loginSenha'),b=document.getElementById('loginEye'),ver=inp.type==='password';
+  inp.type=ver?'text':'password';
+  b.classList.toggle('on',ver);b.setAttribute('aria-pressed',ver?'true':'false');
+  b.title=ver?'Ocultar senha':'Mostrar senha';b.setAttribute('aria-label',ver?'Ocultar senha':'Mostrar senha');
+  inp.focus();
+}
+function ocultarSenha(){            // volta a senha para "bolinhas" (ao entrar e ao sair)
+  var inp=document.getElementById('loginSenha'),b=document.getElementById('loginEye');
+  inp.type='password';b.classList.remove('on');b.setAttribute('aria-pressed','false');b.title='Mostrar senha';
+}
 /* ── Login / Logout ── */
 function fazerLogin(){
   var email=document.getElementById('loginEmail').value.trim();
@@ -12,7 +24,7 @@ function fazerLogin(){
       if(r&&r.success){
         USUARIO=r.registro||null;CC_SESSAO=r.cc||null;PERIODO=null;SISTEMA=null;ABERTO=null;
         NOME_LOGADO=USUARIO?USUARIO.nome:(CC_SESSAO?CC_SESSAO.nome:'');
-        document.getElementById('loginScreen').style.display='none';
+        document.getElementById('loginScreen').style.display='none';ocultarSenha();
         if(USUARIO)atualizarTopbarUser();
         mostrarSistemas();
       }else mostrarErroLogin((r&&r.message)||'Credenciais inválidas.');
@@ -56,7 +68,7 @@ function logout(){
   document.getElementById('ccScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginEmail').value='';
-  document.getElementById('loginSenha').value='';
+  document.getElementById('loginSenha').value='';ocultarSenha();
   document.getElementById('loginErro').style.display='none';
 }
 </script>
