@@ -6,6 +6,34 @@ function toggleDl(e){
 }
 document.addEventListener('click',function(){document.getElementById('dlMenu').classList.remove('open');});
 
+/* ── Botão de download só com o ícone (1 ação = baixa direto · 2 ou mais = abre a escolha) ── */
+var DL_ICONE='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>';
+var DL_ACOES={};
+// acoes: [{rot:'🖼️ Imagem (.jpg)', desc:'texto menor (opcional)', f:function(){...}}]
+function dlBtn(key,acoes){
+  DL_ACOES[key]=acoes;
+  return '<button type="button" class="dl-ico no-img" aria-label="Baixar" title="'+(acoes.length>1?'Baixar':(acoes[0].dica||acoes[0].rot))+'" onclick="dlClique(\''+key+'\',event)">'+DL_ICONE+'</button>';
+}
+function dlFechar(){var m=document.getElementById('dlFlut');if(m)m.remove();}
+function dlClique(key,e){
+  if(e){e.stopPropagation();}
+  var a=DL_ACOES[key];if(!a||!a.length)return;
+  var aberto=document.getElementById('dlFlut');dlFechar();
+  if(a.length===1){a[0].f();return;}
+  if(aberto&&aberto.getAttribute('data-k')===key)return;          // clicar de novo no ícone fecha o menu
+  var b=e.currentTarget||e.target,m=document.createElement('div');
+  m.id='dlFlut';m.className='dl-menu open dl-flut';m.setAttribute('data-k',key);
+  m.innerHTML=a.map(function(x,i){return '<button type="button" data-i="'+i+'">'+x.rot+(x.desc?'<small>'+x.desc+'</small>':'')+'</button>';}).join('');
+  m.onclick=function(ev){ev.stopPropagation();var bt=ev.target.closest('button');if(!bt)return;dlFechar();a[parseInt(bt.getAttribute('data-i'),10)].f();};
+  document.body.appendChild(m);
+  var r=b.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=(r.bottom+4+h>window.innerHeight&&r.top-h-4>0?r.top-h-4:r.bottom+4)+'px';
+}
+document.addEventListener('click',dlFechar);
+window.addEventListener('scroll',dlFechar,true);
+
+
 var CRC_T=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
 function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
 function u16(v){return [v&255,(v>>>8)&255];}
