@@ -171,4 +171,11 @@
   .oc-chip small{font-weight:500;opacity:.8;}
   [data-theme="dark"] .oc-tag.pend{color:#fdba74;}
   [data-theme="dark"] .oc-tag.ok{color:#86efac;}
+  /* Botão de download só com o ícone */
+  .dl-ico{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;background:var(--white);
+    color:var(--cinza);border:1.5px solid var(--borda);border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .15s;}
+  .dl-ico:hover{border-color:var(--azul2);color:var(--azul2);background:rgba(37,99,235,.08);transform:translateY(-1px);}
+  .exp-h4 .dl-ico{width:30px;height:30px;border-radius:8px;}
+  .dl-flut{position:fixed;z-index:600;top:0;left:0;}
+  [data-theme="dark"] .dl-ico:hover{color:#8fb8ff;border-color:#60a5fa;background:rgba(96,165,250,.14);}
 </style>
