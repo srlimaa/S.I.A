@@ -188,7 +188,16 @@ function dataUrlBytes(url){
   for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
   return a;
 }
+// Cores da imagem: acompanham o tema escolhido (claro/escuro), lendo as mesmas variáveis de cor da tela
+function paletaImg(){
+  var cs=getComputedStyle(document.documentElement),v=function(n,f){return (cs.getPropertyValue(n)||'').trim()||f;};
+  var dk=document.documentElement.getAttribute('data-theme')==='dark';
+  return {bg:v('--white','#ffffff'),titulo:v('--titulo','#1e3a5f'),sub:v('--cinza','#64748b'),texto:v('--texto','#1e293b'),
+    borda:v('--borda2','#e2e8f0'),cab:'#1e3a5f',cabTxt:'#ffffff',subFundo:dk?'#1b2a44':'#dbeafe',subTxt:dk?'#dbeafe':'#1e293b',
+    rodape:dk?'#7a85a3':'#94a3b8'};
+}
 function desenharDia(m,dia,periodo){
+  var P=paletaImg();
   var cols=m.cols.filter(function(c){return dia.sub[c]>0;});
   var S=2,mg=28,tmp=document.createElement('canvas').getContext('2d');
   function medir(t,peso){tmp.font=peso+' 14px '+FONTE_IMG;return tmp.measureText(t).width;}
@@ -201,16 +210,16 @@ function desenharDia(m,dia,periodo){
   var tituloH=84,cabH=40,linH=34,n=dia.linhas.length+1,H=tituloH+cabH+linH*n+mg+22;
   var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
   var x=cv.getContext('2d');x.scale(S,S);
-  x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
+  x.fillStyle=P.bg;x.fillRect(0,0,W,H);
   x.textBaseline='middle';
-  x.fillStyle='#1e3a5f';x.font='700 22px '+FONTE_IMG;x.textAlign='left';
+  x.fillStyle=P.titulo;x.font='700 22px '+FONTE_IMG;x.textAlign='left';
   x.fillText('Indicadores de Atendimento',mg,mg+14);
-  x.fillStyle='#64748b';x.font='400 14px '+FONTE_IMG;
+  x.fillStyle=P.sub;x.font='400 14px '+FONTE_IMG;
   x.fillText((m.rotTitulo||'Data')+': '+dia.d+'   ·   Período letivo '+periodo,mg,mg+44);
   var y=tituloH;
   function celula(txt,cx0,w,yy,hh,fundo,cor,peso,alinha){
     if(fundo){x.fillStyle=fundo;x.fillRect(cx0,yy,w,hh);}
-    x.strokeStyle='#e2e8f0';x.lineWidth=1;x.strokeRect(cx0+.5,yy+.5,w-1,hh-1);
+    x.strokeStyle=P.borda;x.lineWidth=1;x.strokeRect(cx0+.5,yy+.5,w-1,hh-1);
     if(txt===''||txt===null)return;
     x.fillStyle=cor;x.font=peso+' 14px '+FONTE_IMG;x.textAlign=alinha;
     x.fillText(String(txt),alinha==='left'?cx0+14:cx0+w/2,yy+hh/2+1);
@@ -223,14 +232,14 @@ function desenharDia(m,dia,periodo){
   }
   // cabeçalho
   var cx=mg;
-  celula('Atividade',cx,wA,y,cabH,'#1e3a5f','#ffffff','700','left');cx+=wA;
-  cols.forEach(function(c,i){celula(c,cx,wC[i],y,cabH,'#1e3a5f','#ffffff','700','center');cx+=wC[i];});
-  celula('Total geral',cx,wT,y,cabH,'#1e3a5f','#ffffff','700','center');
+  celula('Atividade',cx,wA,y,cabH,P.cab,P.cabTxt,'700','left');cx+=wA;
+  cols.forEach(function(c,i){celula(c,cx,wC[i],y,cabH,P.cab,P.cabTxt,'700','center');cx+=wC[i];});
+  celula('Total geral',cx,wT,y,cabH,P.cab,P.cabTxt,'700','center');
   y+=cabH;
-  dia.linhas.forEach(function(l){linha(l.nome,l.vals,l.total,y,linH,null,'#1e293b','400','400');y+=linH;});
-  linha(dia.d+' Total',dia.sub,dia.sub.__total,y,linH,'#dbeafe','#1e293b','700','700');
+  dia.linhas.forEach(function(l){linha(l.nome,l.vals,l.total,y,linH,null,P.texto,'400','400');y+=linH;});
+  linha(dia.d+' Total',dia.sub,dia.sub.__total,y,linH,P.subFundo,P.subTxt,'700','700');
   // rodapé
-  x.fillStyle='#94a3b8';x.font='400 11px '+FONTE_IMG;x.textAlign='right';
+  x.fillStyle=P.rodape;x.font='400 11px '+FONTE_IMG;x.textAlign='right';
   var ag=new Date();
   x.fillText('Gerado em '+ag.toLocaleDateString('pt-BR')+' '+ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),W-mg,H-16);
   return cv.toDataURL('image/jpeg',0.93);
