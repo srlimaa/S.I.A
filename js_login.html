@@ -14,6 +14,20 @@ function ocultarSenha(){            // volta a senha para "bolinhas" (ao entrar 
   var inp=document.getElementById('loginSenha'),b=document.getElementById('loginEye');
   inp.type='password';b.classList.remove('on');b.setAttribute('aria-pressed','false');b.title='Mostrar senha';
 }
+/* ── Sessão guardada no navegador (sobrevive ao recarregar a página; vale 6 h) ── */
+function guardarSessao(t){try{if(t)localStorage.setItem('sessaoAt',t);}catch(e){}}
+function lerSessao(){try{return localStorage.getItem('sessaoAt')||'';}catch(e){return '';}}
+function limparSessao(){try{localStorage.removeItem('sessaoAt');localStorage.removeItem('sessaoEstado');}catch(e){}}
+function salvarEstado(){try{localStorage.setItem('sessaoEstado',JSON.stringify({s:SISTEMA,p:PERIODO}));}catch(e){}}
+function lerEstado(){try{return JSON.parse(localStorage.getItem('sessaoEstado')||'null');}catch(e){return null;}}
+// Aplica o resultado de loginUnificado()/retomarSessao()
+function aplicarLogin(r){
+  USUARIO=r.registro||null;CC_SESSAO=r.cc||null;PERIODO=null;SISTEMA=null;ABERTO=null;
+  NOME_LOGADO=USUARIO?USUARIO.nome:(CC_SESSAO?CC_SESSAO.nome:'');
+  document.getElementById('loginScreen').style.display='none';ocultarSenha();
+  if(USUARIO)atualizarTopbarUser();
+  if(CC_SESSAO)ccCarregarHtml(null,true);                  // já deixa a tela do Call Center carregada, para abrir mais rápido
+}
 /* ── Login / Logout ── */
 function fazerLogin(){
   var email=document.getElementById('loginEmail').value.trim();
@@ -22,10 +36,7 @@ function fazerLogin(){
   google.script.run
     .withSuccessHandler(function(r){
       if(r&&r.success){
-        USUARIO=r.registro||null;CC_SESSAO=r.cc||null;PERIODO=null;SISTEMA=null;ABERTO=null;
-        NOME_LOGADO=USUARIO?USUARIO.nome:(CC_SESSAO?CC_SESSAO.nome:'');
-        document.getElementById('loginScreen').style.display='none';ocultarSenha();
-        if(USUARIO)atualizarTopbarUser();
+        aplicarLogin(r);guardarSessao(r.sessao);
         mostrarSistemas();
       }else mostrarErroLogin((r&&r.message)||'Credenciais inválidas.');
     })
@@ -38,6 +49,7 @@ function mostrarErroLogin(msg){
 }
 /* ── Escolha do sistema (login único) ── */
 function mostrarSistemas(){
+  try{localStorage.removeItem('sessaoEstado');}catch(e){}
   ['appScreen','periodoScreen','ccScreen'].forEach(function(id){document.getElementById(id).style.display='none';});
   document.getElementById('sistemaScreen').style.display='flex';
   document.getElementById('sisSaudacao').textContent='Olá, '+NOME_LOGADO+'! Escolha o sistema que deseja acessar.';
@@ -59,6 +71,7 @@ function escolherSistema(s){
   abrirSelecaoPeriodo();
 }
 function logout(){
+  var tk=lerSessao();if(tk){try{google.script.run.encerrarSessao(tk);}catch(e){}}limparSessao();
   if(CC_SESSAO&&CC_SESSAO.token){try{google.script.run.ccApiLogout(CC_SESSAO.token);}catch(e){}}
   CC_SESSAO=null;SISTEMA=null;ABERTO=null;NOME_LOGADO='';ccRemoverFrame();
   USUARIO=null;PERIODO=null;HISTORICO_CACHE=[];INDICADORES_CACHE={};AVATARES={};
