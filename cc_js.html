@@ -48,20 +48,78 @@ function entrar(){$('lErr').textContent='';$('lBtn').disabled=true;
   .withFailureHandler(function(e){$('lBtn').disabled=false;$('lErr').textContent=e.message}).apiLogin($('lEmail').value,$('lSenha').value)}
 function sair(exp){parent.postMessage({ccb:1,t:exp?'sessao':'sair'},'*')}
 $('bSair').onclick=function(){sair()};
-function iniciar(){call('boot').then(function(b){
+function iniciar(pre){(pre&&pre.boot?Promise.resolve(pre.boot):call('boot')).then(function(b){
   ME=b.user;CFG=b.cfg;SEMS=b.sems;OPC=b.opc;ADMIN=ME.perfil==='Admin';tema(ME.tema);
   $('login-screen').style.display='none';$('app').style.display='flex';cabecalho();
   var tabs=[['cc','📞 Call Center']];if(ADMIN){tabs.push(['ger','📊 Indicador — Geral']);tabs.push(['col','👤 Indicador — Colaborador'])}
   $('nav').innerHTML=tabs.map(function(t){return '<button class="tab-btn" data-t="'+t[0]+'">'+t[1]+'</button>'}).join('');
   $('nav').style.display=ADMIN?'flex':'none';
   Array.prototype.forEach.call($('nav').children,function(b){b.onclick=function(){abaAtiva(b.dataset.t)}});
-  $('bCfg').onclick=abrirCfg;$('hAv').onclick=abrirCfg;TAB='cc';carregar()})}
-window.__ccInit=function(m){T=m.token;iniciar()};
+  $('bCfg').onclick=abrirCfg;$('hAv').onclick=abrirCfg;TAB='cc';
+  $('bSync').onclick=function(){sincronizar(true)};
+  $('bBase').style.display=ADMIN?'':'none';$('bBase').onclick=function(){toast('Recarregando a base de alunos...');carregar(true)};
+  if(pre&&pre.data)aplicar(pre.data);else carregar()})}
+window.__ccInit=function(m){T=m.token;iniciar(m.pre)};
 function cabecalho(){$('hNome').textContent=CFG.nomeSistema||'Call Center FIES';$('hUser').textContent=ME.nome;$('hRole').textContent=ADMIN?'Administrador':'Colaborador';$('hAv').innerHTML=avatar(ME.foto,ME.nome);$('hSem').textContent='Semestre: '+ME.semestre;logoHtml($('hLogo'),CFG.logo,'CC')}
 function abaAtiva(t){TAB=t;Array.prototype.forEach.call($('nav').children,function(b){b.className='tab-btn'+(b.dataset.t===t?' active':'')});
   ['cc','ger','col'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol()}}
-function carregar(){call('getData',{sem:ME.semestre}).then(function(d){D=d;indexar();renderCC();abaAtiva(TAB)}).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
+function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync()}
+function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
 function indexar(){D.rmap={};D.last={};D.regs.forEach(function(r){(D.rmap[r.cpf]=D.rmap[r.cpf]||[]).push(r);var l=D.last[r.cpf];if(!l||r.data>=l.data)D.last[r.cpf]=r});D.umap={};D.ufoto={};D.usuarios.concat(D.extras||[]).forEach(function(u){D.umap[u.email]=u.nome;D.ufoto[u.email]=u.foto})}
+
+/* ---------- atualização em tempo real ----------
+   A cada ~20 s (e ao voltar para a aba) a tela faz uma chamada LEVE ao servidor com a "versão" dos dados.
+   Só quando a versão mudou (alguém registrou, excluiu ou atribuiu responsável) os dados são baixados e a tela é
+   atualizada no lugar, sem recarregar a página e sem perder filtros, busca ou posição da lista. */
+var SYNC={t:null,busy:false,ult:0,ver:null,sig:null,pend:0};
+function msSync(id,opts,cb){var m=MS[id];if(!$(id))return;if(m&&JSON.stringify(m.opts)===JSON.stringify(opts))return;msMake(id,opts,cb)}
+function filtrosVivos(forca){
+  var A=D.alunos,rAtv={},semResp=false,mk=forca?msMake:msSync;
+  A.forEach(function(a){var e=D.resp[a.cpf];if(e)rAtv[e]=1;else semResp=true});
+  mk('fR',(semResp?[{v:'-',t:'Sem responsável'}]:[]).concat(Object.keys(rAtv).map(function(e){return {v:e,t:D.umap[e]||e}})
+    .sort(function(x,y){return x.t.localeCompare(y.t,'pt',{sensitivity:'base'})})),linhas);   // só responsáveis ativos
+  mk('fRs',[{v:'-',t:'Sem contato'}].concat(resOpts()),linhas);
+  mk('fB',Object.keys(cnt(D.regs,function(r){return r.colab})).map(function(e){return {v:e,t:D.umap[e]||e}}),linhas)}
+function mesesVivos(){return mesOpts(Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort())}
+function selaSync(){SYNC.sig=JSON.stringify([D.regs,D.resp])}      // depois de uma gravação própria: não conta como novidade de outra pessoa
+function iniciarSync(){
+  SYNC.ver=D.v||null;selaSync();SYNC.ult=Date.now();clearInterval(SYNC.t);
+  SYNC.t=setInterval(function(){if(!document.hidden)sincronizar()},20000)}
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&D)sincronizar()});
+function marcaSync(){
+  var d=new Date(),h=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+  $('hSem').textContent='Semestre: '+ME.semestre+' · atualizado às '+h;
+  var b=$('bSync');if(b)b.title='Atualizado às '+h+' — clique para atualizar agora'}
+// não troca a tela de baixo de quem está usando: popup aberto, lista suspensa em uso ou atribuição em montagem
+function ocupado(){
+  if(document.querySelector('.ov'))return true;
+  var e=document.activeElement;if(e&&(e.tagName==='SELECT'||e.tagName==='TEXTAREA')&&e.closest('#tb'))return true;
+  if(ADMIN&&typeof ATR!=='undefined'&&ATR.plano)return true;
+  return false}
+function sincronizar(manual){
+  if(!D||!T||SYNC.busy||SYNC.pend>0)return;
+  SYNC.busy=true;var b=$('bSync');if(manual&&b)b.classList.add('girando');
+  var forca=!!manual||(Date.now()-SYNC.ult>300000);              // a cada 5 min confere tudo, mesmo sem aviso de mudança
+  function fim(){SYNC.busy=false;if(b)b.classList.remove('girando')}
+  google.script.run.withSuccessHandler(function(r){
+    fim();
+    if(!r)return;
+    if(r.err==='SESSAO'){sair(true);return}
+    if(r.err||!r.ok||SYNC.pend>0)return;
+    SYNC.ult=Date.now();
+    if(!r.ok.regs){SYNC.ver=r.ok.v;marcaSync();if(manual)toast('Tudo já está atualizado.');return}
+    if(ocupado()&&!manual)return;                                  // tenta de novo no próximo ciclo
+    SYNC.ver=r.ok.v;
+    var mudou=aplicarVivo(r.ok);marcaSync();
+    if(manual)toast(mudou?'Dados atualizados.':'Tudo já está atualizado.')})
+  .withFailureHandler(fim).api(T,'sync',{sem:ME.semestre,v:forca?'':SYNC.ver})}
+function aplicarVivo(o){
+  var sig=JSON.stringify([o.regs,o.resp]);if(sig===SYNC.sig)return false;
+  SYNC.sig=sig;D.regs=o.regs;D.resp=o.resp;D.v=o.v;indexar();
+  if(TAB==='cc'&&$('tb')){filtrosVivos();kpisCC();linhas()}
+  else if(TAB==='ger'&&$('gc1')){var mo=mesesVivos();msSync('dM',mo,gDia);msSync('rMs',mo,gRes);gBase();gDia();gRes()}
+  else if(TAB==='col'&&$('cK')){var mc=mesesVivos();msSync('cM',mc,cAtu);msSync('iaM',mc,iaFiltrar);msSync('cRs',resOpts(),cAtu);cAtu();iaRender()}
+  return true}
 
 /* ---------- Call Center ---------- */
 function dkey(s){var m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+m[2]+m[1]:String(s)}
@@ -111,12 +169,7 @@ function renderCC(){
   '<div class="filters-row"><div class="filter-group" style="min-width:220px"><label>Pesquisar aluno</label><input type="text" id="fQ" placeholder="🔍 Digite o nome do aluno..."></div><div class="filter-group"><label>Status</label><div id="fS"></div></div><div class="filter-group"><label>Curso</label><div id="fC"></div></div><div class="filter-group"><label>Responsável</label><div id="fR"></div></div><div class="filter-group"><label>Colaborador</label><div id="fB"></div></div><div class="filter-group"><label>Resultado do contato</label><div id="fRs"></div></div><div class="filter-group"><label>Banco — data de início</label><div id="fBI"></div></div><div class="filter-group"><label>Banco — data final</label><div id="fBF"></div></div><button class="btn-clear" id="fX">✕ Limpar</button></div>'+
   (ADMIN?atrHtml():'')+'<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th class="sortable" data-k="status" data-l="Status">Status</th><th class="sortable" data-k="aluno" data-l="Aluno">Aluno</th><th class="sortable" data-k="curso" data-l="Curso / Turno">Curso / Turno</th><th>Comparecimento ao Banco<div class="th-sub"><span class="sortable" data-k="ini" data-l="Início">Início</span> · <span class="sortable" data-k="fim" data-l="Fim">Fim</span></div></th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
   msMake('fS',CC.map(vt),linhas);msMake('fC',cursos.map(vt),linhas);
-  var rAtv={},semResp=false;                       // só entram no filtro os responsáveis ativos (com ao menos um aluno) e, se houver, "Sem responsável"
-  A.forEach(function(a){var e=D.resp[a.cpf];if(e)rAtv[e]=1;else semResp=true});
-  msMake('fR',(semResp?[{v:'-',t:'Sem responsável'}]:[]).concat(Object.keys(rAtv).map(function(e){return {v:e,t:D.umap[e]||e}})
-    .sort(function(x,y){return x.t.localeCompare(y.t,'pt',{sensitivity:'base'})})),linhas);
-  msMake('fRs',[{v:'-',t:'Sem contato'}].concat(resOpts()),linhas);
-  msMake('fB',colabs.map(function(e){return {v:e,t:D.umap[e]||e}}),linhas);
+  filtrosVivos(true);
   msMake('fBI',bancoOpts('ini'),linhas);msMake('fBF',bancoOpts('fim'),linhas);
   $('fQ').oninput=linhas;
   $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fRs','fBI','fBF'],['fQ'],linhas)};if(ADMIN)atrIniciar();sortBind();kpisCC();linhas()}
@@ -137,11 +190,12 @@ function linhas(){
     var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div class="'+(vc?'d-venc':'')+'"'+(vc?' title="Data final vencida"':'')+'><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
     var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+'</div>':'<span class="muted">—</span>';
     var ob=ul&&ul.obs?'<div class="obs-cell" title="'+esc(ul.obs)+'">'+esc(ul.obs)+'</div>':'<span class="muted">—</span>';
-    return '<tr data-c="'+a.cpf+'"><td><span class="status-badge '+(env?'enviado':'nao')+'">'+esc(a.status)+'</span></td><td><div class="td-name">'+esc(a.nome)+'</div><div class="td-sub">CPF '+esc(a.cpfFmt)+'</div></td><td>'+esc(a.curso)+'<div class="td-sub">'+esc(a.turno)+'</div></td><td>'+banco+'</td><td><span class="contato-badge '+(feito?'sim':'nao')+'">'+(feito?'Sim':'Não')+'</span></td><td>'+res+'</td><td>'+ob+'</td><td><select class="resp-select" data-c="'+a.cpf+'"><option value="">—</option>'+D.usuarios.map(function(x){return '<option value="'+esc(x.email)+'"'+(D.resp[a.cpf]===x.email?' selected':'')+'>'+esc(x.nome)+'</option>'}).join('')+'</select></td></tr>'}).join('');
+    return '<tr data-c="'+a.cpf+'"><td><span class="status-badge '+(env?'enviado':'nao')+'">'+esc(a.status)+'</span></td><td><div class="td-name">'+esc(a.nome)+'</div><div class="td-sub">CPF '+esc(a.cpfFmt)+'</div></td><td>'+esc(a.curso)+'<div class="td-sub">'+esc(a.turno)+'</div></td><td>'+banco+'</td><td><span class="contato-badge '+(feito?'sim':'nao')+'">'+(feito?'Sim':'Não')+'</span></td><td>'+res+'</td><td>'+ob+'</td><td>'+(ADMIN?'<select class="resp-select" data-c="'+a.cpf+'"><option value="">—</option>'+D.usuarios.map(function(x){return '<option value="'+esc(x.email)+'"'+(D.resp[a.cpf]===x.email?' selected':'')+'>'+esc(x.nome)+'</option>'}).join('')+'</select>'
+      :(D.resp[a.cpf]?'<span class="resp-nome">'+esc(D.umap[D.resp[a.cpf]]||D.resp[a.cpf])+'</span>':'<span class="muted">—</span>'))+'</td></tr>'}).join('');
   $('tCount').textContent=L.length+' aluno(s)';
   if(!D.alunos.length&&D.diag)$('tCount').innerHTML='<b>Nenhum aluno com os status do Call Center.</b> Aba: '+esc(D.diag.aba)+' · linhas: '+D.diag.linhas+' · status na coluna AO: '+esc(JSON.stringify(D.diag.status));
   Array.prototype.forEach.call($('tb').querySelectorAll('tr'),function(tr){tr.onclick=function(e){if(e.target.tagName==='SELECT'||e.target.tagName==='OPTION')return;abrirAluno(tr.dataset.c)}});
-  Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;atrAtualizar();call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){toast('Responsável atualizado.')})}});atrAtualizar()}
+  Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;atrAtualizar();SYNC.pend++;call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){SYNC.pend--;selaSync();toast('Responsável atualizado.')}).catch(function(){SYNC.pend--})}});atrAtualizar()}
 
 /* ---------- atribuição de responsáveis em lote (somente Admin) ---------- */
 var ATR={aberto:false,plano:null,pessoas:{},grupos:{},gl:[],gc:{},campo:''};
@@ -293,9 +347,9 @@ function atrAplicar(){
   var p=ATR.plano;if(!p||!p.passos.length)return;
   var rem=p.modo==='remover';
   if(!confirm(rem?'Remover o responsável de '+p.total+' aluno(s)?':'Atribuir '+p.total+' aluno(s) a '+p.passos.length+' pessoa(s)?'))return;
-  $('atrApl').disabled=true;$('atrPrev').disabled=true;
+  $('atrApl').disabled=true;$('atrPrev').disabled=true;SYNC.pend++;
   var feitos=0;
-  function fim(ok,msg){$('atrPrev').disabled=false;if(ok){linhas();$('atrSt').textContent='✔ '+feitos+' aluno(s) '+(rem?'sem responsável':'atribuído(s)')+'.';toast(rem?'Responsáveis removidos.':'Responsáveis atribuídos.')}else{$('atrApl').disabled=false;$('atrSt').textContent='';toast(msg||'Falha ao atribuir.','err')}}
+  function fim(ok,msg){SYNC.pend=Math.max(0,SYNC.pend-1);selaSync();$('atrPrev').disabled=false;if(ok){linhas();$('atrSt').textContent='✔ '+feitos+' aluno(s) '+(rem?'sem responsável':'atribuído(s)')+'.';toast(rem?'Responsáveis removidos.':'Responsáveis atribuídos.')}else{$('atrApl').disabled=false;$('atrSt').textContent='';toast(msg||'Falha ao atribuir.','err')}}
   (function passo(i){
     if(i>=p.passos.length){fim(true);return}
     var s=p.passos[i],partes=[];
@@ -333,17 +387,17 @@ function abrirAluno(cpf){
     Array.prototype.forEach.call(q('rL').querySelectorAll('[data-e]'),function(b){b.onclick=function(e){e.stopPropagation();editar(por(b.dataset.e))}});
     Array.prototype.forEach.call(q('rL').querySelectorAll('[data-x]'),function(b){b.onclick=function(e){e.stopPropagation();excluir(por(b.dataset.x))}})}
   function excluir(r,fechar){if(!ADMIN||!r)return;if(!confirm('Excluir este registro de contato?\n\n'+ddmm(r.data)+' '+r.data.slice(11)+' · '+r.colabNome+'\n'+r.objetivo+' · '+r.meio+' · '+r.resultado+'\n\nEsta ação não pode ser desfeita.'))return;
-    call('regDel',{id:r.id,sem:ME.semestre}).then(function(regs){D.regs=regs;indexar();if(edit&&edit.id===r.id)reset();if(fechar)fechar();lista();toast('Registro excluído.');kpisCC();linhas()}).catch(function(){})}
+    call('regDel',{id:r.id,sem:ME.semestre}).then(function(regs){D.regs=regs;indexar();selaSync();if(edit&&edit.id===r.id)reset();if(fechar)fechar();lista();toast('Registro excluído.');kpisCC();linhas()}).catch(function(){})}
   function obs(r){var m=ov('<button class="popup-close" style="position:static;margin:0 0 10px auto;display:flex;color:var(--text-sec);background:var(--bg);border:1px solid var(--border)">✕</button><div class="section-title">📋 Observação do Registro</div><p style="font-size:13px;line-height:1.6;white-space:pre-wrap">'+(esc(r.obs)||'<span class="muted">Sem observação.</span>')+'</p><div class="muted" style="margin-top:12px;font-size:11px">'+esc(r.objetivo)+' · '+esc(r.meio)+' · <b>'+esc(r.resultado)+'</b><br>'+ddmm(r.data)+' '+r.data.slice(11)+' · '+esc(r.colabNome)+(r.editado?' · editado em '+esc(r.editado):'')+'</div><div style="margin-top:14px;display:flex;gap:8px"><button class="btn-primary" id="oE">✏️ Editar</button>'+(ADMIN?'<button class="btn-secondary" id="oX">🗑️ Excluir</button>':'')+'</div>','obs-popup');
     m.querySelector('#oE').onclick=function(){m.remove();editar(r)};
     var ox=m.querySelector('#oX');if(ox)ox.onclick=function(){excluir(r,function(){m.remove()})}}
   q('rC').onclick=reset;
   q('rS').onclick=function(){q('rS').disabled=true;call('saveReg',{id:edit?edit.id:'',sem:ME.semestre,cpf:cpf,aluno:a.nome,status:a.status,objetivo:q('rO').value,meio:q('rM').value,resultado:q('rR').value,obs:q('rB').value})
-    .then(function(regs){D.regs=regs;indexar();reset();lista();q('rS').disabled=false;toast('Registro salvo.');kpisCC();linhas()}).catch(function(){q('rS').disabled=false})};
+    .then(function(regs){D.regs=regs;indexar();selaSync();reset();lista();q('rS').disabled=false;toast('Registro salvo.');kpisCC();linhas()}).catch(function(){q('rS').disabled=false})};
   reset();lista()}
 
 /* ---------- gráficos ---------- */
-function chart(id,type,labels,sets,stack){if(CH[id])CH[id].destroy();var el=$(id);if(!el)return;
+function chart(id,type,labels,sets,stack){if(typeof Chart==='undefined'){if((chart._n=(chart._n||0)+1)<80)setTimeout(function(){chart(id,type,labels,sets,stack)},250);return}chart._n=0;if(CH[id])CH[id].destroy();var el=$(id);if(!el)return;
   var pie=type==='pie',one=sets.length===1;
   var ds=sets.map(function(s,i){var col=(pie||(one&&type==='bar'&&labels.length<=12))?labels.map(function(_,k){return PAL[k%PAL.length]}):PAL[i%PAL.length];return {label:s.l,data:s.d,backgroundColor:col,borderColor:pie?'transparent':PAL[i%PAL.length],borderRadius:pie?0:4}});
   var txt=getComputedStyle(document.body).color,grid='rgba(128,138,160,.2)';
