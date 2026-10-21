@@ -115,6 +115,10 @@ function modoAgrupamento(sem,mesesSel,totalOpc,toque){
 }
 function mesCurto(k){var mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],p=k.split('/');return mn[parseInt(p[0],10)-1]+'/'+p[1].slice(2);}
 function gruposDeDatas(datas,modo){
+  if(modo==='semana'){                 // soma dos dias escolhidos em uma única linha por atividade
+    var o=ordenarDatasDesc(datas.slice()),fim=o[0],ini=o[o.length-1],a=function(d){var p=d.split('/');return p[2]+'-'+p[1]+'-'+p[0];};
+    return [{rot:ini+' a '+fim,arq:'semana_'+a(ini)+'_a_'+a(fim),curto:'Semana',datas:datas}];
+  }
   if(modo==='semestre')return [{rot:PERIODO,arq:String(PERIODO),curto:String(PERIODO),datas:datas}];
   if(modo==='mes'){
     var mapa={},ordem=[];
@@ -124,7 +128,7 @@ function gruposDeDatas(datas,modo){
   return datas.map(function(d){return {rot:d,arq:dataArquivo(d),curto:d.slice(0,5),datas:[d]};});
 }
 function rotuloModo(modo){
-  return modo==='mes'?{col:'Mês',titulo:'Mês'}:modo==='semestre'?{col:'Semestre',titulo:'Semestre'}:{col:'Data',titulo:'Data'};
+  return modo==='mes'?{col:'Mês',titulo:'Mês'}:modo==='semestre'?{col:'Semestre',titulo:'Semestre'}:modo==='semana'?{col:'Semana',titulo:'Semana'}:{col:'Data',titulo:'Data'};
 }
 function textoModo(modo){
   if(modo==='mes')return '📅 Mostrando o total de cada mês selecionado, sem separar por data.';
@@ -144,14 +148,17 @@ function indSemestre(){
   atualizarBotaoSem('btnSemInd',IND_SEM);renderIndicadores();
 }
 // Calcula os números da tabela de Indicadores (usado na tela, no Excel e nas imagens)
-function modeloIndicadores(f){
+function modeloIndicadores(f,forcarModo){
   var data=INDICADORES_CACHE;
   if(!data||!data.indicadores)return {vazio:'sem-dados'};
   var ind=data.indicadores,allColabs=data.colaboradores||[];
   var cols=f.colabs.length>0?allColabs.filter(function(c){return f.colabs.indexOf(c)!==-1;}):allColabs;
-  var modo=modoAgrupamento(f.sem,f.meses,f.totalMeses,f.toque);
+  var modo=forcarModo||modoAgrupamento(f.sem,f.meses,f.totalMeses,f.toque);
   var datas=f.sem?datasSemestre(ind,PERIODO):datasFiltradas(ind,f.de,f.ate,f.meses);
   if(datas.length===0||cols.length===0)return {vazio:'filtros'};
+  // dias que realmente têm dados nas atividades selecionadas (é o que conta para saber se há "mais de uma data")
+  var comDados=datas.filter(function(d){return ORDEM_ATIV.some(function(a){return (f.ativs.length===0||f.ativs.indexOf(a)!==-1)&&!!ind[d][a];});});
+  if(modo==='semana'){if(comDados.length===0)return {vazio:'filtros'};datas=comDados;}
   var grupos=gruposDeDatas(datas,modo);
   var total={__total:0};cols.forEach(function(c){total[c]=0;});
   var dias=[];
@@ -176,16 +183,10 @@ function modeloIndicadores(f){
   });
   if(!dias.length)return {vazio:'filtros'};
   var rot=rotuloModo(modo);
-  return {cols:cols,dias:dias,total:total,modo:modo,rotCol:rot.col,rotTitulo:rot.titulo,
+  return {cols:cols,dias:dias,total:total,modo:modo,rotCol:rot.col,rotTitulo:rot.titulo,nDatas:comDados.length,
           ocultarTotal:(modo!=='dia'&&dias.length===1)};   // um único grupo: o "Total geral" repetiria o total do grupo
 }
-function renderIndicadores(){
-  var cont=document.getElementById('indicadoresContainer');
-  var m=modeloIndicadores(filtrosInd());
-  var info=document.getElementById('indModoInfo');
-  if(m.vazio==='sem-dados'){cont.innerHTML='<p class="ind-msg">Sem dados para exibir.</p>';info.style.display='none';return;}
-  if(m.vazio){cont.innerHTML='<p class="ind-msg">Nenhum dado encontrado para os filtros selecionados.</p>';info.style.display='none';return;}
-  var tm=textoModo(m.modo);info.textContent=tm;info.style.display=tm?'block':'none';
+function htmlTabelaIndicadores(m){
   var cols=m.cols;
   var html='<table class="ind-table"><thead><tr><th>'+m.rotCol+'</th><th>Atividade</th>';
   cols.forEach(function(c){html+='<th>'+c+'</th>';});
@@ -207,8 +208,37 @@ function renderIndicadores(){
     cols.forEach(function(c){html+='<td>'+(m.total[c]>0?m.total[c]:'')+'</td>';});
     html+='<td>'+m.total.__total+'</td></tr>';
   }
-  html+='</tbody></table>';
-  cont.innerHTML=html;
+  return html+'</tbody></table>';
+}
+function renderIndicadores(){
+  var cont=document.getElementById('indicadoresContainer');
+  var f=filtrosInd(),m=modeloIndicadores(f);
+  var info=document.getElementById('indModoInfo');
+  if(m.vazio==='sem-dados'){cont.innerHTML='<p class="ind-msg">Sem dados para exibir.</p>';info.style.display='none';renderSemana(f);return;}
+  if(m.vazio){cont.innerHTML='<p class="ind-msg">Nenhum dado encontrado para os filtros selecionados.</p>';info.style.display='none';renderSemana(f);return;}
+  var tm=textoModo(m.modo);info.textContent=tm;info.style.display=tm?'block':'none';
+  cont.innerHTML=htmlTabelaIndicadores(m);
+  renderSemana(f);
+}
+
+/* ── Janela "Semana": aparece quando De/Até abrangem mais de uma data; soma os dias de cada atividade por colaborador ── */
+// Retorna o modelo semanal, ou null quando a janela não se aplica
+function modeloSemana(f){
+  if(f.sem||!(f.de||f.ate))return null;                          // só quando o filtro De/Até está em uso (não vale para Semestre)
+  if(modoAgrupamento(f.sem,f.meses,f.totalMeses,f.toque)!=='dia')return null;   // com meses selecionados o total já é mensal
+  var m=modeloIndicadores(f,'semana');
+  return (m.vazio||m.nDatas<2)?null:m;
+}
+function renderSemana(f){
+  var box=document.getElementById('indSemanaBox');if(!box)return;
+  var m=modeloSemana(f||filtrosInd());
+  if(!m){box.style.display='none';document.getElementById('indicadoresSemanaContainer').innerHTML='';document.getElementById('indSemanaDl').innerHTML='';return;}
+  document.getElementById('indSemanaInfo').textContent='Soma de '+m.nDatas+' dias ('+m.dias[0].d+'), por atividade e por colaborador.';
+  document.getElementById('indicadoresSemanaContainer').innerHTML=htmlTabelaIndicadores(m);
+  document.getElementById('indSemanaDl').innerHTML=dlBtn('ind_semana',[
+    {rot:'📗 Excel (.xlsx)',desc:'Tabela da semana, com os filtros atuais',f:baixarExcelSemana},
+    {rot:'🖼️ Imagem JPG',desc:'Uma imagem com o total da semana',f:baixarImagemSemana}]);
+  box.style.display='block';
 }
 
 </script>
