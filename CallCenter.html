@@ -25,7 +25,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>B&amp;F - Call Center Aditamentos</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 <?!= include('cc_css') ?>
 </style>
@@ -47,6 +47,8 @@
     <div class="header-user">
       <div><div class="header-uname" id="hUser">—</div><div class="header-role" id="hRole">—</div></div>
       <div class="header-avatar" id="hAv" title="Configurações"></div>
+      <button class="icon-btn" id="bSync" title="Atualizar agora">🔄</button>
+      <button class="icon-btn" id="bBase" title="Recarregar a base de alunos da planilha (Admin)" style="display:none">🗄️</button>
       <button class="icon-btn" id="bCfg" title="Configurações">⚙️</button>
       <button class="icon-btn danger" id="bSair" title="Sair">🚪</button>
     </div>
