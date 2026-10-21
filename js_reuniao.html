@@ -136,9 +136,6 @@ function carregarReuniao(){
   google.script.run
     .withSuccessHandler(function(res){
       INDICADORES_CACHE=res;preencherFiltrosReuniao(res);renderReuniao();
-      var av=document.getElementById('reuAvisos'),lista=(res&&res.avisos)||[];
-      av.innerHTML=lista.map(function(a){return '⚠️ '+escHtml(a);}).join('<br>');
-      av.style.display=lista.length?'block':'none';
     })
     .withFailureHandler(function(){
       document.getElementById('reuniaoContainer').innerHTML='<p class="ind-msg" style="color:#dc2626;">Falha ao carregar indicadores.</p>';
