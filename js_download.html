@@ -162,6 +162,25 @@ function baixarExcel(){
   }catch(e){showFeedback('fbIndDl','Erro ao gerar a planilha: '+e.message,false);}
 }
 
+/* ── Janela "Semana" (soma dos dias escolhidos): Excel e imagem ── */
+function modeloSemanaDownload(){
+  var m=modeloSemana(filtrosInd());
+  if(!m){showFeedback('fbIndDl','A janela da semana só existe quando o filtro De/Até abrange mais de uma data.',false);return null;}
+  return m;
+}
+function baixarExcelSemana(){
+  var m=modeloSemanaDownload();if(!m)return;
+  var nome='Indicadores_'+PERIODO+'_'+m.dias[0].arq+'.xlsx';
+  try{baixarBytes(nome,gerarXlsx(m),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');showFeedback('fbIndDl','✔ Planilha gerada: '+nome,true);}
+  catch(e){showFeedback('fbIndDl','Erro ao gerar a planilha: '+e.message,false);}
+}
+function baixarImagemSemana(){
+  var m=modeloSemanaDownload();if(!m)return;
+  var nome='Indicadores_'+PERIODO+'_'+m.dias[0].arq+'.jpg';
+  try{baixarBytes(nome,dataUrlBytes(desenharDia(m,m.dias[0],PERIODO)),'image/jpeg');showFeedback('fbIndDl','✔ Imagem gerada: '+nome,true);}
+  catch(e){showFeedback('fbIndDl','Erro ao gerar a imagem: '+e.message,false);}
+}
+
 /* ── Imagem (JPG) de cada dia ── */
 var FONTE_IMG='"Segoe UI",Roboto,Arial,sans-serif';
 function dataUrlBytes(url){
