@@ -36,6 +36,25 @@ if(typeof google.script.run.getNomeLogin==='function'){
   }).getNomeLogin();
 }
 
+// Retoma a sessão guardada no navegador (recarregar a página não volta mais para o login)
+(function(){
+  var tk=lerSessao();if(!tk)return;
+  var ov=document.getElementById('sessaoCarregando'),login=document.getElementById('loginScreen');
+  login.style.display='none';ov.style.display='flex';
+  function voltarLogin(){limparSessao();ov.style.display='none';login.style.display='flex';}
+  google.script.run
+    .withSuccessHandler(function(r){
+      ov.style.display='none';
+      if(!r||!r.success){voltarLogin();return;}
+      aplicarLogin(r);guardarSessao(r.sessao);
+      var e=lerEstado();
+      if(e&&e.p&&((e.s==='registro'&&USUARIO)||(e.s==='cc'&&CC_SESSAO))){SISTEMA=e.s;entrarPeriodo(e.p);}   // volta para onde estava
+      else mostrarSistemas();
+    })
+    .withFailureHandler(voltarLogin)
+    .retomarSessao(tk);
+})();
+
 // Preenche o número da versão no rodapé das Configurações
 google.script.run.withSuccessHandler(function(v){
   var el = document.getElementById('versaoSistema');
