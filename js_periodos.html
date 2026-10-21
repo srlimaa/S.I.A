@@ -14,8 +14,10 @@ function carregarPeriodos(selecionar){
   sel.innerHTML='<option>Carregando...</option>';
   function preencher(lista){
     if(!lista||!lista.length){sel.innerHTML='<option value="">Nenhum período cadastrado</option>';return;}
+    var prev=sel.value;                                        // mantém a escolha do usuário se a lista for atualizada depois
     sel.innerHTML=lista.map(function(p){return '<option value="'+escHtml(p)+'">'+escHtml(p)+'</option>';}).join('');
-    if(selecionar&&lista.indexOf(selecionar)!==-1)sel.value=selecionar;
+    var atual=(prev&&lista.indexOf(prev)!==-1)?prev:selecionar;
+    if(atual&&lista.indexOf(atual)!==-1)sel.value=atual;
   }
   function doRegistro(){
     google.script.run
@@ -24,12 +26,16 @@ function carregarPeriodos(selecionar){
       .getPeriodos();
   }
   if(SISTEMA==='cc'&&CC_SESSAO&&CC_SESSAO.token){            // no Call Center, só os semestres cadastrados nele
-    google.script.run
+    var ordenar=function(l){return l.slice().map(String).sort().reverse();};
+    var conhecidos=CC_SESSAO.sems&&CC_SESSAO.sems.length?ordenar(CC_SESSAO.sems):null;
+    if(conhecidos)preencher(conhecidos);                       // a lista já veio no login: aparece na hora
+    google.script.run                                          // e é conferida em segundo plano (caso um Admin tenha cadastrado outro semestre)
       .withSuccessHandler(function(r){
         var s=r&&r.ok&&r.ok.sems;
-        if(s&&s.length)preencher(s.slice().map(String).sort().reverse());else doRegistro();
+        if(s&&s.length){var nova=ordenar(s);if(!conhecidos||nova.join()!==conhecidos.join()){CC_SESSAO.sems=nova;preencher(nova);}}
+        else if(!conhecidos)doRegistro();
       })
-      .withFailureHandler(doRegistro)
+      .withFailureHandler(function(){if(!conhecidos)doRegistro();})
       .ccApi(CC_SESSAO.token,'boot',{});
   }else doRegistro();
 }
@@ -95,8 +101,12 @@ function prefTrocarSistema(){fecharConfig();ABERTO=null;SISTEMA=null;mostrarSist
 function confirmarPeriodo(){
   var p=document.getElementById('periodoSelect').value;
   if(!p){showFeedback('fbPeriodoSel','Selecione um período letivo.',false);return;}
+  entrarPeriodo(p);
+}
+function entrarPeriodo(p){
   if(p!==PERIODO){HISTORICO_CACHE=[];INDICADORES_CACHE={};RANQUE_DADOS=null;}
   PERIODO=p;
+  salvarEstado();                                           // ao recarregar a página, volta para este mesmo sistema/período
   document.getElementById('periodoScreen').style.display='none';
   if(SISTEMA==='cc'){abrirCC();return;}
   ABERTO='registro';
