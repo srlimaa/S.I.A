@@ -6,28 +6,46 @@ function ccMensagem(txt,erro,botoes){
   m.innerHTML='<div>'+escHtml(txt)+'</div>'+(botoes?'<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"><button class="btn-outline" onclick="ccTrocarPeriodo()">📅 Escolher outro período</button><button class="btn-outline" onclick="ccTrocarSistema()">⇄ Sistemas</button></div>':'');
 }
 function ccRemoverFrame(){var f=document.getElementById('ccFrame');if(f)f.remove();}
+/* Dados do Call Center buscados enquanto a tela ainda está abrindo (evita esperar em fila) */
+var CC_PRE=null;
+function ccPrefetch(){
+  var p={ok:false,fim:false,boot:null,data:null,espera:null};CC_PRE=p;
+  function chamar(fn,a){return new Promise(function(res,rej){google.script.run.withSuccessHandler(res).withFailureHandler(rej).ccApi(CC_SESSAO.token,fn,a);});}
+  Promise.all([chamar('boot',{}),chamar('getData',{sem:PERIODO})]).then(function(r){
+    if(r[0]&&r[0].ok&&r[1]&&r[1].ok){p.boot=r[0].ok;p.data=r[1].ok;p.ok=true;}
+  }).catch(function(){}).then(function(){p.fim=true;if(p.espera){var f=p.espera;p.espera=null;f();}});
+}
 function abrirCC(){
-  ABERTO='cc';
+  ABERTO='cc';CC_PRE=null;
   document.getElementById('ccScreen').style.display='flex';
   var bn=document.getElementById('ccBarNome');if(bn)bn.textContent=CC_SESSAO.nomeSistema||'Call Center - Aditamentos';
   var bp=document.getElementById('ccBarPeriodo');if(bp)bp.textContent='📅 '+PERIODO+' ⇄';
   ccRemoverFrame();ccMensagem('Abrindo o Call Center...');
+  var perOk=false,falhou=false;
+  function seguir(){if(falhou||!perOk||!CC_HTML)return;ccMontarFrame();}
+  ccCarregarHtml(seguir);                                   // a tela é carregada ao mesmo tempo que o período é aberto
   google.script.run
     .withSuccessHandler(function(r){
       if(!r||!r.success){
+        falhou=true;
         if(r&&r.sessao){logout();mostrarErroLogin(r.message);return;}
         ccMensagem((r&&r.message)||'Não foi possível abrir o Call Center. Confira se a nova versão do script foi implantada.',true,true);return;
       }
-      ccCarregarHtml(ccMontarFrame);
+      perOk=true;ccPrefetch();seguir();                      // dados começam a vir já, sem esperar a tela
     })
-    .withFailureHandler(function(err){ccMensagem('Não foi possível abrir o Call Center: '+((err&&err.message)||'falha ao conectar'),true,true);})
+    .withFailureHandler(function(err){falhou=true;ccMensagem('Não foi possível abrir o Call Center: '+((err&&err.message)||'falha ao conectar'),true,true);})
     .ccAbrirPeriodo(CC_SESSAO.token,PERIODO);
 }
-function ccCarregarHtml(cb){
-  if(CC_HTML){cb();return;}
+var CC_HTML_CBS=null;
+// silencioso = pré-carga em segundo plano (logo após o login), sem mensagens de erro
+function ccCarregarHtml(cb,silencioso){
+  if(CC_HTML){if(cb)cb();return;}
+  if(CC_HTML_CBS){if(cb)CC_HTML_CBS.push(cb);return;}
+  CC_HTML_CBS=cb?[cb]:[];
   google.script.run
-    .withSuccessHandler(function(html){CC_HTML=html;cb();})
-    .withFailureHandler(function(err){ccMensagem('Não foi possível carregar a tela do Call Center ('+((err&&err.message)||'erro')+'). Confira se existe, no projeto, um arquivo HTML chamado "CallCenter".',true,true);})
+    .withSuccessHandler(function(html){CC_HTML=html;var l=CC_HTML_CBS||[];CC_HTML_CBS=null;l.forEach(function(f){f();});})
+    .withFailureHandler(function(err){var l=CC_HTML_CBS||[];CC_HTML_CBS=null;
+      if(l.length&&!silencioso)ccMensagem('Não foi possível carregar a tela do Call Center ('+((err&&err.message)||'erro')+'). Confira se existe, no projeto, um arquivo HTML chamado "CallCenter".',true,true);})
     .ccGetHtml();
 }
 function ccMontarFrame(){
@@ -43,8 +61,12 @@ window.addEventListener('message',function(e){
   var m=e.data;if(!m||!m.ccb)return;
   function resp(o){o.ccb=1;o.t='res';o.id=m.id;f.contentWindow.postMessage(o,'*');}
   if(m.t==='pronto'){
-    document.getElementById('ccMsg').style.display='none';
-    f.contentWindow.postMessage({ccb:1,t:'init',token:CC_SESSAO&&CC_SESSAO.token},'*');
+    var enviar=function(){
+      document.getElementById('ccMsg').style.display='none';
+      f.contentWindow.postMessage({ccb:1,t:'init',token:CC_SESSAO&&CC_SESSAO.token,
+        pre:(CC_PRE&&CC_PRE.ok)?{boot:CC_PRE.boot,data:CC_PRE.data}:null},'*');
+    };
+    if(CC_PRE&&!CC_PRE.fim)CC_PRE.espera=enviar;else enviar();      // se os dados ainda estão a caminho, espera por eles
   }else if(m.t==='call'){
     if(['ccApi','ccApiLogout'].indexOf(m.fn)<0){resp({erro:'Chamada não permitida.'});return;}
     var run=google.script.run
