@@ -10,50 +10,39 @@ const CC_API = {
       const sem = a.sem || ccSemU_(u);
       const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(sem));
       if (!r || !r.IdBase) throw new Error('Semestre sem planilha configurada. Peça ao Admin: Configurações > Semestres.');
-      const sb = SpreadsheetApp.openById(ccId_(r.IdBase));
-      const bsh = sb.getSheetByName('BASE GERAL') || sb.getSheets()[0];
-      const base = bsh.getDataRange().getValues();
-      const h0 = 1; // cabeçalhos na linha 2; dados a partir da linha 3
-      const comp = r.IdCallCenter ? ccComp_(r.IdCallCenter) : {};
-      const alunos = [], light = [], st0 = {};
-      let tot = 0;
-      for (let i = h0 + 1; i < base.length; i++) {
-        const v = base[i], nome = String(v[3]).trim();
-        if (!nome) continue;
-        const st = ccCanon_(v[40]);
-        st0[st] = (st0[st] || 0) + 1;
-        tot++;
-        // Regra do Indicador - Geral: coluna AB = Matriculado e coluna AL contendo a palavra FIES
-        const mat = /^MATRICULAD[OA]\b/.test(ccKey_(v[27])), fies = ccKey_(v[37]).indexOf('FIES') >= 0;
-        if (mat && fies) light.push([st, String(v[4]).trim(), String(v[5]).trim()]);
-        if (CC_ST.indexOf(st) < 0) continue;
-        const cpf = ccCpf_(v[2]);
-        const al = {
-          cpf: cpf, cpfFmt: String(v[2]).trim(), nome: nome, curso: String(v[4]).trim(), turno: String(v[5]).trim(), status: st,
-          semC: String(v[8]).trim(), qtd: String(v[9]).trim(), perc: ccFmtP_(v[10]), dil: ccFmtD_(v[29]),
-          tel: [12, 13, 14, 15, 16].map(k => String(v[k]).trim()).filter(x => /\d/.test(x)),
-          email: [17, 18].map(k => String(v[k]).trim()).filter(x => x.indexOf('@') > 0)
-        };
-        if (st === CC_ST[1] && comp[cpf]) al.banco = comp[cpf];
-        alunos.push(al);
-      }
+      const b = ccBase_(r, sem, !!a.fresh && u.Perfil === 'Admin');   // base de alunos: do cache (10 min) ou lida da planilha
       const resp = {};
       const regs = ccRegs_(sem), info = ccUsuariosInfo_(regs.map(r => r.colab));
       ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === String(sem)).forEach(x => resp[x.CPF] = x.Email);
       return {
-        sem: sem, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, alunos: alunos, light: u.Perfil === 'Admin' ? light : [], regs: regs, resp: resp,
-        usuarios: info.usuarios, extras: info.extras
+        sem: sem, diag: b.diag, alunos: b.alunos, light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
+        usuarios: info.usuarios, extras: info.extras, v: ccVer_(sem), bts: b.ts
       };
     }
   },
 
+  // Atualização em tempo real: chamada LEVE (não relê a planilha quando nada mudou). Devolve os registros e os
+  // responsáveis só quando a versão do semestre mudou (ou quando a tela pede conferência completa, v vazio).
+  sync: {
+    light: 1, f: (u, a) => {
+      const sem = String(a.sem || '').trim();
+      if (!sem) throw new Error('Semestre não informado.');
+      const v = ccVer_(sem);
+      if (a.v && String(a.v) === v) return { v: v };
+      const resp = {};
+      ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === sem).forEach(x => resp[x.CPF] = x.Email);
+      return { v: v, regs: ccRegs_(sem), resp: resp };
+    }
+  },
+
   setResp: {
-    f: (u, a) => {
+    admin: 1, f: (u, a) => {   // só Admin escolhe/altera o responsável (Colab apenas visualiza)
       const l = LockService.getScriptLock(); l.waitLock(20000);
       try {
         const ssR = ccSsReg_(a.sem);
         const x = ccTab_('RESPONSAVEIS', ssR).find(r => String(r.Semestre) === String(a.sem) && r.CPF === a.cpf);
         if (x) ccUpd_('RESPONSAVEIS', x._row, { Email: a.email }, ssR); else ccAdd_('RESPONSAVEIS', { Semestre: a.sem, CPF: a.cpf, Email: a.email }, ssR);
+        ccBump_(a.sem);
       } finally { l.releaseLock(); }
       return true;
     }
@@ -72,7 +61,7 @@ const CC_API = {
       const alvo = {}; cpfs.forEach(c => alvo[c] = 1);
       const l = LockService.getScriptLock(); l.waitLock(30000);
       try {
-        const sh = ccSsReg_(sem).getSheetByName('RESPONSAVEIS');
+        const ssR = ccSsReg_(sem), sh = ssR.getSheetByName('RESPONSAVEIS');
         const ultima = sh.getLastRow(), achados = {};
         if (ultima >= 2) {                                           // atualiza as linhas existentes de uma só vez
           const vals = sh.getRange(2, 1, ultima - 1, 3).getValues();  // Semestre, CPF, Email
@@ -83,6 +72,7 @@ const CC_API = {
           const novos = cpfs.filter(c => !achados[c]).map(c => [sem, c, email]);
           if (novos.length) { const g2 = sh.getRange(sh.getLastRow() + 1, 1, novos.length, 3); g2.setNumberFormat('@'); g2.setValues(novos); }
         }
+        ccInval_(ssR, 'RESPONSAVEIS'); ccBump_(sem);
       } finally { l.releaseLock(); }
       return cpfs.length;
     }
@@ -103,6 +93,7 @@ const CC_API = {
         } else {
           ccAdd_('REGISTROS', { Id: Utilities.getUuid(), Semestre: a.sem, CPF: a.cpf, Aluno: a.aluno, DataHora: agora, Objetivo: a.objetivo, Meio: a.meio, Resultado: a.resultado, Observacao: a.obs || '', ColabEmail: u.Email, ColabNome: u.Nome, Status: a.status }, ssR);
         }
+        ccBump_(a.sem);
       } finally { l.releaseLock(); }
       return ccRegs_(a.sem);
     }
@@ -115,7 +106,7 @@ const CC_API = {
       if (!id) throw new Error('Registro não informado.');
       const l = LockService.getScriptLock(); l.waitLock(20000);
       try {
-        const sh = ccSsReg_(a.sem).getSheetByName('REGISTROS');
+        const ssR = ccSsReg_(a.sem), sh = ssR.getSheetByName('REGISTROS');
         const ultima = sh ? sh.getLastRow() : 0;
         if (ultima < 2) throw new Error('Registro não encontrado.');
         const ids = sh.getRange(2, 1, ultima - 1, 1).getValues();
@@ -123,6 +114,7 @@ const CC_API = {
         for (let i = 0; i < ids.length; i++) { if (String(ids[i][0]) === id) { linha = i + 2; break; } }
         if (!linha) throw new Error('Registro não encontrado (talvez já tenha sido excluído).');
         sh.deleteRow(linha);
+        ccInval_(ssR, 'REGISTROS'); ccBump_(a.sem);
       } finally { l.releaseLock(); }
       return ccRegs_(a.sem);
     }
@@ -176,12 +168,14 @@ const CC_API = {
 };
 
 function ccApi(token, fn, a) {
-  const email = CacheService.getScriptCache().get('s_' + token);
+  const cache = CacheService.getScriptCache(), email = cache.get('s_' + token);
   if (!email) return { err: 'SESSAO' };
-  const u = ccUser_(email);                        // usuário do Atendimentos com acesso liberado ao Call Center
-  if (!u) return { err: 'SESSAO' };
   const h = CC_API[fn];
   if (!h) return { err: 'Função inválida.' };
+  // chamadas "light" (sincronização) só conferem a sessão: não releem as planilhas de usuários
+  const u = h.light ? { Email: email, Perfil: '' } : ccUser_(email);   // usuário do Atendimentos com acesso liberado ao Call Center
+  if (!u) return { err: 'SESSAO' };
   if (h.admin && u.Perfil !== 'Admin') return { err: 'Sem permissão.' };
+  if (h.light) cache.put('s_' + token, email, 21600);                 // sessão renovada enquanto a tela estiver aberta
   try { return { ok: h.f(u, a || {}) }; } catch (e) { return { err: String(e.message || e) }; }
 }
