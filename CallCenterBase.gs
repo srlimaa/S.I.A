@@ -9,12 +9,69 @@
 // ═══════════════════════════════════════════════════════════════════════════
 var CC_PLANILHA_PADRAO = '1L5wclKLy7MZvVhDgR3KUDPla2Q7GI50FifWv0VXN480';
 
-function ccPlanilhaId_() {
-  var id = String(lerConfig_().cc_planilha || '').trim();
-  return id || CC_PLANILHA_PADRAO;
+/* ---------- velocidade: memória da execução + cache compartilhado ----------
+   Cada chamada do navegador é uma execução nova do script. Dentro dela, planilhas e abas já lidas ficam em memória
+   (_CC_MEM) em vez de serem abertas/lidas de novo. Entre execuções, o CacheService guarda a base de alunos (compactada). */
+var _CC_MEM = {};
+
+function ccMem_(k, f) { if (!(k in _CC_MEM)) _CC_MEM[k] = f(); return _CC_MEM[k]; }
+
+function ccMemLimpa_(prefixo) { Object.keys(_CC_MEM).forEach(function(k) { if (k.indexOf(prefixo) === 0) delete _CC_MEM[k]; }); }
+
+function ccOpen_(id) { return ccMem_('ss|' + id, function() { return SpreadsheetApp.openById(id); }); }
+
+function ccMestre_() { return ccMem_('mestre', function() { return SpreadsheetApp.openById(SPREADSHEET_ID); }); }
+
+// Depois de gravar em uma aba, descarta a cópia em memória dela
+function ccInval_(ss, aba) { ccMemLimpa_('tab|' + ss.getId() + '|' + aba); }
+
+// Guarda um objeto no cache compartilhado (JSON compactado e dividido em partes de ~90 KB). Falha em silêncio.
+function ccCachePut_(chave, obj, seg) {
+  try {
+    var c = CacheService.getScriptCache();
+    var b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/octet-stream')).getBytes());
+    var TAM = 90000, n = Math.ceil(b64.length / TAM), tudo = {};
+    for (var i = 0; i < n; i++) tudo[chave + '_' + i] = b64.substr(i * TAM, TAM);
+    tudo[chave + '_n'] = String(n);
+    c.putAll(tudo, seg || 600);
+    return true;
+  } catch (e) { return false; }
 }
 
-function ccSs_() { return SpreadsheetApp.openById(ccPlanilhaId_()); }
+function ccCacheGet_(chave) {
+  try {
+    var c = CacheService.getScriptCache(), n = parseInt(c.get(chave + '_n'), 10);
+    if (!n) return null;
+    var ks = [];
+    for (var i = 0; i < n; i++) ks.push(chave + '_' + i);
+    var m = c.getAll(ks), b64 = '';
+    for (var j = 0; j < n; j++) { var p = m[ks[j]]; if (p == null) return null; b64 += p; }
+    return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString());
+  } catch (e) { return null; }
+}
+
+// "Versão" dos dados vivos do semestre (registros e responsáveis). Muda a cada gravação; as telas abertas consultam
+// essa versão (chamada leve) e só baixam os dados quando ela mudou.
+function ccVerChave_(sem) { return 'cc_ver_' + String(sem).replace(/[^\w.-]/g, ''); }
+
+function ccVer_(sem) {
+  var c = CacheService.getScriptCache(), k = ccVerChave_(sem), v = c.get(k);
+  if (!v) { v = Utilities.getUuid().slice(0, 8); c.put(k, v, 21600); }
+  return v;
+}
+
+function ccBump_(sem) { CacheService.getScriptCache().put(ccVerChave_(sem), Utilities.getUuid().slice(0, 8), 21600); }
+
+function ccPlanilhaId_() {
+  return ccMem_('plan', function() {
+    var c = CacheService.getScriptCache(), v = c.get('cc_planilha');
+    if (v === null) { v = String(lerConfig_().cc_planilha || '').trim(); c.put('cc_planilha', v || '-', 21600); }
+    v = (v === '-') ? '' : v;
+    return v || CC_PLANILHA_PADRAO;
+  });
+}
+
+function ccSs_() { return ccOpen_(ccPlanilhaId_()); }
 
 function ccTz_() { return Session.getScriptTimeZone(); }
 
@@ -58,15 +115,18 @@ function ccEnsure_() {
 /* ---------- utilidades de planilha ---------- */
 
 function ccTab_(n, ss) {
-  const sh = (ss || ccSs_()).getSheetByName(n), v = sh.getDataRange().getValues(), h = v.shift();
-  return v.filter(r => r.join('') !== '').map((r, i) => { const o = { _row: i + 2 }; h.forEach((k, j) => o[k] = (r[j] instanceof Date) ? Utilities.formatDate(r[j], ccTz_(), k === 'Semestre' ? 'yyyy.M' : 'yyyy-MM-dd HH:mm') : r[j]); return o; });
+  const s0 = ss || ccSs_();
+  return ccMem_('tab|' + s0.getId() + '|' + n, function() {
+    const sh = s0.getSheetByName(n), v = sh.getDataRange().getValues(), h = v.shift();
+    return v.filter(r => r.join('') !== '').map((r, i) => { const o = { _row: i + 2 }; h.forEach((k, j) => o[k] = (r[j] instanceof Date) ? Utilities.formatDate(r[j], ccTz_(), k === 'Semestre' ? 'yyyy.M' : 'yyyy-MM-dd HH:mm') : r[j]); return o; });
+  });
 }
 
-function ccAdd_(n, o, ss) { const sh = (ss || ccSs_()).getSheetByName(n), r = sh.getLastRow() + 1, g = sh.getRange(r, 1, 1, CC_HEAD[n].length); g.setNumberFormat('@'); g.setValues([CC_HEAD[n].map(k => o[k] === undefined ? '' : String(o[k]))]); }
+function ccAdd_(n, o, ss) { const s0 = ss || ccSs_(), sh = s0.getSheetByName(n), r = sh.getLastRow() + 1, g = sh.getRange(r, 1, 1, CC_HEAD[n].length); g.setNumberFormat('@'); g.setValues([CC_HEAD[n].map(k => o[k] === undefined ? '' : String(o[k]))]); ccInval_(s0, n); }
 
-function ccUpd_(n, row, o, ss) { const sh = (ss || ccSs_()).getSheetByName(n); CC_HEAD[n].forEach((k, j) => { if (o[k] !== undefined) { const c = sh.getRange(row, j + 1); c.setNumberFormat('@'); c.setValue(String(o[k])); } }); }
+function ccUpd_(n, row, o, ss) { const s0 = ss || ccSs_(), sh = s0.getSheetByName(n); CC_HEAD[n].forEach((k, j) => { if (o[k] !== undefined) { const c = sh.getRange(row, j + 1); c.setNumberFormat('@'); c.setValue(String(o[k])); } }); ccInval_(s0, n); }
 
-function ccDel_(n, row) { ccSs_().getSheetByName(n).deleteRow(row); }
+function ccDel_(n, row) { const s0 = ccSs_(); s0.getSheetByName(n).deleteRow(row); ccInval_(s0, n); }
 
 function ccId_(s) { s = String(s || '').trim(); const m = s.match(/\/d\/([a-zA-Z0-9-_]+)/); return m ? m[1] : s; }
 
@@ -127,8 +187,10 @@ function ccFlagAcesso_(flag, temPrefs) {
 }
 
 // Usuários do sistema de Atendimentos
-function ccAtend_() {
-  var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
+function ccAtend_() { return ccMem_('atend', ccAtendLer_); }
+
+function ccAtendLer_() {
+  var data = ccMestre_().getSheetByName('Usuarios').getDataRange().getValues();
   var out = [];
   for (var i = 1; i < data.length; i++) {
     var email = String(data[i][2] == null ? '' : data[i][2]).trim();
@@ -200,12 +262,14 @@ function ccUsuariosInfo_(emails) {
    Cada semestre pode ter a sua própria planilha para as abas REGISTROS e RESPONSAVEIS
    (coluna IdRegistros da aba SEMESTRES). Vazio = continua usando a planilha principal do Call Center. */
 function ccSsReg_(sem) {
-  const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(sem));
-  const id = r ? ccId_(r.IdRegistros) : '';
-  if (!id || id === ccPlanilhaId_()) return ccSs_();
-  const ss = SpreadsheetApp.openById(id);
-  ccPrepararRegistros_(ss);
-  return ss;
+  return ccMem_('ssreg|' + sem, function() {
+    const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(sem));
+    const id = r ? ccId_(r.IdRegistros) : '';
+    if (!id || id === ccPlanilhaId_()) return ccSs_();
+    const ss = ccOpen_(id);
+    ccPrepararRegistros_(ss);
+    return ss;
+  });
 }
 
 // Cria (se ainda não existirem) as abas REGISTROS e RESPONSAVEIS com os cabeçalhos na planilha informada
@@ -296,13 +360,57 @@ function ccAbrirPeriodo(token, periodo) {
     var sems = ccTab_('SEMESTRES').map(function(s) { return String(s.Semestre); });
     if (sems.indexOf(p) < 0)
       return { success: false, message: 'O período ' + p + ' não está cadastrado no Call Center. Peça a um Admin do Call Center para cadastrá-lo em Configurações › Semestres.' };
-    ccUpd_('USUARIOS', u._row, { Semestre: p });
+    if (String(u.Semestre || '') !== p) ccUpd_('USUARIOS', u._row, { Semestre: p });   // só grava quando mudou
     return { success: true };
   } catch(e) { return { success: false, message: e.message }; }
 }
 
 // Conteúdo da tela do Call Center (arquivo HTML "CallCenter" do projeto)
-function ccGetHtml() { return HtmlService.createTemplateFromFile('CallCenter').evaluate().getContent(); }
+function ccGetHtml() {
+  var chave = 'cc_html_' + String(typeof VERSAO_SISTEMA === 'undefined' ? '0' : VERSAO_SISTEMA);
+  var c = ccCacheGet_(chave);
+  if (c && c.html) return c.html;
+  var html = HtmlService.createTemplateFromFile('CallCenter').evaluate().getContent();
+  ccCachePut_(chave, { html: html }, 21600);
+  return html;
+}
+
+// Leitura pesada da base de alunos do semestre (aba BASE GERAL + comparecimento ao banco).
+// O resultado fica em cache por 10 min (ou até um Admin pedir "Recarregar base").
+function ccBase_(r, sem, fresh) {
+  const chave = 'cb_' + String(sem).replace(/[^\w.-]/g, '') + '_' + ccId_(r.IdBase).slice(-8) + ccId_(r.IdCallCenter).slice(-8);
+  if (!fresh) { const c = ccCacheGet_(chave); if (c && c.alunos) return c; }
+  const sb = ccOpen_(ccId_(r.IdBase));
+  const bsh = sb.getSheetByName('BASE GERAL') || sb.getSheets()[0];
+  const base = bsh.getDataRange().getValues();
+  const h0 = 1; // cabeçalhos na linha 2; dados a partir da linha 3
+  const comp = r.IdCallCenter ? ccComp_(r.IdCallCenter) : {};
+  const alunos = [], light = [], st0 = {};
+  let tot = 0;
+  for (let i = h0 + 1; i < base.length; i++) {
+    const v = base[i], nome = String(v[3]).trim();
+    if (!nome) continue;
+    const st = ccCanon_(v[40]);
+    st0[st] = (st0[st] || 0) + 1;
+    tot++;
+    // Regra do Indicador - Geral: coluna AB = Matriculado e coluna AL contendo a palavra FIES
+    const mat = /^MATRICULAD[OA]\b/.test(ccKey_(v[27])), fies = ccKey_(v[37]).indexOf('FIES') >= 0;
+    if (mat && fies) light.push([st, String(v[4]).trim(), String(v[5]).trim()]);
+    if (CC_ST.indexOf(st) < 0) continue;
+    const cpf = ccCpf_(v[2]);
+    const al = {
+      cpf: cpf, cpfFmt: String(v[2]).trim(), nome: nome, curso: String(v[4]).trim(), turno: String(v[5]).trim(), status: st,
+      semC: String(v[8]).trim(), qtd: String(v[9]).trim(), perc: ccFmtP_(v[10]), dil: ccFmtD_(v[29]),
+      tel: [12, 13, 14, 15, 16].map(k => String(v[k]).trim()).filter(x => /\d/.test(x)),
+      email: [17, 18].map(k => String(v[k]).trim()).filter(x => x.indexOf('@') > 0)
+    };
+    if (st === CC_ST[1] && comp[cpf]) al.banco = comp[cpf];
+    alunos.push(al);
+  }
+  const out = { alunos: alunos, light: light, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, ts: Date.now() };
+  ccCachePut_(chave, out, 600);
+  return out;
+}
 
 // Planilha do Call Center (configurável em ⚙️ › Planilhas)
 function getPlanilhaCC(adminId) {
@@ -324,6 +432,7 @@ function salvarPlanilhaCC(link, adminId) {
         return { success: false, message: 'Esta planilha não parece ser a do Call Center (faltam as abas USUARIOS e REGISTROS).' };
     }
     setConfig_('cc_planilha', id);          // vazio = volta para a planilha padrão
+    CacheService.getScriptCache().remove('cc_planilha'); ccMemLimpa_('plan'); ccMemLimpa_('ss|'); ccMemLimpa_('tab|'); ccMemLimpa_('ssreg|');
     return { success: true, link: 'https://docs.google.com/spreadsheets/d/' + ccPlanilhaId_() };
   } catch(e) { return { success: false, message: e.message }; }
 }
