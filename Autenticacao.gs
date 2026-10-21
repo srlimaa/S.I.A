@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════
 // AUTENTICAÇÃO — login (registro), login unificado e checagem de perfil Admin.
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 // ── Login ────────────────────────────────────────────────────────────────────
 function login(email, senha) {
@@ -52,5 +52,46 @@ function loginUnificado(email, senha) {
   if (!reg) return { success: false, message: msg || 'E-mail ou senha incorretos.' };
   try { cc = ccLoginInterno_(reg.email); }          // null = sem acesso ao Call Center
   catch(e2) { ccErro = e2.message; }
-  return { success: true, registro: reg, cc: cc, ccErro: ccErro };
+  return { success: true, registro: reg, cc: cc, ccErro: ccErro, sessao: sessaoCriar_(reg.email) };
+}
+
+// ── Sessão do sistema (guardada no navegador) ───────────────────────────────
+// Depois do login, o navegador recebe um código de sessão (válido por 6 h, renovado a cada retomada).
+// Ao recarregar a página, ele é usado em retomarSessao() para voltar logado, sem pedir a senha de novo.
+function sessaoCriar_(email) {
+  var t = Utilities.getUuid();
+  CacheService.getScriptCache().put('ss_' + t, String(email), 21600);
+  return t;
+}
+
+function regPorEmail_(email) {
+  var em = String(email || '').trim().toLowerCase();
+  var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][2]).trim().toLowerCase() === em) {
+      return { success: true, nome: data[i][1], perfil: (String(data[i][4]).trim() === 'Atend' ? 'Colab' : data[i][4]),
+               id: String(data[i][0]), email: String(data[i][2]).trim(),
+               avatar: { tipo: String(data[i][5] || '').trim(), valor: String(data[i][6] || '') } };
+    }
+  }
+  return null;
+}
+
+function retomarSessao(tk) {
+  try {
+    tk = String(tk || '').trim();
+    if (!tk) return { success: false };
+    var cache = CacheService.getScriptCache(), email = cache.get('ss_' + tk);
+    if (!email) return { success: false };
+    var reg = regPorEmail_(email);
+    if (!reg) return { success: false };
+    cache.put('ss_' + tk, email, 21600);                      // renova
+    var cc = null, ccErro = '';
+    try { cc = ccLoginInterno_(reg.email); } catch(e) { ccErro = e.message; }
+    return { success: true, registro: reg, cc: cc, ccErro: ccErro, sessao: tk };
+  } catch(e) { return { success: false }; }
+}
+
+function encerrarSessao(tk) {
+  try { CacheService.getScriptCache().remove('ss_' + String(tk || '').trim()); } catch(e) {}
 }
