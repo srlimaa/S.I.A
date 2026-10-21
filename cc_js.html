@@ -166,21 +166,22 @@ function sortBind(){
 function renderCC(){
   var A=D.alunos,cursos=Object.keys(cnt(A,function(a){return a.curso})).sort(),colabs=Object.keys(cnt(D.regs,function(r){return r.colab}));
   $('v-cc').innerHTML='<div class="kpi-row">'+kpi('total','📋','kT','Total de alunos no<br>Call Center')+kpi('nao','⏳','kN','Solicitado /<br>Não aditou')+kpi('enviado','🏦','kE','Solicitado /<br>Enviado ao banco')+kpi('registros','📝','kR','Total de registros<br>realizados')+'</div>'+
-  '<div class="filters-row"><div class="filter-group" style="min-width:220px"><label>Pesquisar aluno</label><input type="text" id="fQ" placeholder="🔍 Digite o nome do aluno..."></div><div class="filter-group"><label>Status</label><div id="fS"></div></div><div class="filter-group"><label>Curso</label><div id="fC"></div></div><div class="filter-group"><label>Responsável</label><div id="fR"></div></div><div class="filter-group"><label>Colaborador</label><div id="fB"></div></div><div class="filter-group"><label>Resultado do contato</label><div id="fRs"></div></div><div class="filter-group"><label>Banco — data de início</label><div id="fBI"></div></div><div class="filter-group"><label>Banco — data final</label><div id="fBF"></div></div><button class="btn-clear" id="fX">✕ Limpar</button></div>'+
+  '<div class="filters-row"><div class="filter-group" style="min-width:220px"><label>Pesquisar aluno</label><input type="text" id="fQ" placeholder="🔍 Digite o nome do aluno..."></div><div class="filter-group"><label>Status</label><div id="fS"></div></div><div class="filter-group"><label>Curso</label><div id="fC"></div></div><div class="filter-group"><label>Responsável</label><div id="fR"></div></div><div class="filter-group"><label>Colaborador</label><div id="fB"></div></div><div class="filter-group"><label>Resultado do contato</label><div id="fRs"></div></div><div class="filter-group"><label>Data do último contato</label><input type="date" id="fDI"></div><div class="filter-group"><label>Banco — data de início</label><div id="fBI"></div></div><div class="filter-group"><label>Banco — data final</label><div id="fBF"></div></div><button class="btn-clear" id="fX">✕ Limpar</button></div>'+
   (ADMIN?atrHtml():'')+'<div class="table-window"><div class="table-window-header"><h3>Lista de Alunos</h3><span class="table-count" id="tCount"></span></div><div class="table-scroll"><table><thead><tr><th class="sortable" data-k="status" data-l="Status">Status</th><th class="sortable" data-k="aluno" data-l="Aluno">Aluno</th><th class="sortable" data-k="curso" data-l="Curso / Turno">Curso / Turno</th><th>Comparecimento ao Banco<div class="th-sub"><span class="sortable" data-k="ini" data-l="Início">Início</span> · <span class="sortable" data-k="fim" data-l="Fim">Fim</span></div></th><th>Contato</th><th>Resultado do contato</th><th>Observação</th><th>Responsável</th></tr></thead><tbody id="tb"></tbody></table></div></div>';
   msMake('fS',CC.map(vt),linhas);msMake('fC',cursos.map(vt),linhas);
   filtrosVivos(true);
   msMake('fBI',bancoOpts('ini'),linhas);msMake('fBF',bancoOpts('fim'),linhas);
-  $('fQ').oninput=linhas;
-  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fRs','fBI','fBF'],['fQ'],linhas)};if(ADMIN)atrIniciar();sortBind();kpisCC();linhas()}
+  $('fQ').oninput=linhas;$('fDI').onchange=linhas;
+  $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fRs','fBI','fBF'],['fQ','fDI'],linhas)};if(ADMIN)atrIniciar();sortBind();kpisCC();linhas()}
 function kpisCC(){var A=D.alunos;$('kT').textContent=A.length;$('kN').textContent=A.filter(function(a){return a.status===CC[0]}).length;$('kE').textContent=A.filter(function(a){return a.status===CC[1]}).length;$('kR').textContent=D.regs.length}
 function filtrados(){
-  var s=msv('fS'),c=msv('fC'),r=msv('fR'),b=msv('fB'),rs=msv('fRs'),bs=bancoSet(msv('fBI'),msv('fBF')),q=nrm($('fQ').value.trim()),qd=q.replace(/\D/g,'');
+  var s=msv('fS'),c=msv('fC'),r=msv('fR'),b=msv('fB'),rs=msv('fRs'),bs=bancoSet(msv('fBI'),msv('fBF')),q=nrm($('fQ').value.trim()),qd=q.replace(/\D/g,''),di=$('fDI').value;
   return ordenar(D.alunos.filter(function(a){
     if(q&&nrm(a.nome).indexOf(q)<0&&!(qd&&a.cpf.indexOf(qd)>=0))return false;
     if(s.length&&s.indexOf(a.status)<0)return false;if(c.length&&c.indexOf(a.curso)<0)return false;
     if(r.length&&!r.some(function(x){return x==='-'?!D.resp[a.cpf]:D.resp[a.cpf]===x}))return false;
     if(rs.length&&!rs.some(function(x){var u=D.last[a.cpf];return x==='-'?!u:(u&&u.resultado===x)}))return false;   // pelo último resultado (o mesmo da coluna)
+    if(di){var u2=D.last[a.cpf];if(!u2||u2.data.slice(0,10)!==di)return false}   // data do último contato (a mesma da coluna)
     if(b.length&&!(D.rmap[a.cpf]||[]).some(function(x){return b.indexOf(x.colab)>=0}))return false;
     if(bs&&!bs[a.cpf])return false;return true}));}
 function linhas(){
@@ -188,7 +189,7 @@ function linhas(){
   $('tb').innerHTML=L.map(function(a){var feito=(D.rmap[a.cpf]||[]).length>0,env=a.status===CC[1],ul=D.last[a.cpf];
     var vc=env&&a.banco&&a.banco.fim&&vencida(a.banco.fim);
     var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div class="'+(vc?'d-venc':'')+'"'+(vc?' title="Data final vencida"':'')+'><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
-    var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+'</div>':'<span class="muted">—</span>';
+    var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+' '+esc(ul.data.slice(11,16))+'</div>':'<span class="muted">—</span>';
     var ob=ul&&ul.obs?'<div class="obs-cell" title="'+esc(ul.obs)+'">'+esc(ul.obs)+'</div>':'<span class="muted">—</span>';
     return '<tr data-c="'+a.cpf+'"><td><span class="status-badge '+(env?'enviado':'nao')+'">'+esc(a.status)+'</span></td><td><div class="td-name">'+esc(a.nome)+'</div><div class="td-sub">CPF '+esc(a.cpfFmt)+'</div></td><td>'+esc(a.curso)+'<div class="td-sub">'+esc(a.turno)+'</div></td><td>'+banco+'</td><td><span class="contato-badge '+(feito?'sim':'nao')+'">'+(feito?'Sim':'Não')+'</span></td><td>'+res+'</td><td>'+ob+'</td><td>'+(ADMIN?'<select class="resp-select" data-c="'+a.cpf+'"><option value="">—</option>'+D.usuarios.map(function(x){return '<option value="'+esc(x.email)+'"'+(D.resp[a.cpf]===x.email?' selected':'')+'>'+esc(x.nome)+'</option>'}).join('')+'</select>'
       :(D.resp[a.cpf]?'<span class="resp-nome">'+esc(D.umap[D.resp[a.cpf]]||D.resp[a.cpf])+'</span>':'<span class="muted">—</span>'))+'</td></tr>'}).join('');
@@ -505,7 +506,7 @@ function iaModelo(){
   ordem.sort().reverse();
   var soma=function(o){return cols.reduce(function(s,c){return s+(o[c]||0)},0)};
   var grupos=ordem.map(function(k){var g=G[k];return {
-    rot:modo==='dia'?ddmm(k):modo==='mes'?MESES[+k.slice(5,7)-1]+'/'+k.slice(0,4):String(D.sem),at:g.at,al:g.al,tAt:soma(g.at),tAl:soma(g.al)}});
+    k:k,rot:modo==='dia'?ddmm(k):modo==='mes'?MESES[+k.slice(5,7)-1]+'/'+k.slice(0,4):String(D.sem),at:g.at,al:g.al,tAt:soma(g.at),tAl:soma(g.al)}});
   var ga={},gl={};grupos.forEach(function(g){cols.forEach(function(c){ga[c]=(ga[c]||0)+(g.at[c]||0);gl[c]=(gl[c]||0)+(g.al[c]||0)})});
   return {cols:cols,grupos:grupos,modo:modo,rotCol:modo==='dia'?'Data':modo==='mes'?'Mês':'Semestre',
           geral:{at:ga,al:gl,tAt:soma(ga),tAl:soma(gl)},ocultarGeral:(modo!=='dia'&&grupos.length===1)}}
@@ -516,8 +517,8 @@ function iaRender(){
   var tx=m.modo==='mes'?'📅 Mostrando o total de cada mês selecionado, sem separar por data.':m.modo==='semestre'?'📅 Semestre '+D.sem+' em um único total.':'';
   info.textContent=tx;info.style.display=tx?'block':'none';
   if(m.vazio){cont.innerHTML='<p class="muted" style="padding:12px">Nenhum registro encontrado para os filtros selecionados.</p>';return}
-  var C=m.cols,v=function(o,c){return '<td class="num">'+(o[c]||'')+'</td>'};
-  function lin(rot,rotulo,o,t,cls){return '<tr'+(cls?' class="'+cls+'"':'')+(rot?'':'')+'>'+(rot||'')+'<td class="ia-ativ">'+rotulo+'</td>'+C.map(function(c){return v(o,c)}).join('')+'<td class="num">'+(t||'')+'</td></tr>'}
+  var C=m.cols,v=function(o,c){return '<td class="num">'+(o[c]||0)+'</td>'};
+  function lin(rot,rotulo,o,t,cls){return '<tr'+(cls?' class="'+cls+'"':'')+(rot?'':'')+'>'+(rot||'')+'<td class="ia-ativ">'+rotulo+'</td>'+C.map(function(c){return v(o,c)}).join('')+'<td class="num">'+(t||0)+'</td></tr>'}
   var h='<div class="dyn-wrap ia-wrap"><table class="dyn-table ia-table"><thead><tr><th>'+m.rotCol+'</th><th>Atividade</th>'+C.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>';
   m.grupos.forEach(function(g){
     h+=lin('<td class="ia-data" rowspan="4"><b>'+esc(g.rot)+'</b></td>','Atendimentos realizados',g.at,g.tAt)+
@@ -799,8 +800,37 @@ function dlSub(f){
   if(l.length)t+=' · '+l.map(function(x){return x[0]+': '+x[1]}).join(' · ');
   return t.length>150?t.slice(0,147)+'…':t}
 function dlArq(n,ext){return 'CallCenter_'+nomeArq(ME.semestre)+'_'+nomeArq(n)+'.'+ext}
+// Indicador - Atendimentos e Alunos contatados: uma imagem para cada data (mês/semestre, conforme o filtro); várias vão num .zip
+function iaTabelaHtml(m,g,geral){
+  var C=m.cols,v=function(o,c){return '<td class="num">'+(o[c]||0)+'</td>'};
+  function lin(rot,rotulo,o,t,cls){return '<tr'+(cls?' class="'+cls+'"':'')+'>'+(rot||'')+'<td class="ia-ativ">'+rotulo+'</td>'+C.map(function(c){return v(o,c)}).join('')+'<td class="num">'+(t||0)+'</td></tr>'}
+  var h='<div class="dyn-wrap ia-wrap" style="max-height:none;overflow:visible"><table class="dyn-table ia-table"><thead><tr><th>'+(geral?'':m.rotCol)+'</th><th>Atividade</th>'+C.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>';
+  if(geral){
+    h+='<tr class="ia-geral"><td colspan="2">Total Geral de Atendimentos Realizados</td>'+C.map(function(c){return v(m.geral.at,c)}).join('')+'<td class="num">'+m.geral.tAt+'</td></tr>'+
+       '<tr class="ia-geral"><td colspan="2">Total Geral de Alunos Contatados</td>'+C.map(function(c){return v(m.geral.al,c)}).join('')+'<td class="num">'+m.geral.tAl+'</td></tr>'}
+  else h+=lin('<td class="ia-data" rowspan="4"><b>'+esc(g.rot)+'</b></td>','Atendimentos realizados',g.at,g.tAt)+lin('','Alunos contatados',g.al,g.tAl)+
+    lin('','Total de Atendimentos Realizados',g.at,g.tAt,'ia-tot')+lin('','Total de Alunos Contatados',g.al,g.tAl,'ia-tot');
+  return h+'</tbody></table></div>'}
+function iaImagens(b){
+  var m=IA_ULT;if(!m||m.vazio){toast('Não há dados no indicador para baixar.','err');return}
+  b.classList.add('busy');toast('Gerando imagens...');
+  var itens=m.grupos.map(function(g){return {k:g.k,rot:g.rot,html:iaTabelaHtml(m,g,false)}});
+  if(itens.length>1&&!m.ocultarGeral)itens.push({k:'Total_geral',rot:'Total geral',html:iaTabelaHtml(m,null,true)});
+  var host=document.createElement('div');host.style.cssText='position:fixed;left:-100000px;top:0;width:max-content;max-width:none;';document.body.appendChild(host);
+  var arquivos=[],p=Promise.resolve(),sub=dlSub(b.dataset.df);
+  itens.forEach(function(it){
+    p=p.then(function(){host.innerHTML='<div id="iaTmp" class="section-box">'+it.html+'</div>';
+      return blocoParaJpg($('iaTmp'),'Indicador - Atendimentos e Alunos contatados',sub+' · '+(it.k==='Total_geral'?'Total geral':m.rotCol+': '+it.rot))})
+     .then(function(bytes){arquivos.push({nome:dlArq('Indicador - Atendimentos e Alunos contatados '+(m.modo==='semestre'?'':it.k),'jpg'),dados:bytes})})});
+  p.then(function(){
+    if(arquivos.length===1){baixarBytes(arquivos[0].nome,arquivos[0].dados,'image/jpeg');toast('Imagem baixada: '+arquivos[0].nome)}
+    else{var z=dlArq('Indicador - Atendimentos e Alunos contatados imagens','zip');baixarBytes(z,zipStore(arquivos),'application/zip');toast(arquivos.length+' imagens baixadas em '+z)}
+  }).catch(function(e){toast('Erro ao gerar as imagens: '+((e&&e.message)||e),'err')})
+  .then(function(){document.body.removeChild(host);b.classList.remove('busy')})}
 function dlImagem(b){
+  if(b.dataset.dt==='bx_ia'){iaImagens(b);return}
   var el=$(b.dataset.dt);if(!el){toast('Nada para baixar.','err');return}
+
   b.classList.add('busy');toast('Gerando imagem...');
   blocoParaJpg(el,CFG.nomeSistema||'Call Center FIES',dlSub(b.dataset.df)).then(function(bytes){
     var nome=dlArq(b.dataset.dn,'jpg');baixarBytes(nome,bytes,'image/jpeg');toast('Imagem baixada: '+nome);
