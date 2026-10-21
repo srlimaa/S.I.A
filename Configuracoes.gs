@@ -30,7 +30,9 @@ function validarIcone_(tipo, valor, maxImg) {
   return { ok: false, message: 'Tipo inválido.' };
 }
 
+var _CFG_MEMO = null;   // a aba Config (com imagens grandes) é lida uma única vez por execução
 function lerConfig_() {
+  if (_CFG_MEMO) return _CFG_MEMO;
   var cfg = {};
   try {
     var sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Config');
@@ -38,6 +40,7 @@ function lerConfig_() {
     var data = sh.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) cfg[String(data[i][0]).trim()] = data[i][1];
   } catch(e) {}
+  _CFG_MEMO = cfg;
   return cfg;
 }
 
@@ -134,6 +137,7 @@ function salvarFundoLogin(fundo, adminId) {
 }
 
 function setConfig_(chave, valor) {
+  _CFG_MEMO = null;
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sh = ss.getSheetByName('Config');
   if (!sh) {
