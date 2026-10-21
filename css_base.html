@@ -35,4 +35,10 @@
   .btn-login:hover{background:#1d4ed8;}
   #loginErro{color:#dc2626;font-size:13px;text-align:center;margin-top:12px;display:none;}
 
+  /* Retomando a sessão */
+  #sessaoCarregando{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);}
+  .sess-box{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff;font-size:15px;font-weight:600;}
+  .sess-spin{width:34px;height:34px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sessgira .8s linear infinite;}
+  @keyframes sessgira{to{transform:rotate(360deg)}}
 </style>
