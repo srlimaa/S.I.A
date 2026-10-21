@@ -13,7 +13,11 @@ var PERIODO_INICIAL = '2026.2';
 // Versão 81 - 2026-10-19 - Call Center: filtro Responsável lista só os responsáveis ativos (com ao menos um aluno atribuído).
 // Versão 82 - 2026-10-19 - Call Center: filtro Resultado do contato (aba Call Center e Indicador - Colaborador); cartões só de colaboradores responsáveis ou com registro.
 // Versão 83 - 2026-10-19 - Atendimentos: botões de download só com o ícone (Indicadores, Ranque e Reunião) e botão de olho para ver a senha no login.
-var VERSAO_SISTEMA = '83';
+// Versão 84 - 2026-10-19 - Call Center: atualização em tempo real sem recarregar, abertura bem mais rápida (cache da base e leituras em memória) e sessão mantida ao recarregar a página.
+// Versão 85 - 2026-10-20 - Atendimentos: em Indicadores, ao filtrar mais de uma data (De/Até) aparece a janela Semana com a soma dos dias por atividade e colaborador, com download em Excel e JPG.
+// Versão 86 - 2026-10-20 - Call Center: o campo Responsável da lista só pode ser alterado pelo Admin; Colab apenas visualiza (também bloqueado no servidor).
+// Versão 87 - 2026-10-20 - Atendimentos: removido da aba Reunião o alerta sobre linhas de ocorrências e anexos (continua em Indicadores).
+var VERSAO_SISTEMA = '87';
 
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
