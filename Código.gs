@@ -17,7 +17,7 @@ var PERIODO_INICIAL = '2026.2';
 // Versão 85 - 2026-10-20 - Atendimentos: em Indicadores, ao filtrar mais de uma data (De/Até) aparece a janela Semana com a soma dos dias por atividade e colaborador, com download em Excel e JPG.
 // Versão 86 - 2026-10-20 - Call Center: o campo Responsável da lista só pode ser alterado pelo Admin; Colab apenas visualiza (também bloqueado no servidor).
 // Versão 87 - 2026-10-20 - Atendimentos: removido da aba Reunião o alerta sobre linhas de ocorrências e anexos (continua em Indicadores).
-var VERSAO_SISTEMA = '87';
+var VERSAO_SISTEMA = '88';
 
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
