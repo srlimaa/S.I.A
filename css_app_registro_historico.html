@@ -1,9 +1,5 @@
 <style>
-
-/* ARQUIVO: css_app_registro_historico.html */
-/* O QUE FAZ: estilos da escolha de período, topo e menu, cartões de tipo de registro, formulários, Histórico e janelas (modais). */
-/* ONDE É USADO: incluído em Index.html. */
-
+/* CSS do APP: tela de período letivo, topo, abas, cartões de tipo de registro, formulários, lista do histórico e janela (modal) de detalhe. */
   /* PERÍODO LETIVO */
   #periodoScreen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;
     background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);}
@@ -15,11 +11,9 @@
   .periodo-card input,.periodo-card select{width:100%;padding:10px 14px;border:1.5px solid var(--borda);
     border-radius:8px;font-size:14px;margin-bottom:16px;outline:none;background:var(--white);}
   .periodo-card input:focus,.periodo-card select:focus{border-color:var(--azul2);}
-  /* Botão secundário (contorno), usado em Voltar e Sair. */
   .btn-secundario{width:100%;padding:10px;background:transparent;color:var(--cinza);border:1.5px solid var(--borda);
     border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;}
   .btn-secundario:hover{background:#f1f5f9;}
-  /* Parte do cartão de período que o Admin usa para cadastrar um novo período. */
   .periodo-admin{margin-top:26px;padding-top:22px;border-top:1.5px dashed var(--borda);}
   .periodo-admin h3{font-size:14px;color:var(--titulo);margin-bottom:14px;}
   .btn-add-periodo{width:100%;padding:10px;background:var(--verde);color:#fff;border:none;border-radius:8px;
@@ -28,7 +22,6 @@
 
   /* APP */
   #appScreen{display:none;}
-  /* Barra azul do topo: logo, nome do sistema, usuário, ⚙️ e Sair. */
   .topbar{background:var(--azul);color:#fff;padding:14px 24px;display:flex;
     align-items:center;justify-content:space-between;box-shadow:var(--shadow);position:sticky;top:0;z-index:100;}
   .topbar-left{display:flex;align-items:center;gap:12px;}
@@ -37,14 +30,12 @@
   .btn-logout{background:transparent;border:1.5px solid rgba(255,255,255,.5);color:#fff;
     border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;}
   .btn-logout:hover{background:rgba(255,255,255,.15);}
-  /* Menu de abas (Registro, Histórico, Ranque...) e o item ativo. */
   .navbar{background:var(--white);border-bottom:2px solid var(--borda2);
     display:flex;gap:4px;padding:0 24px;overflow-x:auto;}
   .nav-item{padding:13px 18px;font-size:14px;font-weight:600;color:var(--cinza);
     cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s;}
   .nav-item:hover{color:var(--azul2);}
   .nav-item.active{color:var(--azul2);border-bottom-color:var(--azul2);}
-  /* Área de conteúdo de cada aba. */
   .content{padding:28px 32px;max-width:1800px;width:100%;margin:0 auto;}
 
   /* TIPO CARDS */
@@ -69,7 +60,6 @@
     border-bottom:2px solid var(--borda2);padding-bottom:10px;}
   .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
   @media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
-  /* Campos dos formulários de registro: rótulo em cima, campo embaixo. */
   .form-group{display:flex;flex-direction:column;gap:6px;}
   .form-group.full{grid-column:1/-1;}
   .form-group label{font-size:12px;font-weight:700;color:var(--cinza);
@@ -79,14 +69,12 @@
     font-size:14px;outline:none;transition:border-color .2s;background:var(--white);}
   .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--azul2);}
   .req{color:#dc2626;margin-left:2px;}
-  /* Botão Confirmar dos formulários, em quatro cores (verde, azul, laranja e roxo). */
   .btn-confirmar{margin-top:22px;padding:12px 32px;font-size:15px;font-weight:700;
     border:none;border-radius:8px;cursor:pointer;color:#fff;transition:background .2s;}
   .btn-confirmar.verde{background:#16a34a;}.btn-confirmar.verde:hover{background:#15803d;}
   .btn-confirmar.azul{background:#2563eb;}.btn-confirmar.azul:hover{background:#1d4ed8;}
   .btn-confirmar.laranja{background:#ea580c;}.btn-confirmar.laranja:hover{background:#c2410c;}
   .btn-confirmar.roxo{background:#7c3aed;}.btn-confirmar.roxo:hover{background:#6d28d9;}
-  /* Mensagens de sucesso (verde) e erro (vermelho). */
   .feedback{margin-top:14px;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:600;display:none;}
   .feedback.ok{background:#dcfce7;color:#166534;}
   .feedback.err{background:#fee2e2;color:#991b1b;}
@@ -96,7 +84,6 @@
   .filtros-bar select,.filtros-bar input{padding:8px 12px;border:1.5px solid var(--borda);
     border-radius:8px;font-size:13px;outline:none;background:var(--white);}
   .hist-list{display:flex;flex-direction:column;gap:10px;}
-  /* Cada registro na lista do Histórico, com a cor do tipo na lateral. */
   .hist-item{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:14px 18px;cursor:pointer;border-left:4px solid transparent;
     transition:all .2s;display:flex;align-items:center;justify-content:space-between;}
@@ -106,7 +93,6 @@
   .hist-item.Eemail,.hist-item.Email{border-left-color:#ea580c;}
   .hist-item.Virtual{border-left-color:#7c3aed;}
   .hist-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;color:#fff;}
-  /* Etiqueta colorida do tipo de registro. */
   .badge-Presencial{background:#16a34a;}
   .badge-Ramal{background:#2563eb;}
   .badge-Eemail,.badge-Email{background:#ea580c;}
@@ -119,7 +105,6 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);
     display:none;align-items:center;justify-content:center;z-index:200;}
   .modal-overlay.open{display:flex;}
-  /* Caixa da janela (modal) e os blocos de detalhe do registro. */
   .modal-box{background:var(--white);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.2);
     padding:32px 28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;position:relative;}
   .modal-box h3{color:var(--titulo);font-size:18px;margin-bottom:18px;}
