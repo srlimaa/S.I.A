@@ -1,10 +1,14 @@
 <script>
+// MARCA, AVATARES E CONFIGURAÇÕES (cliente): janela de configurações, emoji/imagem do usuário e do sistema, e funções de HTML seguras (escHtml, avatarHTML).
 /* ══════════ MARCA, AVATARES E CONFIGURAÇÕES ══════════ */
+// Estado global de marca e avatares, e rascunho da janela de configurações.
 var CFG_SISTEMA={tipo:'emoji',valor:'🏛️'},AVATARES={},CFG={alvo:'user',draft:{tipo:'nenhum',valor:''}};
 var SUG_USER=['😀','😎','🧑‍💼','👩‍💼','👨‍💻','👩‍💻','🎓','📞','💬','⭐','🚀','🦉'];
 var SUG_SIS=['🏛️','🎓','🏫','🏢','📚','🗂️','🛎️','💼','📞','🤝','🏥','⚖️'];
+// Escapa texto para uso seguro em HTML (usada em todo o sistema).
 function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+// HTML do avatar (imagem ou emoji).
 function avatarHTML(av,size,padrao){
   size=size||22;
   if(av&&av.tipo==='imagem'&&av.valor)
@@ -12,19 +16,24 @@ function avatarHTML(av,size,padrao){
   var e=(av&&av.tipo==='emoji'&&av.valor)?av.valor:(padrao||'👤');
   return '<span class="av" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.72)+'px;">'+escHtml(e)+'</span>';
 }
+// Avatar de um usuário pelo nome.
 function avatarDe(nome){return AVATARES[String(nome||'').trim().toLowerCase()]||null;}
+// HTML do logo do sistema.
 function brandHTML(cfg,emojiPx){
   if(cfg&&cfg.tipo==='imagem'&&cfg.valor)return '<img src="'+cfg.valor+'" alt=""/>';
   return '<span style="font-size:'+emojiPx+'px;line-height:1;">'+escHtml((cfg&&cfg.valor)||'🏛️')+'</span>';
 }
+// Aplica o logo no topo e na tela de login.
 function aplicarBrand(){
   document.getElementById('brandIcon').innerHTML=brandHTML(CFG_SISTEMA,22);
   document.getElementById('loginBrand').innerHTML=brandHTML(CFG_SISTEMA,46);
 }
+// Mostra avatar, nome, perfil e período na barra superior.
 function atualizarTopbarUser(){
   document.getElementById('topbarUser').innerHTML=avatarHTML(USUARIO.avatar,24)+
     '<span>'+escHtml(USUARIO.nome)+' ('+escHtml(USUARIO.perfil)+')</span>'+(PERIODO?'<span class="topbar-per">📅 '+escHtml(PERIODO)+'</span>':'');
 }
+// Carrega os avatares de todos os usuários (histórico e ranque).
 function carregarAvatares(){
   google.script.run.withSuccessHandler(function(lista){
     AVATARES={};
@@ -34,11 +43,13 @@ function carregarAvatares(){
 }
 
 /* ── Janela de configurações ── */
+// Mapa de abas e painéis da janela de configurações.
 var CFG_ABAS={user:['tabCfgUser','cfgPaneEmoji'],pref:['tabCfgPref','cfgPanePref'],periodos:['tabCfgPeriodos','cfgPanePeriodos'],
   planilhas:['tabCfgPlanilhas','cfgPanePlanilhas'],nome:['tabCfgNome','cfgPaneNome'],nomelogin:['tabCfgNomeLogin','cfgPaneNomeLogin'],
   login:['tabCfgLogin','cfgPaneLogin'],virtual:['tabCfgVirtual','cfgPaneVirtual'],assunto:['tabCfgAssunto','cfgPaneAssunto'],
   semestre:['tabCfgSemestre','cfgPaneSemestre']};
 var CFG_ABAS_ADMIN=['periodos','planilhas','nome','nomelogin','login','virtual','assunto','semestre'];
+// Abre a janela; as abas administrativas só aparecem para Admin.
 function abrirConfig(){
   var adm=USUARIO.perfil==='Admin';
   CFG_ABAS_ADMIN.forEach(function(k){document.getElementById(CFG_ABAS[k][0]).style.display=adm?'':'none';});
@@ -47,8 +58,11 @@ function abrirConfig(){
   cfgTab('user');
   document.getElementById('configOverlay').classList.add('open');
 }
+// Fecha a janela.
 function fecharConfig(){document.getElementById('configOverlay').classList.remove('open');}
+// Valor padrão do ícone (usuário ou sistema).
 function cfgPadrao(){return CFG.alvo==='sistema'?{tipo:'emoji',valor:'🏛️'}:{tipo:'nenhum',valor:''};}
+// Troca de aba e inicia o painel correspondente.
 function cfgTab(alvo){
   CFG.alvo=alvo;
   var panes={};
@@ -79,6 +93,7 @@ function cfgTab(alvo){
   document.getElementById('fbCfg').style.display='none';
   cfgPreview();
 }
+// Extrai só o primeiro emoji digitado.
 function primeiroEmoji(v){
   v=String(v||'').trim();if(!v)return '';
   try{
@@ -89,13 +104,16 @@ function primeiroEmoji(v){
   }catch(e){}
   return Array.from(v)[0]||'';
 }
+// Escolha de emoji sugerido.
 function cfgEscolherEmoji(e){document.getElementById('cfgEmoji').value=e;cfgEmojiInput();}
+// Digitação de emoji.
 function cfgEmojiInput(){
   var inp=document.getElementById('cfgEmoji'),e=primeiroEmoji(inp.value);
   inp.value=e;
   CFG.draft=e?{tipo:'emoji',valor:e}:cfgPadrao();
   cfgPreview();
 }
+// Prévia do avatar ou da identidade do sistema.
 function cfgPreview(){
   var d=CFG.draft,el=document.getElementById('cfgPreview');
   if(CFG.alvo==='user'){
@@ -106,11 +124,13 @@ function cfgPreview(){
     el.innerHTML='<span class="brand-icon">'+brandHTML(d,26)+'</span><strong>'+escHtml(NOME_SISTEMA)+'</strong>';
   }
 }
+// Volta ao padrão.
 function cfgRestaurar(){
   CFG.draft=cfgPadrao();
   document.getElementById('cfgEmoji').value=CFG.draft.tipo==='emoji'?CFG.draft.valor:'';
   cfgPreview();
 }
+// Abre o editor para recortar a imagem escolhida.
 function cfgArquivo(inp){
   var f=inp.files&&inp.files[0];inp.value='';
   if(!f)return;
@@ -126,6 +146,7 @@ function cfgArquivo(inp){
     }
   });
 }
+// Salva o avatar do usuário ou a identidade do sistema.
 function cfgSalvar(){
   var d=CFG.draft,alvo=CFG.alvo,btn=document.getElementById('btnCfgSalvar');
   btn.disabled=true;btn.textContent='Salvando...';
