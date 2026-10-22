@@ -1,4 +1,6 @@
+<!-- TELAS DE ACESSO: login, retomada de sessão, escolha do sistema, período letivo e área do Call Center. Lógica em js_login.html, js_periodos.html e js_callcenter.html. -->
 <!-- ════ LOGIN ════ -->
+<!-- Login único (vale para Atendimentos e Call Center). O olho mostra/oculta a senha (alternarSenha). -->
 <div id="loginScreen">
   <div class="login-card">
     <div id="loginBrand" class="login-brand">🏛️</div>
@@ -16,9 +18,11 @@
 </div>
 
 <!-- ════ RETOMANDO A SESSÃO (ao recarregar a página) ════ -->
+<!-- Tela de espera mostrada enquanto a sessão guardada no navegador é retomada (retomarSessao). -->
 <div id="sessaoCarregando"><div class="sess-box"><div class="sess-spin"></div><div>Retomando sua sessão...</div></div></div>
 
 <!-- ════ ESCOLHA DO SISTEMA ════ -->
+<!-- Escolha do sistema: o cartão do Call Center fica desativado se o usuário não tiver acesso liberado. -->
 <div id="sistemaScreen">
   <div class="sis-box">
     <h1>Qual sistema deseja acessar?</h1>
@@ -40,6 +44,7 @@
 </div>
 
 <!-- ════ PERÍODO LETIVO ════ -->
+<!-- Seleção do período letivo (no Call Center lista só os semestres cadastrados nele). -->
 <div id="periodoScreen">
   <div class="periodo-card">
     <h1>📅 Período Letivo</h1>
@@ -54,6 +59,7 @@
 </div>
 
 <!-- ════ CALL CENTER (dentro do sistema) ════ -->
+<!-- Área do Call Center: o iframe é criado em js_callcenter.html (a barra .cc-bar fica oculta por CSS). -->
 <div id="ccScreen">
   <div class="cc-bar">
     <button class="btn-logout" onclick="ccTrocarSistema()">⇄ Sistemas</button>
