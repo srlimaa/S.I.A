@@ -1,12 +1,18 @@
 <script>
+// REUNIÃO (cliente): indicadores visuais por atividade (cartões, barras, rosca, total por dia/mês e tabela), com gráficos em SVG desenhados à mão.
+// Dados de getIndicadores; filtros De/Até, mês, atividade e Semestre; exportação em JPG e Excel (funções de js_download.html).
 /* ══════════ REUNIÃO (indicadores visuais por atividade) ══════════ */
+// Formata número no padrão brasileiro (também usada no Ranque).
 function nf(n){return Number(n).toLocaleString('pt-BR');}
+// Percentual com uma casa decimal.
 function pctTxt(v,t){return t?(v/t*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'0%';}
+// Escolhe uma escala "redonda" para o eixo Y.
 function escalaNice(max){
   var raw=Math.max(max,1)/4,mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),f=raw/mag;
   var step=(f<=1?1:f<=2?2:f<=5?5:10)*mag;if(step<1)step=1;
   return {step:step,top:Math.max(step,Math.ceil(max/step)*step)};
 }
+// Quebra rótulos longos em linhas.
 function quebrarRotulo(s,max){
   var p=String(s).split(' '),l1='',l2='';
   p.forEach(function(w){
@@ -15,7 +21,9 @@ function quebrarRotulo(s,max){
   return l2?[l1,l2]:[l1];
 }
 /* Gráficos com eixo Y fixo e área rolável na horizontal */
+// Medidas dos gráficos.
 var CH_ML=46,CH_H=340;
+// SVG do eixo Y fixo (o corpo do gráfico rola na horizontal).
 function chEixoSvg(mt,ih,e){
   var s='<svg class="ch-axis" width="'+CH_ML+'" height="'+CH_H+'" viewBox="0 0 '+CH_ML+' '+CH_H+'">';
   for(var k=0;k<=Math.round(e.top/e.step);k++){
@@ -24,6 +32,7 @@ function chEixoSvg(mt,ih,e){
   }
   return s+'</svg>';
 }
+// Linhas de grade e valores do eixo.
 function chGrade(W,mt,ih,e){
   var s='';
   for(var k=0;k<=Math.round(e.top/e.step);k++){
@@ -32,9 +41,11 @@ function chGrade(W,mt,ih,e){
   }
   return s;
 }
+// Atributo data-tip que alimenta o balão de dica.
 function tipAttr(html){return ' data-tip="'+escHtml(html)+'"';}
 
 // wDisp = largura visível da área do gráfico; se faltar espaço, a barra de rolagem aparece
+// Gráfico de barras: total por atividade.
 function graficoBarras(itens,total,wDisp){
   var mt=30,mb=74,mr=12,ih=CH_H-mt-mb,max=0,n=itens.length;
   itens.forEach(function(i){if(i.v>max)max=i.v;});
@@ -54,6 +65,7 @@ function graficoBarras(itens,total,wDisp){
   });
   return s+'</svg></div></div>';
 }
+// Gráfico de rosca: participação por atividade.
 function svgRosca(itens,total){
   var S=250,cx=125,cy=125,R=104,r=62,a0=-Math.PI/2;
   var s='<svg viewBox="0 0 '+S+' '+S+'" class="ch ch-rosca" role="img" aria-label="Participação por atividade">';
@@ -80,6 +92,7 @@ function svgRosca(itens,total){
      '<text x="'+cx+'" y="'+(cy+26)+'" text-anchor="middle" class="ch-centro2" pointer-events="none">total geral</text></svg>';
   return s;
 }
+// Gráfico do total por dia (ou mês).
 function graficoDias(dias,wDisp){
   var mt=30,mb=40,mr=12,ih=CH_H-mt-mb,max=0,n=dias.length;
   dias.forEach(function(d){if(d.t>max)max=d.t;});
@@ -122,6 +135,7 @@ function graficoDias(dias,wDisp){
   });
   document.addEventListener('scroll',function(){tip.style.display='none';},true);
 })();
+// Liga o destaque da fatia ao passar o mouse na rosca ou na legenda.
 function ligarRosca(wrap){
   function marcar(i,on){
     wrap.querySelectorAll('[data-i="'+i+'"]').forEach(function(el){el.classList.toggle('hot',on);});
@@ -131,6 +145,7 @@ function ligarRosca(wrap){
   wrap.addEventListener('mouseout',function(e){var t=e.target.closest('[data-i]');if(t)marcar(t.getAttribute('data-i'),false);});
 }
 
+// Busca os indicadores do período.
 function carregarReuniao(){
   document.getElementById('reuniaoContainer').innerHTML='<p class="ind-msg">Carregando indicadores...</p>';
   google.script.run
@@ -142,6 +157,7 @@ function carregarReuniao(){
     })
     .getIndicadores(PERIODO);
 }
+// Preenche o filtro de meses.
 function preencherFiltrosReuniao(data){
   var mesesSet={};
   Object.keys((data&&data.indicadores)||{}).forEach(function(d){var m=d.split('/');mesesSet[m[1]+'/'+m[2]]=true;});
@@ -161,26 +177,32 @@ function preencherFiltrosReuniao(data){
   });
   syncMsLabel('msMesR');syncMsLabel('msAtivR');
 }
+// Botão Filtrar.
 function filtrarReu(){REU_SEM=false;atualizarBotaoSem('btnSemReu',false);renderReuniao();}
+// Botão Semestre.
 function reuSemestre(){
   REU_SEM=!REU_SEM;
   if(REU_SEM){document.getElementById('reuDe').value='';document.getElementById('reuAte').value='';setMsAll('msMesR',true);}
   atualizarBotaoSem('btnSemReu',REU_SEM);renderReuniao();
 }
+// Botão Limpar.
 function limparFiltrosReu(){
   REU_SEM=false;atualizarBotaoSem('btnSemReu',false);
   document.getElementById('reuDe').value='';document.getElementById('reuAte').value='';
   setMsAll('msMesR',true);setMsAll('msAtivR',true);
   renderReuniao();
 }
+// Últimos dados mostrados (base do download) e títulos dos blocos.
 var REU_ULT=null;
 var REU_TIT={kpis:'Cartões',barras:'Total por atividade',rosca:'Participação por atividade',dias:'Total por dia/mês',tabela:'Indicador por atividade'};
+// Título de bloco com botão de download.
 function reuH3(titulo,chave,excel){
   var ac=[{rot:'🖼️ Imagem (.jpg)',dica:'Baixar em imagem (.jpg)',f:function(){reuBaixarJpg(chave);}}];
   if(excel)ac.push({rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}});
   return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+dlBtn('reu_'+chave,ac)+'</span></h3>';
 }
 // chave opcional: sem argumento baixa cartões + gráficos + tabela
+// Baixa um bloco (ou todos) em JPG.
 function reuBaixarJpg(chave){
   if(!REU_ULT){expMsg('reuDlFb','Aguarde o carregamento dos indicadores.',false);return;}
   var cont=document.getElementById('reuniaoContainer'),sub='Período letivo '+PERIODO+' · '+REU_ULT.filtro;
@@ -192,6 +214,7 @@ function reuBaixarJpg(chave){
   });
   baixarJpgs(itens,'Reuniao_'+PERIODO,'reuDlFb');
 }
+// Baixa as tabelas da Reunião em Excel.
 function reuBaixarExcel(){
   if(!REU_ULT){expMsg('reuDlFb','Aguarde o carregamento dos indicadores.',false);return;}
   var R=REU_ULT,linhas=R.dias.map(function(d){return [d.d].concat(R.ativs.map(function(a){return d.seg[a]>0?d.seg[a]:'';}),[d.t]);});
@@ -202,7 +225,9 @@ function reuBaixarExcel(){
     {nome:'Filtros',cab:['Item','Valor'],larg:[22,70],linhas:[['Período letivo',PERIODO],['Datas',R.filtro]]}];
   baixarXlsxTabelas('Reuniao_'+PERIODO+'.xlsx',abas,'reuDlFb');
 }
+// Largura usada para redesenhar só quando a tela realmente mudou de tamanho.
 var _reuW=0;
+// Calcula e desenha cartões, barras, rosca, dias e tabela conforme os filtros.
 function renderReuniao(manter){
   var cont=document.getElementById('reuniaoContainer'),data=INDICADORES_CACHE;
   var pos=manter===true?Array.prototype.map.call(cont.querySelectorAll('.ch-scroll'),function(e){return e.scrollLeft;}):null;
@@ -281,6 +306,7 @@ function renderReuniao(manter){
   if(pos){Array.prototype.forEach.call(cont.querySelectorAll('.ch-scroll'),function(e,i){if(pos[i]!=null)e.scrollLeft=pos[i];});}   // redimensionou a janela: mantém onde estava
   else if(ds)ds.scrollLeft=ds.scrollWidth;   // começa nos dias mais recentes
 }
+// Redesenha os gráficos ao redimensionar a janela.
 var _reuRz=null;
 window.addEventListener('resize',function(){
   clearTimeout(_reuRz);
