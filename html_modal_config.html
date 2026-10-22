@@ -1,14 +1,11 @@
-<!-- ARQUIVO: html_modal_config.html -->
-<!-- O QUE É: a janela ⚙️ CONFIGURAÇÕES (menu de abas à esquerda; cada "cfgPane..." é o conteúdo de uma aba). -->
-<!-- ONDE É USADO: incluído em Index.html. Programas: js_config.html (abas), js_listas_admin.html, js_nome_sistema.html, js_fundo_login.html, js_periodos.html. -->
-
+<!-- JANELA DE CONFIGURAÇÕES (engrenagem): abas do usuário e, para Admin, períodos, planilhas, nome, login, fundo, colaboradores Virtual, assuntos e semestres. Lógica em js_config.html e arquivos relacionados. -->
 <!-- MODAL CONFIGURAÇÕES -->
 <div class="modal-overlay" id="configOverlay" onclick="if(event.target===this)fecharConfig()">
   <div class="modal-box cfg-box" onclick="event.stopPropagation()">
     <span class="modal-close" onclick="fecharConfig()">✕</span>
     <h3>⚙️ Configurações</h3>
     <div class="cfg-layout">
-    <!-- Menu de abas das Configurações. As marcadas "Administração" só aparecem para Admin (controladas por abrirConfig() em js_config.html). -->
+    <!-- Menu lateral; os botões do grupo Administração são exibidos só para Admin (abrirConfig). -->
     <nav class="cfg-tabs">
       <button class="cfg-tab active" id="tabCfgUser" onclick="cfgTab('user')">👤 Meu perfil</button>
       <button class="cfg-tab" id="tabCfgPref" onclick="cfgTab('pref')">🎨 Tema</button>
@@ -27,7 +24,7 @@
     </nav>
     <div class="cfg-content">
     <div class="feedback" id="fbCfg" style="margin:0 0 14px;"></div>
-    <!-- ABA Meu perfil: foto/emoji do usuário (salvarMeuAvatar). -->
+    <!-- Painel Meu perfil (avatar do usuário), reaproveitado também como identidade do sistema. -->
     <div id="cfgPaneEmoji">
     <div class="cfg-preview user" id="cfgPreview"></div>
     <p class="cfg-hint" id="cfgHint"></p>
@@ -42,7 +39,7 @@
     <input type="file" id="cfgFile" accept="image/*" style="display:none;" onchange="cfgArquivo(this)"/>
     <button class="btn-salvar-edit" id="btnCfgSalvar" onclick="cfgSalvar()">Salvar</button>
     </div>
-    <!-- ABA Colab. Virtual (Admin): colaboradores do registro Virtual e correção de nome em registros antigos. -->
+    <!-- Painel Colab. Virtual (js_listas_admin.html). -->
     <div id="cfgPaneVirtual" style="display:none;">
       <p class="cfg-hint">Nomes que aparecem na lista <strong>Colaborador</strong> do registro Virtual. Remover um nome não altera registros já salvos.</p>
       <div id="vcList"></div>
@@ -62,7 +59,7 @@
         <button type="button" class="btn-outline" onclick="vcTrocarRegistros()">Atualizar registros</button>
       </div>
     </div>
-    <!-- ABA Assuntos (Admin): assuntos extras dos formulários. -->
+    <!-- Painel Assuntos extras (js_listas_admin.html). -->
     <div id="cfgPaneAssunto" style="display:none;">
       <p class="cfg-hint">Adicione opções à lista <strong>Assunto</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
       <label class="cfg-label">Aplicar em</label>
@@ -84,7 +81,7 @@
       <label class="cfg-label">Assuntos adicionados</label>
       <div id="asLista"></div>
     </div>
-    <!-- ABA Semestres (Admin): semestres extras dos campos Semestre. -->
+    <!-- Painel Semestres extras (js_listas_admin.html). -->
     <div id="cfgPaneSemestre" style="display:none;">
       <p class="cfg-hint">Adicione opções ao campo <strong>Semestre</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
       <label class="cfg-label">Aplicar em</label>
@@ -102,7 +99,7 @@
       <label class="cfg-label">Semestres adicionados</label>
       <div id="smLista"></div>
     </div>
-    <!-- ABA Tema: claro ou escuro. -->
+    <!-- Painel Tema claro/escuro (guardado no navegador). -->
     <div id="cfgPanePref" style="display:none;">
       <label class="cfg-label">Tema</label>
       <div class="seg" id="prefTemaSeg">
@@ -111,7 +108,7 @@
       </div>
       <p class="cfg-hint">A escolha fica salva neste navegador.</p>
     </div>
-    <!-- ABA Períodos letivos (Admin): cadastrar período e planilha. -->
+    <!-- Painel Períodos letivos (criarPeriodo). -->
     <div id="cfgPanePeriodos" style="display:none;">
       <p class="cfg-hint">Cadastre um novo período letivo e a planilha onde os registros dele serão salvos.</p>
       <label class="cfg-label">Período</label>
@@ -124,7 +121,7 @@
       <label class="cfg-label">Períodos cadastrados</label>
       <div id="perLista"></div>
     </div>
-    <!-- ABA Planilhas (Admin): planilhas de ocorrências (UNILEÃO e UNIVS) e a do Call Center. -->
+    <!-- Painel Planilhas: ocorrências UNILEÃO/UNIVS por período e botão de migração dos dados da planilha antiga do Call Center. -->
     <div id="cfgPanePlanilhas" style="display:none;">
       <p class="cfg-hint">Planilhas de ocorrências de cada período. Os Indicadores leem as datas e a aba Registro lista os pendentes. Deixe em branco para não usar.</p>
       <label class="cfg-label">Período</label>
@@ -136,13 +133,13 @@
       <button class="btn-salvar-edit" onclick="salvarLinks()">Salvar links</button>
       <div class="feedback" id="fbLinks" style="margin-top:12px;"></div>
       <div class="cfg-sep"></div>
-      <label class="cfg-label">📞 Call Center — planilha do sistema (aba REGISTROS)</label>
-      <p class="cfg-hint">Vale para todos os períodos. Usada no login único e na contagem de registros por colaborador (Indicadores e Reunião).</p>
-      <input type="text" class="cfg-input" id="lk_cc" placeholder="Link ou ID da planilha do Call Center" style="font-size:14px;margin-bottom:12px;"/>
-      <button class="btn-salvar-edit" onclick="lkSalvarCC()">Salvar planilha do Call Center</button>
+      <!-- Migração única (lkMigrarCC > migrarCallCenterAdmin): copia a planilha antiga do Call Center para a estrutura do Atendimentos; pode repetir, nada é apagado. -->
+      <label class="cfg-label">📞 Call Center — dados no sistema de Atendimentos</label>
+      <p class="cfg-hint">Os registros, opções e configurações do Call Center agora ficam na planilha mestre e na planilha de cada período (abas CC_...). Se você ainda tem dados na planilha antiga do Call Center, use o botão abaixo para copiá-los (pode ser repetido; só copia o que ainda não existe, e a planilha antiga não é alterada).</p>
+      <button class="btn-salvar-edit" id="btnMigrarCC" onclick="lkMigrarCC()">Migrar dados da planilha antiga do Call Center</button>
       <div class="feedback" id="fbCC" style="margin-top:12px;"></div>
     </div>
-    <!-- ABA Nome do sistema (Admin): logo e nome. -->
+    <!-- Painel Nome do sistema (logo + nome). -->
     <div id="cfgPaneNome" style="display:none;">
       <p class="cfg-hint">Logo e nome do sistema: aparecem no topo do sistema e na escolha do sistema (o nome também na aba do navegador). A logo também aparece na tela de login. O título da tela de login é definido em “Nome no login”. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — topo do sistema</label>
@@ -161,7 +158,7 @@
       </div>
       <button class="btn-salvar-edit" id="btnNomeSalvar" onclick="nmSalvar()">Salvar</button>
     </div>
-    <!-- ABA Nome no login (Admin): título e subtítulo da tela de login. -->
+    <!-- Painel Nome no login (título e subtítulo só da tela de login). -->
     <div id="cfgPaneNomeLogin" style="display:none;">
       <p class="cfg-hint">Define o título e o subtítulo que aparecem <strong>somente na tela de login</strong>. O nome do topo do sistema e o da escolha do sistema não mudam. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — tela de login</label>
@@ -176,7 +173,7 @@
       </div>
       <button class="btn-salvar-edit" id="btnNomeLoginSalvar" onclick="nlSalvar()">Salvar</button>
     </div>
-    <!-- ABA Fundo do login (Admin): cor, degradê ou imagem. -->
+    <!-- Painel Fundo do login (js_fundo_login.html). -->
     <div id="cfgPaneLogin" style="display:none;">
       <div class="fundo-preview" id="fundoPreview"><span>Prévia da tela de login e de período</span></div>
       <label class="cfg-label">Tipo de fundo</label>
@@ -205,6 +202,7 @@
       <p class="cfg-hint">Aplica-se à tela de login e à de seleção de período. Somente Admin pode alterar.</p>
       <button class="btn-salvar-edit" id="btnFundoSalvar" onclick="fundoSalvar()">Salvar fundo</button>
     </div>
+    <!-- Rodapé com a versão (preenchida em js_boot.html por getVersao). -->
     <p class="cfg-hint" style="margin:16px 0 0;text-align:right;opacity:.7;">Versão <span id="versaoSistema">...</span></p>
     </div>
     </div>
