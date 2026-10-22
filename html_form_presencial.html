@@ -1,7 +1,4 @@
-<!-- ARQUIVO: html_form_presencial.html -->
-<!-- O QUE É: formulário de registro Presencial (atendimento no balcão). -->
-<!-- ONDE É USADO: incluído em Index.html (aba Registro). Programa: js_registro.html. Os campos com * são obrigatórios. -->
-
+<!-- FORMULÁRIO de atendimento PRESENCIAL (envio em confirmarPresencial, js_registro.html). Os assuntos podem ser ampliados pelo Admin (Listas.gs). -->
     <!-- Presencial -->
     <div class="form-card" id="formPresencial">
       <h2>🏢 Registro Presencial</h2>
@@ -20,7 +17,6 @@
         </div>
         <div class="form-group">
           <label>Curso</label>
-          <!-- Cursos disponíveis para o atendimento. -->
           <select id="p_curso">
             <option value="">— Selecione —</option>
             <option>Administração</option><option>Biomedicina</option>
@@ -34,7 +30,6 @@
         </div>
         <div class="form-group full">
           <label>Assunto <span class="req">*</span></label>
-          <!-- Assunto, agrupado por categoria. Vira uma lista com busca (js_tema_busca.html); o Admin pode acrescentar opções (js_listas_admin.html). -->
           <select id="p_assunto">
             <option value="">— Selecione —</option>
             <optgroup label="FIES">
@@ -92,7 +87,6 @@
         </div>
         <div class="form-group">
           <label>Semestre</label>
-          <!-- Semestre. O Admin pode acrescentar semestres (Configurações › Semestres). -->
           <select id="p_semestre">
             <option value="">— Selecione —</option>
             <option value="2026.1">2026.1</option>
@@ -103,14 +97,12 @@
         </div>
         <div class="form-group">
           <label>IES</label>
-          <!-- Instituição: Unileão ou Univs. -->
           <select id="p_ies">
             <option value="">— Selecione —</option>
             <option>Unileão</option><option>Univs</option>
           </select>
         </div>
       </div>
-      <!-- Botão Confirmar: chama confirmarPresencial() (js_registro.html), que confere os campos e grava no servidor (Registros.gs). -->
       <button class="btn-confirmar verde" onclick="confirmarPresencial()">✔ Confirmar</button>
       <div class="feedback" id="fbPresencial"></div>
     </div>
