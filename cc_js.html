@@ -1,29 +1,56 @@
 <script>
-  
+
+// ARQUIVO: cc_js.html  (TELA DO CALL CENTER)
+// O QUE FAZ: todo o programa da tela do Call Center (roda dentro do iframe de CallCenter.html): abas, filtros, lista de alunos, registros de contato,
+// atribuição de responsáveis, indicadores, gráficos, configurações, atualização em tempo real e downloads.
+// COMO CONVERSA COM O SERVIDOR: call('ação', dados) → ponte → js_callcenter.html → ccApi() em CallCenterApi.gs.
+// MAPA RÁPIDO:  ABA CALL CENTER = renderCC / linhas / atr*  |  INDICADOR - GERAL = renderGer  |  INDICADOR - COLABORADOR = renderCol  |
+//               TEMPO REAL = sincronizar / aplicarVivo  |  CONFIGURAÇÕES = abrirCfg / t*  |  DOWNLOAD = dl* e xlsx*.
+// ONDE É USADO: incluído dentro de CallCenter.html (include('cc_js')). Estilos em cc_css.html.
+
 var T=null,ME=null,CFG={},SEMS=[],OPC={},D=null,ADMIN=false,CH={},TAB='cc';
+// CC = os 2 status da lista de alunos | STATUS7 = os 7 status do Indicador - Geral | PAL = cores dos gráficos | MESES = nomes dos meses.
 var CC=['SOLICITADO / NÃO ADITOU','SOLICITADO / ENVIADO AO BANCO'],CC0=CC[0];
+// Os 7 status do Indicador - Geral (na ordem em que aparecem nos gráficos).
 var STATUS7=['ADITOU','NÃO SOLICITADO','REJEITADO','SOLICITADO / CANCELADO','SOLICITADO / EM PROCESSAMENTO','SOLICITADO / ENVIADO AO BANCO','SOLICITADO / NÃO ADITOU'];
+// Paleta de cores usada nos gráficos.
 var PAL=['#8b1e2d','#1456a0','#1e8a4c','#b86e00','#7a3fa0','#0e8a8a','#c04b5f','#5a6480','#3a7bd5','#c0392b'];
+// Nomes dos meses (para rótulos como "Out/2026").
 var MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// Atalho para document.getElementById (usado em todo o arquivo).
 var $=function(id){return document.getElementById(id)};
+// Protege um texto para entrar em HTML (troca & < > " ' por códigos seguros). Use sempre que mostrar texto vindo da planilha.
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+// Aviso rápido no canto da tela (verde = ok; 'err' = vermelho).
 function toast(m,tp){var t=$('toast');t.className='toast'+(tp==='err'?' err':'');t.textContent=(tp==='err'?'⚠️ ':'✅ ')+m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(function(){t.style.display='none'},tp==='err'?5000:4000)}
+// Pede algo ao servidor (ação da tabela CC_API em CallCenterApi.gs) e devolve uma Promise. Se a sessão expirar, volta ao login.
 function call(fn,a){return new Promise(function(res,rej){google.script.run.withSuccessHandler(function(r){
   if(r.err==='SESSAO'){sair(true);return rej('sessao')}if(r.err){toast(r.err,'err');return rej(r.err)}res(r.ok)})
   .withFailureHandler(function(e){toast(e.message,'err');rej(e)}).api(T,fn,a||{})})}
+// HTML da foto do usuário (imagem ou emoji) ou da inicial do nome.
 function avatar(f,n){f=f||'';if(f.indexOf('emoji:')===0)return esc(f.slice(6));if(f)return '<img src="'+esc(f)+'">';return esc((n||'?').charAt(0).toUpperCase())}
+// Aplica o tema (claro ou escuro) na tela.
 function tema(t){if(t==='Tema Escuro')document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme')}
+// Conta quantas vezes cada valor aparece em uma lista: {valor: quantidade}.
 function cnt(a,f){var o={};a.forEach(function(x){var k=f(x);o[k]=(o[k]||0)+1});return o}
+// Data aaaa-mm-dd → dd/mm/aaaa.
 function ddmm(s){return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4)}
+// Cria {v: valor, t: texto} para as listas de seleção.
 function vt(x){return {v:x,t:x}}
+// HTML de um cartão numérico (KPI): rótulo, valor e cor.
 function kpi(cls,ic,id,l){return '<div class="kpi-card"><div class="kpi-icon '+cls+'">'+ic+'</div><div><div class="kpi-val" id="'+id+'">—</div><div class="kpi-lbl">'+l+'</div></div></div>'}
 
 /* ---------- multi seleção ---------- */
+// Estado de todas as listas de seleção múltipla da tela: MS[id] = {opções, marcados, função ao mudar}.
 var MS={};
+// Opções do filtro de mês (a partir de yyyy-mm).
 function mesOpts(ms){var anos={};ms.forEach(function(m){anos[m.slice(0,4)]=1});var multi=Object.keys(anos).length>1;return ms.map(function(m){return {v:m,t:MESES[+m.slice(5,7)-1]+(multi?'/'+m.slice(0,4):'')}})}
+// Valores marcados em uma lista de seleção múltipla (vazio = sem filtro).
 function msv(id){return MS[id]?MS[id].sel:[]}
+// Fecha as listas de seleção abertas ao clicar fora.
 function closeMs(ex){Array.prototype.forEach.call(document.querySelectorAll('.msp.on'),function(p){if(!ex||p.parentNode.id!==ex)p.classList.remove('on')})}
 document.addEventListener('click',function(){closeMs()});
+// Monta (ou refaz) uma lista de seleção múltipla dentro do elemento id, mantendo o que já estava marcado.
 function msMake(id,opts,cb){
   var el=$(id),prev=MS[id]?MS[id].sel:[],vals=opts.map(function(o){return o.v});
   var sel=prev.filter(function(v){return vals.indexOf(v)>=0});MS[id]={sel:sel,opts:opts,cb:cb};
@@ -38,16 +65,22 @@ function msMake(id,opts,cb){
     else MS[id].sel=Array.prototype.filter.call(p.querySelectorAll('input[data-i]'),function(c){return c.checked}).map(function(c){return opts[+c.getAttribute('data-i')].v});
     upd();cb()};
   upd()}
+// Botão Limpar: desmarca listas e esvazia campos, depois chama a função de atualização.  
 function limpar(ms,dates,cb){ms.forEach(function(id){var m=MS[id];m.sel=[];msMake(id,m.opts,m.cb)});dates.forEach(function(id){$(id).value=''});cb()}
 
 /* ---------- login ---------- */
+// HTML da logo do Call Center (imagem ou iniciais).
 function logoHtml(el,logo,txt){if(logo){el.className=el.className.replace(/\s*img/,'')+' img';el.innerHTML='<img src="'+esc(logo)+'">'}else{el.className=el.className.replace(/\s*img/,'');el.textContent=txt}}
 $('lBtn').onclick=entrar;$('lSenha').onkeydown=function(e){if(e.key==='Enter')entrar()};
+// Botão Entrar da tela de login interna (hoje o login é feito no sistema principal; fica como reserva).
 function entrar(){$('lErr').textContent='';$('lBtn').disabled=true;
   google.script.run.withSuccessHandler(function(r){$('lBtn').disabled=false;if(r.err){$('lErr').textContent='❌ '+r.err;return}T=r.ok.token;iniciar()})
   .withFailureHandler(function(e){$('lBtn').disabled=false;$('lErr').textContent=e.message}).apiLogin($('lEmail').value,$('lSenha').value)}
+// Sair do Call Center: avisa o sistema principal para encerrar a sessão (ou mostrar a mensagem de sessão expirada).
 function sair(exp){parent.postMessage({ccb:1,t:exp?'sessao':'sair'},'*')}
 $('bSair').onclick=function(){sair()};
+// Começa a usar o Call Center depois do login: pega os dados iniciais (boot), monta cabeçalho e abas e carrega a lista.
+// Se o sistema principal já buscou os dados (pre), usa-os e economiza uma ida ao servidor.
 function iniciar(pre){(pre&&pre.boot?Promise.resolve(pre.boot):call('boot')).then(function(b){
   ME=b.user;CFG=b.cfg;SEMS=b.sems;OPC=b.opc;ADMIN=ME.perfil==='Admin';tema(ME.tema);
   $('login-screen').style.display='none';$('app').style.display='flex';cabecalho();
@@ -60,11 +93,16 @@ function iniciar(pre){(pre&&pre.boot?Promise.resolve(pre.boot):call('boot')).the
   $('bBase').style.display=ADMIN?'':'none';$('bBase').onclick=function(){toast('Recarregando a base de alunos...');carregar(true)};
   if(pre&&pre.data)aplicar(pre.data);else carregar()})}
 window.__ccInit=function(m){T=m.token;iniciar(m.pre)};
+// Preenche o topo: logo, nome do sistema, semestre, usuário, perfil e foto.
 function cabecalho(){$('hNome').textContent=CFG.nomeSistema||'Call Center FIES';$('hUser').textContent=ME.nome;$('hRole').textContent=ADMIN?'Administrador':'Colaborador';$('hAv').innerHTML=avatar(ME.foto,ME.nome);$('hSem').textContent='Semestre: '+ME.semestre;logoHtml($('hLogo'),CFG.logo,'CC')}
+// Troca de aba: Call Center (lista), Indicador - Geral ou Indicador - Colaborador, e desenha a aba escolhida.
 function abaAtiva(t){TAB=t;Array.prototype.forEach.call($('nav').children,function(b){b.className='tab-btn'+(b.dataset.t===t?' active':'')});
   ['cc','ger','col'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol()}}
+// Recebe os dados completos (getData), guarda em D, refaz os índices, desenha tudo e liga a atualização automática.
 function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync()}
+// Pede ao servidor todos os dados do semestre (getData). fresh=true (Admin) força reler a base na planilha.
 function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
+// Cria atalhos a partir dos dados: D.rmap (registros por aluno), D.last (último registro de cada aluno) e D.umap (e-mail → nome).
 function indexar(){D.rmap={};D.last={};D.regs.forEach(function(r){(D.rmap[r.cpf]=D.rmap[r.cpf]||[]).push(r);var l=D.last[r.cpf];if(!l||r.data>=l.data)D.last[r.cpf]=r});D.umap={};D.ufoto={};D.usuarios.concat(D.extras||[]).forEach(function(u){D.umap[u.email]=u.nome;D.ufoto[u.email]=u.foto})}
 
 /* ---------- atualização em tempo real ----------
@@ -72,7 +110,10 @@ function indexar(){D.rmap={};D.last={};D.regs.forEach(function(r){(D.rmap[r.cpf]
    Só quando a versão mudou (alguém registrou, excluiu ou atribuiu responsável) os dados são baixados e a tela é
    atualizada no lugar, sem recarregar a página e sem perder filtros, busca ou posição da lista. */
 var SYNC={t:null,busy:false,ult:0,ver:null,sig:null,pend:0};
+// Atualiza as opções de uma lista de seleção só se elas mudaram (não fecha uma lista aberta à toa).
 function msSync(id,opts,cb){var m=MS[id];if(!$(id))return;if(m&&JSON.stringify(m.opts)===JSON.stringify(opts))return;msMake(id,opts,cb)}
+// Refaz os filtros que dependem dos dados (Responsável, Resultado, Colaborador). forca=true recria; senão só atualiza o que mudou.
+// O filtro Responsável mostra só quem tem ao menos um aluno (e "Sem responsável" se houver alunos sem).
 function filtrosVivos(forca){
   var A=D.alunos,rAtv={},semResp=false,mk=forca?msMake:msSync;
   A.forEach(function(a){var e=D.resp[a.cpf];if(e)rAtv[e]=1;else semResp=true});
@@ -80,12 +121,16 @@ function filtrosVivos(forca){
     .sort(function(x,y){return x.t.localeCompare(y.t,'pt',{sensitivity:'base'})})),linhas);   // só responsáveis ativos
   mk('fRs',[{v:'-',t:'Sem contato'}].concat(resOpts()),linhas);
   mk('fB',Object.keys(cnt(D.regs,function(r){return r.colab})).map(function(e){return {v:e,t:D.umap[e]||e}}),linhas)}
+// Opções do filtro de mês com os meses que existem nos registros.
 function mesesVivos(){return mesOpts(Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort())}
+// Anota o estado atual dos dados: depois de uma gravação PRÓPRIA isso evita tratar o eco da gravação como novidade de outra pessoa.
 function selaSync(){SYNC.sig=JSON.stringify([D.regs,D.resp])}      // depois de uma gravação própria: não conta como novidade de outra pessoa
+// Liga a conferência automática a cada 20 s (só com a aba visível).
 function iniciarSync(){
   SYNC.ver=D.v||null;selaSync();SYNC.ult=Date.now();clearInterval(SYNC.t);
   SYNC.t=setInterval(function(){if(!document.hidden)sincronizar()},20000)}
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&D)sincronizar()});
+// Mostra no topo "atualizado às HH:MM" e atualiza a dica do botão 🔄.
 function marcaSync(){
   var d=new Date(),h=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
   $('hSem').textContent='Semestre: '+ME.semestre+' · atualizado às '+h;
@@ -96,6 +141,8 @@ function ocupado(){
   var e=document.activeElement;if(e&&(e.tagName==='SELECT'||e.tagName==='TEXTAREA')&&e.closest('#tb'))return true;
   if(ADMIN&&typeof ATR!=='undefined'&&ATR.plano)return true;
   return false}
+// TEMPO REAL: pergunta ao servidor (ação leve "sync") se algo mudou. Se mudou, baixa registros e responsáveis e atualiza a tela no lugar.
+// manual=true (botão 🔄) força a conferência; adia a atualização se houver popup aberto, lista em uso ou atribuição em montagem.
 function sincronizar(manual){
   if(!D||!T||SYNC.busy||SYNC.pend>0)return;
   SYNC.busy=true;var b=$('bSync');if(manual&&b)b.classList.add('girando');
@@ -113,6 +160,7 @@ function sincronizar(manual){
     var mudou=aplicarVivo(r.ok);marcaSync();
     if(manual)toast(mudou?'Dados atualizados.':'Tudo já está atualizado.')})
   .withFailureHandler(fim).api(T,'sync',{sem:ME.semestre,v:forca?'':SYNC.ver})}
+// Aplica os dados novos sem recarregar: atualiza só a aba que está aberta, mantendo filtros, busca e posição da lista.
 function aplicarVivo(o){
   var sig=JSON.stringify([o.regs,o.resp]);if(sig===SYNC.sig)return false;
   SYNC.sig=sig;D.regs=o.regs;D.resp=o.resp;D.v=o.v;indexar();
@@ -122,16 +170,26 @@ function aplicarVivo(o){
   return true}
 
 /* ---------- Call Center ---------- */
+// Chave de ordenação de uma data dd/mm/aaaa (aaaammdd).
 function dkey(s){var m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+m[2]+m[1]:String(s)}
+// Opções do filtro "Resultado do contato": as da lista configurada + qualquer resultado já registrado.
 function resOpts(){var s={};OPC.Resultado.forEach(function(x){s[x]=1});D.regs.forEach(function(r){if(r.resultado)s[r.resultado]=1});return Object.keys(s).map(vt)}
+// Opções dos filtros de data do banco (início ou fim), em ordem de data.
 function bancoOpts(k){var s={};D.alunos.forEach(function(a){if(a.banco&&a.banco[k])s[a.banco[k]]=1});return Object.keys(s).sort(function(x,y){return dkey(x)<dkey(y)?-1:1}).map(vt)}
+// Conjunto de alunos cujas datas de banco batem com os filtros escolhidos (null se não há filtro).
 function bancoSet(ini,fim){if(!ini.length&&!fim.length)return null;var o={};D.alunos.forEach(function(a){if(!a.banco)return;if(ini.length&&ini.indexOf(a.banco.ini)<0)return;if(fim.length&&fim.indexOf(a.banco.fim)<0)return;o[a.cpf]=1});return o}
+// Texto sem acento e em minúsculas (buscas e ordenação).
 function nrm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
 /* ---------- datas do banco: vencimento e ordenação por coluna ---------- */
+// Data dd/mm/aaaa → aaaammdd (para comparar e ordenar). Vazio se não for data.
 function dk(s){var m=String(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+m[2]+m[1]:''}
+// Data de hoje no formato aaaammdd.
 function hojeKey(){var d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)}
+// True se a data final do banco já passou (menor que hoje). Essas datas aparecem em vermelho na lista.
 function vencida(fim){var k=dk(fim);return !!k&&k<hojeKey()}
+// Critérios de ordenação da lista, em ordem de prioridade: [{k: coluna, d: 1 (A→Z) ou -1 (Z→A)}].
 var SORT=[];   // critérios em ordem de prioridade: [{k:coluna,d:1|-1}]
+// Como obter o valor de cada coluna ordenável (status, aluno, curso, início e fim do banco).
 var SORTV={
   status:function(a){return nrm(a.status)},
   aluno:function(a){return nrm(a.nome)},
@@ -139,6 +197,7 @@ var SORTV={
   ini:function(a){return a.status===CC[1]&&a.banco?dk(a.banco.ini):''},
   fim:function(a){return a.status===CC[1]&&a.banco?dk(a.banco.fim):''}
 };
+// Ordena a lista de alunos pelos critérios de SORT (vazios sempre no fim; mantém a ordem original nos empates).
 function ordenar(L){
   if(!SORT.length)return L;
   var ix=L.map(function(a,i){return {a:a,i:i}});
@@ -150,19 +209,23 @@ function ordenar(L){
       return SORT[s].d*(u<v?-1:1)}
     return x.i-y.i});
   return ix.map(function(o){return o.a})}
+// Clique no título de uma coluna: 1º clique A→Z, 2º Z→A, 3º remove. A coluna clicada passa a ser a principal; as anteriores desempatam.
 function sortClick(k){
   var i=-1;SORT.forEach(function(s,j){if(s.k===k)i=j});
   if(i===0){if(SORT[0].d===1)SORT[0].d=-1;else SORT.shift()}   // 1º clique A→Z · 2º Z→A · 3º remove
   else{if(i>0)SORT.splice(i,1);SORT.unshift({k:k,d:1})}          // a coluna clicada passa a ser a principal; as anteriores desempatam
   sortMarks();linhas()}
+// Mostra as setas ▲▼ (e a prioridade) nos títulos das colunas ordenáveis.
 function sortMarks(){
   Array.prototype.forEach.call(document.querySelectorAll('#v-cc .sortable'),function(th){
     var p=-1;SORT.forEach(function(s,j){if(s.k===th.dataset.k)p=j});
     th.innerHTML=esc(th.dataset.l)+' <span class="sort-ind'+(p<0?'':' on')+'">'+(p<0?'⇅':(SORT[p].d===1?'▲':'▼')+(SORT.length>1?'<sup>'+(p+1)+'</sup>':''))+'</span>';
     th.title=p<0?'Clique para ordenar':'Ordenando ('+(SORT[p].d===1?'crescente':'decrescente')+') · clique para alternar'})}
+// Liga o clique nos títulos ordenáveis (precisa ser refeito toda vez que a tabela é redesenhada).
 function sortBind(){
   Array.prototype.forEach.call(document.querySelectorAll('#v-cc .sortable'),function(th){th.onclick=function(){sortClick(th.dataset.k)}});
   sortMarks()}
+// ABA "CALL CENTER": monta a tela inteira (cartões, filtros, atribuição em lote do Admin e a tabela de alunos).
 function renderCC(){
   var A=D.alunos,cursos=Object.keys(cnt(A,function(a){return a.curso})).sort(),colabs=Object.keys(cnt(D.regs,function(r){return r.colab}));
   $('v-cc').innerHTML='<div class="kpi-row">'+kpi('total','📋','kT','Total de alunos no<br>Call Center')+kpi('nao','⏳','kN','Solicitado /<br>Não aditou')+kpi('enviado','🏦','kE','Solicitado /<br>Enviado ao banco')+kpi('registros','📝','kR','Total de registros<br>realizados')+'</div>'+
@@ -173,7 +236,9 @@ function renderCC(){
   msMake('fBI',bancoOpts('ini'),linhas);msMake('fBF',bancoOpts('fim'),linhas);
   $('fQ').oninput=linhas;$('fDI').onchange=linhas;
   $('fX').onclick=function(){limpar(['fS','fC','fR','fB','fRs','fBI','fBF'],['fQ','fDI'],linhas)};if(ADMIN)atrIniciar();sortBind();kpisCC();linhas()}
+// Cartões do topo da aba: total de alunos, contatados, pendentes e registros.
 function kpisCC(){var A=D.alunos;$('kT').textContent=A.length;$('kN').textContent=A.filter(function(a){return a.status===CC[0]}).length;$('kE').textContent=A.filter(function(a){return a.status===CC[1]}).length;$('kR').textContent=D.regs.length}
+// Lista de alunos que passam nos filtros (status, curso, responsável, colaborador, resultado, banco e busca), já ordenada.
 function filtrados(){
   var s=msv('fS'),c=msv('fC'),r=msv('fR'),b=msv('fB'),rs=msv('fRs'),bs=bancoSet(msv('fBI'),msv('fBF')),q=nrm($('fQ').value.trim()),qd=q.replace(/\D/g,''),di=$('fDI').value;
   return ordenar(D.alunos.filter(function(a){
@@ -184,6 +249,7 @@ function filtrados(){
     if(di){var u2=D.last[a.cpf];if(!u2||u2.data.slice(0,10)!==di)return false}   // data do último contato (a mesma da coluna)
     if(b.length&&!(D.rmap[a.cpf]||[]).some(function(x){return b.indexOf(x.colab)>=0}))return false;
     if(bs&&!bs[a.cpf])return false;return true}));}
+// Desenha as linhas da tabela de alunos (com a data final do banco em vermelho quando vencida) e liga os botões de cada linha.
 function linhas(){
   var L=filtrados();
   $('tb').innerHTML=L.map(function(a){var feito=(D.rmap[a.cpf]||[]).length>0,env=a.status===CC[1],ul=D.last[a.cpf];
@@ -199,8 +265,10 @@ function linhas(){
   Array.prototype.forEach.call($('tb').querySelectorAll('select'),function(sl){sl.onchange=function(){D.resp[sl.dataset.c]=sl.value;atrAtualizar();SYNC.pend++;call('setResp',{sem:ME.semestre,cpf:sl.dataset.c,email:sl.value}).then(function(){SYNC.pend--;selaSync();toast('Responsável atualizado.')}).catch(function(){SYNC.pend--})}});atrAtualizar()}
 
 /* ---------- atribuição de responsáveis em lote (somente Admin) ---------- */
+// Estado da atribuição em lote (Admin): pessoas escolhidas, grupos, plano calculado.
 var ATR={aberto:false,plano:null,pessoas:{},grupos:{},gl:[],gc:{},campo:''};
 try{ATR.aberto=localStorage.getItem('ccAtrAberto')==='1'}catch(e){}
+// HTML do painel "Atribuição de responsáveis" (só Admin).
 function atrHtml(){
   return '<div class="section-box atr-box"><div class="atr-head" id="atrHead"><h3>👥 Atribuir responsáveis em lote</h3><span class="muted" id="atrRes"></span><button type="button" class="btn-secondary" id="atrTog"></button></div>'+
   '<div id="atrBody" style="display:none">'+
@@ -218,6 +286,7 @@ function atrHtml(){
     '<div id="atrPrevia"></div>'+
   '</div></div>';
 }
+// Liga os botões e a lista de pessoas do painel de atribuição.
 function atrIniciar(){
   function abrir(){var b=$('atrBody');b.style.display=ATR.aberto?'':'none';$('atrTog').textContent=ATR.aberto?'Ocultar ▴':'Abrir ▾'}
   abrir();
@@ -230,26 +299,34 @@ function atrIniciar(){
   $('atrPrev').onclick=atrPrevia;$('atrApl').onclick=atrAplicar;
   atrPessoas();
 }
+// Carga atual de cada pessoa (quantos alunos já tem).
 function atrCarga(){var c={};Object.keys(D.resp).forEach(function(k){if(D.resp[k])c[D.resp[k]]=(c[D.resp[k]]||0)+1});return c}
+// Lista de pessoas que podem receber alunos, com a carga de cada uma.
 function atrPessoas(){
   var c=atrCarga();
   $('atrPessoas').innerHTML=D.usuarios.map(function(u){return '<label class="atr-chip'+(ATR.pessoas[u.email]?' on':'')+'"><input type="checkbox" data-e="'+esc(u.email)+'"'+(ATR.pessoas[u.email]?' checked':'')+'> '+esc(u.nome)+' <small>('+(c[u.email]||0)+')</small></label>'}).join('')||'<span class="muted">Nenhum usuário com acesso ao Call Center.</span>';
   Array.prototype.forEach.call($('atrPessoas').querySelectorAll('input'),function(x){x.onchange=function(){if(x.checked)ATR.pessoas[x.getAttribute('data-e')]=true;else delete ATR.pessoas[x.getAttribute('data-e')];x.parentNode.className='atr-chip'+(x.checked?' on':'');atrLimpaPlano()}});
 }
+// Descarta a prévia calculada (quando os filtros ou escolhas mudam).
 function atrLimpaPlano(){
   ATR.plano=null;
   if($('atrApl'))$('atrApl').disabled=true;
   if($('atrPrevia'))$('atrPrevia').innerHTML='';
 }
+// Atualiza o painel: contagem de alunos alvo, grupos e cargas.
 function atrAtualizar(){          // chamada a cada atualização da lista
   if(!ADMIN||!$('atrRes'))return;
   var L=filtrados();
   $('atrRes').textContent=L.length+' aluno(s) na lista · '+L.filter(function(a){return !D.resp[a.cpf]}).length+' sem responsável';
   atrPessoas();atrGruposRender();atrLimpaPlano();
 }
+// Modo escolhido: dividir igualmente, por quantidade ou por grupo.
 function atrModo(){return document.querySelector('input[name=atrModo]:checked').value}
+// Alunos que receberão responsável (os da lista filtrada; opcionalmente só os sem responsável).
 function atrAlvo(){var so=$('atrSo').checked;return filtrados().filter(function(a){return !so||!D.resp[a.cpf]})}
+// Alguma opção do painel mudou: apaga a prévia e atualiza.
 function atrMudou(){atrGruposRender();atrLimpaPlano()}
+// Rótulos dos campos de agrupamento (curso, turno, status).
 var ATR_ROT={curso:'cursos',turno:'turnos',status:'status'};
 // Lista os valores existentes (cursos, turnos ou status) entre os alunos que entram, para marcar e escolher o responsável de cada um
 function atrGruposRender(){
@@ -277,10 +354,15 @@ function atrGruposRender(){
   $('atrGSet').onclick=function(){atrGDefinir($('atrGBulk').value)};
   atrGResumo();
 }
+// Marca/desmarca um grupo (curso/turno/status) na atribuição por grupo.
 function atrGMarca(i,on){var k=ATR.gl[i];if(k===undefined)return;ATR.grupos[k].on=!!on;atrGResumo();atrLimpaPlano()}
+// Define o responsável fixo de um grupo.
 function atrGResp(i,email){var k=ATR.gl[i];if(k===undefined)return;ATR.grupos[k].resp=email||'';atrLimpaPlano()}
+// Marca/desmarca todos os grupos.
 function atrGTodos(on){ATR.gl.forEach(function(k){ATR.grupos[k].on=!!on});atrGruposRender();atrLimpaPlano()}
+// Aplica um responsável a todos os grupos marcados.
 function atrGDefinir(email){ATR.gl.forEach(function(k){if(ATR.grupos[k].on)ATR.grupos[k].resp=email||''});atrGruposRender();atrLimpaPlano()}
+// Resumo dos grupos (quantos alunos e quem recebe).
 function atrGResumo(){
   var el=$('atrGRes');if(!el)return;
   var m=ATR.gl.filter(function(k){return ATR.grupos[k].on}),n=m.reduce(function(s,k){return s+ATR.gc[k]},0);
@@ -332,6 +414,7 @@ function atrPlano(){
   });
   return {modo:modo,passos:passos,total:passos.reduce(function(s,p){return s+p.cpfs.length},0),sobra:sobra,ignorados:ignorados};
 }
+// Botão Pré-visualizar: mostra o que seria feito, sem gravar.
 function atrPrevia(){
   var p=atrPlano();atrLimpaPlano();
   if(p.erro){$('atrPrevia').innerHTML='<div class="atr-aviso">'+esc(p.erro)+'</div>';return}
@@ -344,6 +427,7 @@ function atrPrevia(){
   $('atrApl').disabled=false;
   $('atrSt').textContent=p.total+' aluno(s) · '+(rem?'remoção':p.passos.length+' pessoa(s)');
 }
+// Botão Aplicar: confirma e grava a atribuição no servidor (setRespLote), em blocos, mostrando o andamento.
 function atrAplicar(){
   var p=ATR.plano;if(!p||!p.passos.length)return;
   var rem=p.modo==='remover';
@@ -366,8 +450,10 @@ function atrAplicar(){
 }
 
 /* ---------- janelas ---------- */
+// Cria uma janela (popup) sobre a tela com o HTML informado; fecha ao clicar no X ou fora.
 function ov(html,cls,wrap){var o=document.createElement('div');o.className='ov'+(wrap?' '+wrap:'');o.innerHTML='<div class="'+(cls||'popup')+'">'+html+'</div>';o.onclick=function(e){if(e.target===o)o.remove()};$('mroot').appendChild(o);
   Array.prototype.forEach.call(o.querySelectorAll('.popup-close'),function(x){x.onclick=function(){o.remove()}});return o}
+// Clique no aluno: janela com dados, histórico de contatos e formulário para registrar/editar/excluir um contato.
 function abrirAluno(cpf){
   var a=D.alunos.filter(function(x){return x.cpf===cpf})[0];if(!a)return;var edit=null;
   var tel=a.tel.map(function(t){return '<span class="contact-chip"><span>📞</span><span class="cv">'+esc(t)+'</span></span>'}).join('')+a.email.map(function(m){return '<span class="email-chip">✉️ '+esc(m)+'</span>'}).join('');
@@ -398,21 +484,28 @@ function abrirAluno(cpf){
   reset();lista()}
 
 /* ---------- gráficos ---------- */
+// Desenha um gráfico (Chart.js). Se a biblioteca ainda não chegou, tenta de novo em instantes.
 function chart(id,type,labels,sets,stack){if(typeof Chart==='undefined'){if((chart._n=(chart._n||0)+1)<80)setTimeout(function(){chart(id,type,labels,sets,stack)},250);return}chart._n=0;if(CH[id])CH[id].destroy();var el=$(id);if(!el)return;
   var pie=type==='pie',one=sets.length===1;
   var ds=sets.map(function(s,i){var col=(pie||(one&&type==='bar'&&labels.length<=12))?labels.map(function(_,k){return PAL[k%PAL.length]}):PAL[i%PAL.length];return {label:s.l,data:s.d,backgroundColor:col,borderColor:pie?'transparent':PAL[i%PAL.length],borderRadius:pie?0:4}});
   var txt=getComputedStyle(document.body).color,grid='rgba(128,138,160,.2)';
   CH[id]=new Chart(el,{type:pie?'doughnut':type,data:{labels:labels,datasets:ds},options:{maintainAspectRatio:false,cutout:pie?'55%':undefined,plugins:{legend:{display:pie||sets.length>1,position:pie?'right':'top',labels:{color:txt,boxWidth:12}}},scales:pie?{}:{x:{stacked:!!stack,ticks:{color:txt},grid:{display:false}},y:{stacked:!!stack,beginAtZero:true,ticks:{color:txt,precision:0},grid:{color:grid}}}}})}
+// HTML de um quadro de gráfico com título e o ícone de download (imagem).
 function box(id,t,sub,f){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+t+'</h3>'+(sub?'<p class="sh">'+sub+'</p>':'')+'</div>'+dlBtn('bx_'+id,t.replace(/^\S+\s/,''),f)+'</div><div class="ch"><canvas id="'+id+'"></canvas></div></div>'}
+// Filtra os registros por mês, data inicial, data final e (opcional) colaborador.
 function filtroData(R,m,i,f,e){return R.filter(function(r){var d=r.data.slice(0,10);return(!m.length||m.indexOf(d.slice(0,7))>=0)&&(!i||d>=i)&&(!f||d<=f)&&(!e||d===e)})}
+// Tabela cruzada (linhas x colunas) com totais, a partir dos registros.
 function pivot(rows,data,cols,first){if(!rows.length)return '<p class="muted" style="padding:12px">Sem dados.</p>';var tot={};
   var h='<table class="dyn-table"><thead><tr><th>'+first+'</th>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>';
   rows.forEach(function(r,i){var s=0;h+='<tr><td>'+esc(r)+'</td>'+cols.map(function(c){var v=data[i][c]||0;s+=v;tot[c]=(tot[c]||0)+v;return '<td class="num">'+(v||'')+'</td>'}).join('')+'<td class="num">'+s+'</td></tr>'});
   var g=0;h+='<tr><td><b>Total</b></td>'+cols.map(function(c){g+=tot[c]||0;return '<td class="num">'+(tot[c]||0)+'</td>'}).join('')+'<td class="num">'+g+'</td></tr></tbody></table>';return '<div class="dyn-wrap">'+h+'</div>'}
+// HTML de um campo de data com rótulo.
 function fdate(id,l){return '<div class="filter-group"><label>'+l+'</label><input type="date" id="'+id+'"></div>'}
+// HTML de uma lista de seleção múltipla com rótulo.
 function fms(id,l){return '<div class="filter-group"><label>'+l+'</label><div id="'+id+'"></div></div>'}
 
 /* ---------- Indicador - Geral ---------- */
+// ABA "INDICADOR - GERAL": monta a tela com resumo por status, gráficos, evolução diária e resultado de contato.
 function renderGer(){
   if(!D)return;var Lg=D.light,cursos=Object.keys(cnt(Lg,function(x){return x[1]})).sort(),turnos=Object.keys(cnt(Lg,function(x){return x[2]})).sort();
   var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort(),mo=mesOpts(meses);
@@ -427,6 +520,7 @@ function renderGer(){
   ['dE','dI','dF'].forEach(function(i){$(i).onchange=gDia});['rE','rI','rF'].forEach(function(i){$(i).onchange=gRes});
   $('gX').onclick=function(){limpar(['gS','gC','gT'],[],gBase)};$('dX').onclick=function(){limpar(['dM'],['dE','dI','dF'],gDia)};$('rX').onclick=function(){limpar(['rMs','rSt','rRs'],['rE','rI','rF'],gRes)};
   gBase();gDia();gRes()}
+// Cartões e gráficos de status (filtros: status, curso, turno).
 function gBase(){var s=msv('gS'),c=msv('gC'),t=msv('gT');
   var L=D.light.filter(function(x){return(!s.length||s.indexOf(x[0])>=0)&&(!c.length||c.indexOf(x[1])>=0)&&(!t.length||t.indexOf(x[2])>=0)});
   var cs=cnt(L,function(x){return x[0]||'(vazio)'}),dv=STATUS7.map(function(k){return cs[k]||0});
@@ -434,7 +528,9 @@ function gBase(){var s=msv('gS'),c=msv('gC'),t=msv('gT');
   chart('gc1','bar',STATUS7,[{l:'Alunos',d:dv}]);chart('gc2','pie',STATUS7,[{l:'Alunos',d:dv}]);
   var cu=cnt(L,function(x){return x[1]}),top=Object.keys(cu).sort(function(a,b){return cu[b]-cu[a]}).slice(0,10);chart('gc3','bar',top,[{l:'Alunos',d:top.map(function(k){return cu[k]})}]);
   var tu=cnt(L,function(x){return x[2]||'(vazio)'}),tk=Object.keys(tu);chart('gc4','pie',tk,[{l:'Alunos',d:tk.map(function(k){return tu[k]})}])}
+// Gráfico "Evolução diária de registros".
 function gDia(){var R=filtroData(D.regs,msv('dM'),$('dI').value,$('dF').value,$('dE').value),c=cnt(R,function(r){return r.data.slice(0,10)}),k=Object.keys(c).sort();chart('gc5','bar',k.map(ddmm),[{l:'Registros',d:k.map(function(x){return c[x]})}])}
+// Gráficos e tabela "Resultado de contato" (por data e resultado).
 function gRes(){var st=msv('rSt'),rs=msv('rRs');
   var R=filtroData(D.regs,msv('rMs'),$('rI').value,$('rF').value,$('rE').value).filter(function(r){return(!st.length||st.indexOf(r.status)>=0)&&(!rs.length||rs.indexOf(r.resultado)>=0)});
   var c=cnt(R,function(r){return r.resultado}),k=Object.keys(c);chart('gc6','bar',k,[{l:'Total',d:k.map(function(x){return c[x]})}]);chart('gc7','pie',k,[{l:'Total',d:k.map(function(x){return c[x]})}]);
@@ -442,6 +538,7 @@ function gRes(){var st=msv('rSt'),rs=msv('rRs');
   $('piv').innerHTML=pivot(dias.map(ddmm),dias.map(function(d){return m[d]}),k,'Data')}
 
 /* ---------- Indicador - Colaborador ---------- */
+// ABA "INDICADOR - COLABORADOR": cartões por colaborador, a tabela Atendimentos e Alunos contatados, gráficos e tabelas.
 function renderCol(){
   if(!D)return;var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort();
   $('v-col').innerHTML='<div class="filters-row">'+fms('cM','Mês')+fdate('cI','Data inicial')+fdate('cF','Data final')+fms('cB','Colaborador')+fms('cRs','Resultado do contato')+fms('cBI','Banco — data de início')+fms('cBF','Banco — data final')+'<button class="btn-clear" id="cX">✕ Limpar</button></div>'+
@@ -458,6 +555,7 @@ function renderCol(){
   ['cI','cF'].forEach(function(i){$(i).onchange=cAtu});$('cX').onclick=function(){limpar(['cM','cB','cRs','cBI','cBF'],['cI','cF'],cAtu)};
   ['iaI','iaF'].forEach(function(i){$(i).onchange=iaFiltrar});$('iaS').onclick=iaSem;$('iaX').onclick=iaLimpar;
   cAtu();iaRender()}
+// Atualiza cartões, gráficos e tabelas da aba Colaborador conforme os filtros.
 function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]||e},bs=bancoSet(msv('cBI'),msv('cBF'));
   var R=filtroData(D.regs,msv('cM'),$('cI').value,$('cF').value).filter(function(r){return(!cb.length||cb.indexOf(r.colab)>=0)&&(!crs.length||crs.indexOf(r.resultado)>=0)&&(!bs||bs[r.cpf])});
   var respN=cnt(Object.keys(D.resp).filter(function(c){return D.resp[c]&&(!bs||bs[c])}),function(c){return D.resp[c]});
@@ -483,9 +581,13 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
 
 
 /* ---------- Indicador - Atendimentos e Alunos contatados ---------- */
+// Indicador - Atendimentos e Alunos contatados: IA_SEM = botão Semestre ligado | IA_ULT = último modelo calculado (usado nos downloads).
 var IA_SEM=false,IA_ULT=null;
+// Mudou mês ou data: desliga o Semestre e refaz a tabela.
 function iaFiltrar(){IA_SEM=false;iaRender()}
+// Botão Semestre da tabela: total do semestre inteiro em um único grupo.
 function iaSem(){IA_SEM=!IA_SEM;if(IA_SEM){$('iaI').value='';$('iaF').value='';var m=MS.iaM;m.sel=[];msMake('iaM',m.opts,m.cb)}iaRender()}
+// Botão Limpar da tabela.
 function iaLimpar(){IA_SEM=false;limpar(['iaM'],['iaI','iaF'],iaRender)}
 // Calcula os números (usado na tela, no Excel e na imagem)
 function iaModelo(){
@@ -510,6 +612,7 @@ function iaModelo(){
   var ga={},gl={};grupos.forEach(function(g){cols.forEach(function(c){ga[c]=(ga[c]||0)+(g.at[c]||0);gl[c]=(gl[c]||0)+(g.al[c]||0)})});
   return {cols:cols,grupos:grupos,modo:modo,rotCol:modo==='dia'?'Data':modo==='mes'?'Mês':'Semestre',
           geral:{at:ga,al:gl,tAt:soma(ga),tAl:soma(gl)},ocultarGeral:(modo!=='dia'&&grupos.length===1)}}
+// Desenha a tabela Atendimentos e Alunos contatados com os totais do dia e o Total Geral.
 function iaRender(){
   var cont=$('iaT');if(!cont)return;
   var b=$('iaS');if(b)b.classList.toggle('on',IA_SEM);
@@ -542,6 +645,7 @@ function iaAbaExcel(){
   return {nome:'Atendimentos e Alunos',cab:cab,linhas:linhas,totalLinhas:tot,larg:cab.map(function(c,i){return i===0?16:i===1?36:Math.max(14,c.length+4)})}}
 
 /* ---------- Configurações ---------- */
+// Abre a janela ⚙️ Configurações do Call Center (menu à esquerda; itens de Admin só aparecem para Admin).
 function abrirCfg(){
   var itens=[['sem','📅','Semestre'],['tema','🎨','Tema'],['trocper','⇄','Trocar de semestre'],['trocsis','⇄','Trocar de sistema']];
   var adm=[['opc','📋','Opções de Registro'],['marca','🏷️','Logo e Nome'],['semcad','🔄','Troca de Semestre']];
@@ -551,13 +655,19 @@ function abrirCfg(){
   var bd=o.querySelector('#cb');
   Array.prototype.forEach.call(o.querySelectorAll('.sn-item'),function(b){b.onclick=function(){Array.prototype.forEach.call(o.querySelectorAll('.sn-item'),function(x){x.classList.remove('active')});b.classList.add('active');cfgTela(b.dataset.k,bd,o)}});
   cfgTela('sem',bd,o)}
+// Fecha a janela e pede ao sistema principal para trocar de período ou de sistema.
 function irPara(t,o){o.remove();parent.postMessage({ccb:1,t:t},'*')}
+// Mostra a tela do item de configuração escolhido.
 function cfgTela(k,bd,o){if(k==='trocper'){irPara('periodo',o);return}if(k==='trocsis'){irPara('sistema',o);return}({sem:tSem,tema:tTema,opc:tOpc,marca:tMarca,semcad:tSemCad})[k](bd,o)}
+// Lê um arquivo de imagem escolhido pelo usuário.
 function lerImg(file,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){cb(im)};im.src=r.result};r.readAsDataURL(file)}
+// Configurações › Semestre: escolhe o semestre de trabalho.
 function tSem(bd,o){bd.innerHTML='<h2>Semestre Ativo</h2><p class="sb-desc">Selecione o semestre que está sendo trabalhado no momento.</p><div class="semester-cards">'+SEMS.map(function(s){return '<div class="semester-card'+(s===ME.semestre?' active':'')+'" data-s="'+esc(s)+'">'+esc(s)+'</div>'}).join('')+'</div>';
   Array.prototype.forEach.call(bd.querySelectorAll('.semester-card'),function(c){c.onclick=function(){var s=c.dataset.s;call('setSem',{sem:s}).then(function(){ME.semestre=s;$('hSem').textContent='Semestre: '+s;o.remove();carregar();toast('Semestre alterado para '+s)})}})}
+// Configurações › Tema: claro ou escuro.
 function tTema(bd){var esc_=ME.tema==='Tema Escuro';bd.innerHTML='<h2>Tema do Sistema</h2><p class="sb-desc">Escolha entre o tema padrão (claro) ou o tema escuro.</p><div class="theme-btns"><div class="theme-btn'+(esc_?'':' active')+'" data-t="Padrão"><span class="tb-icon">☀️</span><span class="tb-label">Padrão</span></div><div class="theme-btn'+(esc_?' active':'')+'" data-t="Tema Escuro"><span class="tb-icon">🌙</span><span class="tb-label">Tema Escuro</span></div></div>';
   Array.prototype.forEach.call(bd.querySelectorAll('.theme-btn'),function(b){b.onclick=function(){call('setTema',{tema:b.dataset.t}).then(function(){ME.tema=b.dataset.t;tema(b.dataset.t);tTema(bd);if(D&&ADMIN){if(TAB==='ger')renderGer();if(TAB==='col')renderCol()}})}})}
+// Configurações › Opções de Registro (Admin): listas de Objetivo, Meio e Resultado.
 function tOpc(bd){var T3=[['Objetivo','Objetivo do Contato'],['Meio','Meio de Comunicação'],['Resultado','Resultado do Contato']];
   bd.innerHTML='<h2>Opções de Registro</h2><p class="sb-desc">Gerencie as opções disponíveis nos campos de registro de contato.</p>'+T3.map(function(t){return '<div><div class="lbl">'+t[1]+'</div><div class="opts-list">'+OPC[t[0]].map(function(v){return '<div class="opt-item"><span class="opt-grip" title="Arraste para mudar a ordem"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="opt-txt">'+esc(v)+'</span><button class="btn-del" title="Excluir" data-d="'+t[0]+'" data-v="'+esc(v)+'">🗑️</button></div>'}).join('')+'</div><div class="add-opt-row"><input id="n'+t[0]+'" placeholder="Nova opção..."><button class="btn-primary" data-a="'+t[0]+'">+ Adicionar</button></div></div>'}).join('');
   Array.prototype.forEach.call(bd.querySelectorAll('button[data-a]'),function(b){b.onclick=function(){call('opcAdd',{tipo:b.dataset.a,valor:$('n'+b.dataset.a).value.trim()}).then(function(x){OPC=x;tOpc(bd)})}});
@@ -599,6 +709,7 @@ function opcArrastar(bd,refazer){
         call('opcOrdem',{tipo:tipo,valores:vs}).then(function(r){OPC=r;toast('Ordem salva')},function(){toast('Não foi possível salvar a ordem.','err')}).then(refazer)}
       function cancelou(){limpa();refazer()}
     })})}
+// Configurações › Logo e Nome (Admin): logo e nomes do Call Center.
 function tMarca(bd){
   var dLogo=CFG.logo||'';
   bd.innerHTML='<h2>Logo e Nome do Sistema</h2><p class="sb-desc">A logo e o nome aparecem no cabeçalho do Call Center.</p>'+
@@ -624,6 +735,7 @@ function tMarca(bd){
     })(0);
   };
 }
+// Configurações › Troca de Semestre (Admin): cadastro dos semestres e das planilhas de cada um.
 function tSemCad(bd,o){call('semList').then(function(L){
   bd.innerHTML='<h2>Troca de Semestre / Planilhas</h2><p class=\"sb-desc\">Cadastre ou edite as planilhas de cada semestre. Cada semestre pode ter a sua própria planilha de registros: o sistema cria as abas e os cabeçalhos sozinho.</p><div style=\"overflow-x:auto\"><table class=\"users-table\"><thead><tr><th>Semestre</th><th>Base geral</th><th>Call Center</th><th>Registros</th><th>Ações</th></tr></thead><tbody>'+L.map(function(s,i){return '<tr><td><b>'+esc(s.sem)+'</b></td><td>'+(s.base?'✔ configurada':'—')+'</td><td>'+(s.cc?'✔ configurada':'—')+'</td><td>'+(s.reg?'✔ planilha própria':'Planilha principal')+(s.legado?'<div style=\"font-size:11px;color:#b45309\">⚠️ '+s.legado+' registro(s) antigo(s) continuam na planilha principal</div>':'')+'</td><td><button class=\"btn-icon-sm edit\" data-e=\"'+i+'\">✏️</button> <button class=\"btn-icon-sm del\" data-x=\"'+i+'\">🗑️</button></td></tr>'}).join('')+'</tbody></table></div>'+
   '<div class=\"form-field\"><label>Semestre (ex.: 2027.1)</label><input id=\"xs\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Base Geral (aba 1)</label><input id=\"xb\" placeholder=\"Cole o link ou ID da planilha\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Call Center / Aditamentos (aba \"Aditamento\")</label><input id=\"xc\" placeholder=\"Cole o link ou ID da planilha\"></div><div class=\"form-field\"><label>Link ou ID da planilha — Registros deste semestre (onde os novos dados serão salvos)</label><input id=\"xr\" placeholder=\"Cole o link ou ID de uma planilha vazia (vazio = planilha principal)\"></div><div class=\"warn-box\">⚠️ Ao informar a planilha de Registros, o sistema cria nela as abas REGISTROS e RESPONSAVEIS com as colunas já nomeadas. Use uma planilha nova e dê acesso de editor à conta que executa o script. Registros que já estão em outra planilha não são movidos. Ao salvar um semestre existente, os links dele são substituídos.</div><button class=\"btn-primary\" id=\"xk\">🔄 Salvar semestre</button>';
@@ -632,11 +744,18 @@ function tSemCad(bd,o){call('semList').then(function(L){
   $('xk').onclick=function(){call('semSave',{sem:$('xs').value,base:$('xb').value,cc:$('xc').value,reg:$('xr').value}).then(function(l){SEMS=l.map(function(x){return x.sem});toast('Semestre salvo.');tSemCad(bd,o)})}})}
 
 /* ══════════ DOWNLOAD DE GRÁFICOS, CARTÕES E TABELAS (JPG / Excel) ══════════ */
+// Ids dos filtros da aba Indicador - Colaborador (aparecem na legenda das imagens e na aba "Filtros" do Excel).
 var FCOL='cM,cI,cF,cB,cRs,cBI,cBF';   // filtros da aba Indicador - Colaborador
+// Ferramentas para gerar arquivos .xlsx e imagens sem biblioteca externa (mesmas do js_download.html):
+// crc32, u16/u32, juntarBytes, xmlEsc, colLetra, estiloInline, domParaImagem, blocoParaJpg, xlsxTabelas.
 var CRC_T=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+// Soma de verificação do formato .zip/.xlsx.
 function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+// Número de 16 bits em 2 bytes.
 function u16(v){return [v&255,(v>>>8)&255];}
+// Número de 32 bits em 4 bytes.
 function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+// Junta vários pedaços de bytes.
 function juntarBytes(arrs){
   var n=0;arrs.forEach(function(a){n+=a.length;});
   var out=new Uint8Array(n),o=0;
@@ -658,30 +777,39 @@ function zipStore(files){
   var fim=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(offset),u16(0)));
   return juntarBytes(partes.concat([cd,fim]));
 }
+// Faz o navegador baixar um arquivo (nome, bytes e tipo).
 function baixarBytes(nome,bytes,mime){
   var blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=nome;a.style.display='none';
   document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
 }
+// Protege texto para XML (planilha).
 function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Número de coluna → letra da planilha (0=A).
 function colLetra(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+// Fonte usada nas imagens baixadas.
 var FONTE_IMG='"Segoe UI",Roboto,Arial,sans-serif';
+// Converte uma imagem em texto (data URL) para bytes de arquivo.
 function dataUrlBytes(url){
   var b=atob(url.split(',')[1]),a=new Uint8Array(b.length);
   for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
   return a;
 }
+// Propriedades de estilo ignoradas ao fotografar um bloco da tela.
 var JPG_IGN=/(^|-)(block|inline)(-|$)|^inset|^perspective-origin$|^transform-origin$|^animation|^transition|^-webkit-locale$/;
+// Copia o estilo calculado do elemento para ele mesmo (a imagem sai igual à tela).
 function estiloInline(o){
   var cs=getComputedStyle(o),t='';
   for(var i=0;i<cs.length;i++){var p=cs[i];if(JPG_IGN.test(p))continue;t+=p+':'+cs.getPropertyValue(p)+';';}
   return t;
 }
+// Cor de fundo da tela (fundo das imagens).
 function corFundoTela(){
   var c=getComputedStyle(document.body).backgroundColor;
   return (!c||c==='rgba(0, 0, 0, 0)'||c==='transparent')?'#ffffff':c;
 }
+// True se a cor é escura.
 function corEhEscura(c){
   var m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return false;
   return (0.299*m[0]+0.587*m[1]+0.114*m[2])<128;
@@ -755,9 +883,11 @@ function blocoParaJpg(el,titulo,sub){
     return dataUrlBytes(cv.toDataURL('image/jpeg',0.93));
   });
 }
+// Texto seguro para nome de arquivo.
 function nomeArq(s){
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 }
+// Monta o arquivo .xlsx (Excel) com uma ou mais abas, linhas de total em destaque e largura de colunas.
 function xlsxTabelas(abas){
   var HD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
@@ -820,9 +950,11 @@ function xlsxTabelas(abas){
   sheets.forEach(function(s,i){arq.push({nome:'xl/worksheets/sheet'+(i+1)+'.xml',dados:enc.encode(s)});});
   return zipStore(arq);
 }
+// Ícone (SVG) do botão de download.
 var DL_ICONE='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>';
 // t = id do bloco a exportar · n = nome do arquivo · f = ids dos filtros (vão no cabeçalho da imagem) · x = ids das tabelas (se houver, abre a escolha Imagem/Excel)
 function dlBtn(t,n,f,x){return '<span class="dl-wrap no-img"><button type="button" class="dl-btn" data-dt="'+t+'" data-dn="'+esc(n)+'" data-df="'+(f||'')+'" data-dx="'+(x||'')+'" title="'+(x?'Baixar (imagem ou Excel)':'Baixar imagem (.jpg)')+'">'+DL_ICONE+'</button></span>'}
+// Lista (rótulo, valor) dos filtros que estão em uso.
 function listFiltros(f){
   var out=[];
   (f||'').split(',').forEach(function(id){
@@ -832,10 +964,12 @@ function listFiltros(f){
       out.push([lb,MS[id].opts.filter(function(o){return s.indexOf(o.v)>=0}).map(function(o){return o.t}).join(', ')])}
     else if(el.value)out.push([lb,/^\d{4}-\d{2}-\d{2}$/.test(el.value)?ddmm(el.value):el.value])});
   return out}
+// Legenda da imagem: Semestre + filtros ativos.
 function dlSub(f){
   var t='Semestre '+(ME&&ME.semestre||''),l=listFiltros(f);
   if(l.length)t+=' · '+l.map(function(x){return x[0]+': '+x[1]}).join(' · ');
   return t.length>150?t.slice(0,147)+'…':t}
+// Nome do arquivo: CallCenter_semestre_nome.ext.
 function dlArq(n,ext){return 'CallCenter_'+nomeArq(ME.semestre)+'_'+nomeArq(n)+'.'+ext}
 // Indicador - Atendimentos e Alunos contatados: uma imagem para cada data (mês/semestre, conforme o filtro); várias vão num .zip
 function iaTabelaHtml(m,g,geral){
@@ -864,6 +998,7 @@ function iaImagens(b){
     else{var z=dlArq('Indicador - Atendimentos e Alunos contatados imagens','zip');baixarBytes(z,zipStore(arquivos),'application/zip');toast(arquivos.length+' imagens baixadas em '+z)}
   }).catch(function(e){toast('Erro ao gerar as imagens: '+((e&&e.message)||e),'err')})
   .then(function(){document.body.removeChild(host);b.classList.remove('busy')})}
+// Baixa um gráfico/cartão/tabela como imagem JPG.
 function dlImagem(b){
   if(b.dataset.dt==='bx_ia'){iaImagens(b);return}
   var el=$(b.dataset.dt);if(!el){toast('Nada para baixar.','err');return}
@@ -873,6 +1008,7 @@ function dlImagem(b){
     var nome=dlArq(b.dataset.dn,'jpg');baixarBytes(nome,bytes,'image/jpeg');toast('Imagem baixada: '+nome);
   }).catch(function(e){toast('Erro ao gerar a imagem: '+((e&&e.message)||e),'err')})
   .then(function(){b.classList.remove('busy')})}
+// Lê uma tabela da tela e transforma em aba de Excel (números como números).
 function tabelaParaAba(t,nome){
   var cab=[].map.call(t.querySelectorAll('thead th'),function(th){return th.textContent.trim()});
   var linhas=[].map.call(t.querySelectorAll('tbody tr'),function(tr){
@@ -880,6 +1016,7 @@ function tabelaParaAba(t,nome){
   if(!cab.length||!linhas.length)return null;
   return {nome:nome,cab:cab,linhas:linhas,larg:cab.map(function(c,i){return i===0?30:Math.max(14,c.length+4)}),
           totalUltima:String(linhas[linhas.length-1][0]).toLowerCase()==='total'}}
+// Baixa as tabelas do bloco como planilha Excel (.xlsx), com aba "Filtros".
 function dlExcel(b){
   var abas=[];
   (b.dataset.dx||'').split(',').forEach(function(id){if(id==='iaT'){var ai=iaAbaExcel();if(ai)abas.push(ai);return}var t=document.querySelector('#'+id+' table');if(t){var a=tabelaParaAba(t,b.dataset.dn);if(a)abas.push(a)}});
@@ -888,7 +1025,9 @@ function dlExcel(b){
   try{var nome=dlArq(b.dataset.dn,'xlsx');
     baixarBytes(nome,xlsxTabelas(abas),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');toast('Planilha baixada: '+nome)}
   catch(e){toast('Erro ao gerar a planilha: '+e.message,'err')}}
+// Fecha o menu flutuante de download.
 function fecharDlMenu(){var m=$('dlMenu');if(m)m.remove()}
+// Abre o menu Imagem (.jpg) / Excel (.xlsx) junto ao botão clicado.
 function abrirDlMenu(b){
   fecharDlMenu();var m=document.createElement('div');m.id='dlMenu';m.className='dl-menu';
   m.innerHTML='<button type="button" data-k="img">🖼️ Imagem (.jpg)</button><button type="button" data-k="xls">📊 Excel (.xlsx)</button>';
