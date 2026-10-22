@@ -1,3 +1,9 @@
+// ══════════════════════════════════════════════════════════════════════
+// CÓDIGO.GS — arquivo principal (configurações básicas e abertura do sistema)
+// O QUE FAZ: define o ID da planilha mestre, o período inicial e a versão; abre a página (doGet) e junta os arquivos HTML (include).
+// ONDE É USADO: o Apps Script executa doGet ao abrir o link; include() é chamada dentro de Index.html e CallCenter.html.
+// ══════════════════════════════════════════════════════════════════════
+
 // Planilha MESTRE: guarda apenas as abas "Usuarios" e "Periodos".
 // Os registros (Presencial, Ramal, Email, Virtual) ficam na planilha de cada período letivo.
 var SPREADSHEET_ID = '18EeUvCq5RFdqynYoK3rtRsdFgQh3lUAaafdHrKiuE7I';
@@ -19,6 +25,8 @@ var PERIODO_INICIAL = '2026.2';
 // Versão 87 - 2026-10-20 - Atendimentos: removido da aba Reunião o alerta sobre linhas de ocorrências e anexos (continua em Indicadores).
 var VERSAO_SISTEMA = '90';
 
+// PONTO DE ENTRADA do aplicativo web: o Apps Script chama esta função quando alguém abre o link do sistema.
+// Devolve a página Index.html (que monta todas as telas) e libera o uso dentro de iframe.
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -34,4 +42,6 @@ function include(nome) {
   return t.replace(/^\s*<(script|style)>\r?\n?/, '').replace(/\r?\n?<\/(script|style)>\s*$/, '');
 }
 
+// Devolve o número da versão para o rodapé das Configurações (js_boot.html).
+// Também renova o cache da tela do Call Center (ver ccGetHtml em CallCenterBase.gs): suba o número a cada atualização.
 function getVersao() { return VERSAO_SISTEMA; }
