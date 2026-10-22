@@ -1,3 +1,6 @@
+// OCORRÊNCIAS / ANEXOS (UNILEÃO e UNIVS): links das planilhas, leitura para os Indicadores, lista de pendentes, responsável pelo aluno,
+// sincronização entre colaboradores e confirmação (grava na planilha de ocorrências e na aba "Ocorrencias" do período).
+// Telas correspondentes: html_modal_ocorrencias.html e js_ocorrencias.html.
 // ══════════════════════════════════════════════════════════════════════
 // OCORRÊNCIAS / ANEXOS (UNILEÃO e UNIVS) — links das planilhas, pendentes, responsável, sincronização e confirmação.
 // ══════════════════════════════════════════════════════════════════════
@@ -6,14 +9,17 @@
 // Aba "Periodos": C-ID da planilha UNILEÃO | D-ID da planilha UNIVS
 // Em cada planilha (1ª aba): Ocorrências → nome na col C, data na col D | Anexos → nome na col E, data na col F
 // Linha inicial: UNILEÃO = 6 | UNIVS = 8
+// Extrai o ID de um link do Google Sheets (ou devolve o texto se já for o ID).
 function extrairIdPlanilha_(txt) {
   txt = String(txt || '').trim();
   var m = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : txt;
 }
 
+// Monta o link completo da planilha a partir do ID.
 function urlPlanilha_(id) { return id ? 'https://docs.google.com/spreadsheets/d/' + id : ''; }
 
+// Localiza a linha do período na aba Periodos (para ler/gravar os IDs das planilhas de ocorrências).
 function linhaPeriodo_(periodo) {
   var sh = getPeriodosSheet_();
   var data = sh.getDataRange().getValues();
@@ -23,12 +29,14 @@ function linhaPeriodo_(periodo) {
   return null;
 }
 
+// IDs das planilhas UNILEÃO e UNIVS do período (colunas C e D da aba Periodos).
 function getLinksPeriodo_(periodo) {
   var r = linhaPeriodo_(periodo);
   if (!r) return { unileao: '', univs: '' };
   return { unileao: String(r.data[2] || '').trim(), univs: String(r.data[3] || '').trim() };
 }
 
+// Admin: devolve os links das planilhas de ocorrências do período (para a tela de Configurações).
 function getLinksOcorrencias(periodo, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin.' };
@@ -37,6 +45,7 @@ function getLinksOcorrencias(periodo, adminId) {
   } catch(e) { return { success: false, message: e.message }; }
 }
 
+// Admin: confere se as planilhas abrem e grava os IDs em Periodos.
 function salvarLinksOcorrencias(periodo, linkUnileao, linkUnivs, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar os links.' };
@@ -110,8 +119,10 @@ function linkInfo_(rv, plain) {
   return { texto: texto, url: url };
 }
 
+// Chave única (IES, linha, CPF, etapa) de uma confirmação feita pelo sistema.
 function chaveLogOcorr_(ies, linha, cpf, etapa) { return ies + '|' + linha + '|' + cpfNum_(cpf) + '|' + etapa; }
 
+// Lê a aba "Ocorrencias" do período e devolve o conjunto de etapas já confirmadas pelo sistema.
 function lerLogOcorrencias_(periodo) {
   var set = {};
   try {
@@ -133,14 +144,18 @@ function lerLogOcorrencias_(periodo) {
 // A planilha continua sendo a fonte da verdade; o cache só acelera a visualização.
 //   tipo 'aberto'    = alguém está com a janela do aluno aberta (expira em 2,5 min sem sinal de vida)
 //   tipo 'atribuido' = aluno reservado para o colaborador (vale 3 h, renovado enquanto ele usa a tela; some ao concluir ou liberar)
+// Tempos de validade (segundos): janela aberta, aluno atribuído e estado guardado no cache.
 var OC_ABERTO_TTL = 150;     // s
 var OC_ATRIB_TTL = 10800;    // s
 var OC_ST_TTL = 21600;       // s (máximo do cache: 6 h)
 
+// Chave "linha|cpf" de um aluno na lista de pendentes.
 function ocItemKey_(linha, cpf) { return String(linha) + '|' + cpfNum_(cpf); }
 
+// Chave de cache do estado de um período/planilha.
 function ocStKey_(periodo, ies) { return 'ocs|' + periodo + '|' + ies; }
 
+// Lê o estado do cache (responsáveis c e etapas concluídas d) já descartando o que expirou.
 function ocStLer_(cache, chave, agora) {
   var st = { c: {}, d: {} };
   try {
@@ -155,16 +170,19 @@ function ocStLer_(cache, chave, agora) {
   return st;
 }
 
+// Grava o estado no cache (se passar de ~90 KB, descarta as etapas concluídas).
 function ocStGravar_(cache, chave, st) {
   var txt = JSON.stringify({ c: st.c, d: st.d });
   if (txt.length > 90000) txt = JSON.stringify({ c: st.c, d: {} });      // o cache limita cada item a ~100 KB
   cache.put(chave, txt, OC_ST_TTL);
 }
 
+// Formato público do responsável enviado ao navegador.
 function ocRespPub_(c, agora) {
   return { id: String(c.id), nome: c.nome, desde: c.desde, tipo: c.tipo, aberto: !!(c.aberto && c.aberto > agora) };
 }
 
+// Hora atual HH:mm no fuso do script.
 function ocHora_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm'); }
 
 // Janela de um aluno. acao: 'abrir' | 'bater' (renova) | 'forcar' (assume mesmo ocupado) | 'liberar' (fechou a janela) | 'soltar'
