@@ -1,17 +1,25 @@
 <style>
+
+/* ARQUIVO: css_indicadores_usuarios.html */
+/* O QUE FAZ: estilos dos filtros e tabela de Indicadores, das listas de seleção múltipla e da aba Usuários. */
+/* ONDE É USADO: incluído em Index.html. */
+  
   /* INDICADORES */
   .ind-filtros{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
   .ind-filtros select,.ind-filtros input[type="date"]{padding:8px 14px;border:1.5px solid var(--borda);border-radius:8px;
     font-size:13px;outline:none;background:var(--white);min-width:160px;}
   .ind-filtros .date-group{display:flex;align-items:center;gap:6px;}
   .ind-filtros .date-group label{font-size:12px;font-weight:700;color:var(--cinza);white-space:nowrap;}
+  /* Botão Filtrar (azul) e o Semestre (roxo). */
   .btn-filtrar{padding:8px 20px;background:var(--azul2);color:#fff;border:none;
     border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
   .btn-filtrar:hover{background:#1d4ed8;}
   .btn-sem{background:#7c3aed;}
   .btn-sem:hover{background:#6d28d9;}
   .btn-sem.on{background:#4c1d95;box-shadow:0 0 0 3px rgba(124,58,237,.35);}
+  /* Janela rolável da tabela de Indicadores. */
   .ind-wrap{overflow:auto;max-height:calc(100vh - 310px);min-height:260px;border:1.5px solid var(--borda2);border-radius:10px;background:var(--white);}
+  /* Tabela de Indicadores: cabeçalho fixo, linhas, subtotal por data (azul-claro) e total geral (azul-escuro). */
   .ind-table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px;}
   .ind-table th{background:var(--azul);color:#fff;padding:10px 14px;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:3;}
   .ind-table th:first-child,.ind-table th:nth-child(2){text-align:left;}
@@ -56,14 +64,17 @@
   .user-table th{background:var(--azul);color:#fff;padding:10px 16px;text-align:left;}
   .user-table td{padding:10px 16px;border-bottom:1px solid #f1f5f9;}
   .user-table tr:last-child td{border-bottom:none;}
+  /* Etiquetas de perfil (Admin e Colab). */
   .badge-admin{background:#7c3aed;color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;}
   .badge-atend,.badge-colab{background:#2563eb;color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;}
   .btn-excluir{background:#fee2e2;color:#dc2626;border:none;border-radius:6px;
     padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;}
   .btn-excluir:hover{background:#fecaca;}
+  /* Botões Editar e Excluir da lista de usuários. */
   .btn-editar{background:#dbeafe;color:#1d4ed8;border:none;border-radius:6px;padding:5px 12px;
     font-size:12px;font-weight:600;cursor:pointer;margin-right:6px;}
   .btn-editar:hover{background:#bfdbfe;}
+  /* Janela de edição de usuário. */
   .edit-form .form-group{margin-bottom:14px;}
   .edit-form label{display:block;font-size:13px;font-weight:600;color:var(--titulo);margin-bottom:6px;}
   .edit-form input{width:100%;padding:10px 14px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;outline:none;}
