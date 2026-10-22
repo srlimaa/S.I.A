@@ -1,14 +1,15 @@
-// ══════════════════════════════════════════════════════════════════════
-// CÓDIGO.GS — arquivo principal (configurações básicas e abertura do sistema)
-// O QUE FAZ: define o ID da planilha mestre, o período inicial e a versão; abre a página (doGet) e junta os arquivos HTML (include).
-// ONDE É USADO: o Apps Script executa doGet ao abrir o link; include() é chamada dentro de Index.html e CallCenter.html.
-// ══════════════════════════════════════════════════════════════════════
-
+// ARQUIVO PRINCIPAL DO PROJETO (Google Apps Script).
+// O que faz: guarda as constantes globais (planilha mestre, período inicial, versão), publica a página (doGet)
+// e monta a página juntando os arquivos css_*, html_*, js_* e cc_* (include).
+// Os demais arquivos .gs são separados por assunto: Autenticacao, Usuarios, Configuracoes, NomeLogin, Periodos,
+// Registros, Indicadores, Ocorrencias, Listas, Utilitarios e os do Call Center (CallCenterBase e CallCenterApi).
 // Planilha MESTRE: guarda apenas as abas "Usuarios" e "Periodos".
 // Os registros (Presencial, Ramal, Email, Virtual) ficam na planilha de cada período letivo.
+// ID da planilha MESTRE (abas Usuarios, Periodos e Config). Usado em quase todos os arquivos .gs.
 var SPREADSHEET_ID = '18EeUvCq5RFdqynYoK3rtRsdFgQh3lUAaafdHrKiuE7I';
 
 // Período que já usa a planilha acima; é cadastrado automaticamente na primeira execução.
+// Período criado automaticamente, apontando para a planilha mestre, quando a aba Periodos ainda não existe (ver Periodos.gs).
 var PERIODO_INICIAL = '2026.2';
 
 // Número da versão exibido no rodapé das Configurações. Suba +1 a cada atualização.
@@ -23,10 +24,11 @@ var PERIODO_INICIAL = '2026.2';
 // Versão 85 - 2026-10-20 - Atendimentos: em Indicadores, ao filtrar mais de uma data (De/Até) aparece a janela Semana com a soma dos dias por atividade e colaborador, com download em Excel e JPG.
 // Versão 86 - 2026-10-20 - Call Center: o campo Responsável da lista só pode ser alterado pelo Admin; Colab apenas visualiza (também bloqueado no servidor).
 // Versão 87 - 2026-10-20 - Atendimentos: removido da aba Reunião o alerta sobre linhas de ocorrências e anexos (continua em Indicadores).
+// Versão exibida no rodapé das Configurações (js_boot.html chama getVersao). Também compõe a chave de cache da tela do Call Center (ccGetHtml).
+// Obs.: o histórico acima termina na versão 87, mas o valor atual é 90; vale registrar as versões 88 a 90 no histórico.
 var VERSAO_SISTEMA = '90';
 
-// PONTO DE ENTRADA do aplicativo web: o Apps Script chama esta função quando alguém abre o link do sistema.
-// Devolve a página Index.html (que monta todas as telas) e libera o uso dentro de iframe.
+// Ponto de entrada do web app: devolve a página Index.html (template), permitindo exibição dentro de iframe (ALLOWALL).
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -37,11 +39,12 @@ function doGet(e) {
 // Uso nos arquivos HTML:  <?!= include('nome_do_arquivo') ?>
 // Os arquivos js_*, css_* e cc_* ficam embrulhados em <script>/<style> (o Apps Script só aceita HTML válido).
 // Aqui o embrulho é retirado, porque a página (Index/CallCenter) já tem a sua própria tag <script>/<style>.
+// Insere o conteúdo de outro arquivo HTML dentro da página (usado nos arquivos HTML com a tag de include).
+// Remove o <script>/<style> que embrulha os arquivos js_*, css_* e cc_*, pois a página já tem as suas próprias tags.
 function include(nome) {
   var t = HtmlService.createHtmlOutputFromFile(nome).getContent();
   return t.replace(/^\s*<(script|style)>\r?\n?/, '').replace(/\r?\n?<\/(script|style)>\s*$/, '');
 }
 
-// Devolve o número da versão para o rodapé das Configurações (js_boot.html).
-// Também renova o cache da tela do Call Center (ver ccGetHtml em CallCenterBase.gs): suba o número a cada atualização.
+// Devolve o número da versão para o navegador.
 function getVersao() { return VERSAO_SISTEMA; }
