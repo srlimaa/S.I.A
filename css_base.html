@@ -1,17 +1,11 @@
 <style>
-
-/* ARQUIVO: css_base.html */
-/* O QUE FAZ: estilos básicos do sistema de Atendimentos: cores (variáveis), página, tela de login, olho da senha e tela "Retomando sessão". */
-/* ONDE É USADO: incluído em Index.html (dentro de <style>), junto com os outros css_*.html. */
-
-  /* VARIÁVEIS DE COR E MEDIDA do sistema de Atendimentos. Mude aqui para alterar o visual inteiro (azul, verde, bordas, sombras...). */
+/* CSS BASE: variáveis de cor/tamanho (:root), reset, tela de login (cartão, campo de senha com olho) e tela "Retomando a sessão". */
   :root{--azul:#1e3a5f;--azul2:#2563eb;--verde:#16a34a;--laranja:#ea580c;
     --roxo:#7c3aed;--cinza:#64748b;--bg:#f1f5f9;--white:#ffffff;
     --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.10);
     --texto:#1e293b;--titulo:#1e3a5f;--borda:#cbd5e1;--borda2:#e2e8f0;
     --surface2:#f4f6fb;--chip:#e9effa;--chip-b:rgba(30,58,95,.12);--ring:0 0 0 3px rgba(37,99,235,.20);
     --sombra:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.07);}
-  /* Regras gerais: tamanho dos elementos, campos de formulário e fonte da página. */
   *{box-sizing:border-box;margin:0;padding:0;}
   select,textarea,input[type=text],input[type=email],input[type=password],input[type=date],input[type=number]{
     background:var(--white);color:var(--texto);}
@@ -37,11 +31,9 @@
   .pw-eye svg{width:20px;height:20px;display:block;}
   .pw-eye .eye-off{display:none;}
   .pw-eye.on .eye-on{display:none;}.pw-eye.on .eye-off{display:block;}
-  /* Botão Entrar. */
   .btn-login{width:100%;padding:12px;background:var(--azul2);color:#fff;border:none;
     border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;}
   .btn-login:hover{background:#1d4ed8;}
-  /* Mensagem de erro do login. */
   #loginErro{color:#dc2626;font-size:13px;text-align:center;margin-top:12px;display:none;}
 
   /* Retomando a sessão */
