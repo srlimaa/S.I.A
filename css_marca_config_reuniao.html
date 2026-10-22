@@ -1,9 +1,5 @@
 <style>
-
-/* ARQUIVO: css_marca_config_reuniao.html */
-/* O QUE FAZ: estilos de logo/avatares, janela de Configurações, editor de imagem, menu de download e aba Reunião (cartões e gráficos). */
-/* ONDE É USADO: incluído em Index.html. */
-
+/* CSS de MARCA/AVATARES/CONFIGURAÇÕES (janela de configurações, editor de imagem) e da aba REUNIÃO (cartões, gráficos SVG, rosca, balão de dica, menu de download). */
   /* MARCA / AVATARES / CONFIG */
   .login-brand{text-align:center;font-size:46px;line-height:1;margin-bottom:10px;min-height:46px;
     display:flex;align-items:center;justify-content:center;}
@@ -15,7 +11,6 @@
   .av-img{border-radius:50%;object-fit:cover;flex:none;vertical-align:middle;}
   .btn-gear{padding:6px 10px;font-size:16px;line-height:1;}
   @media(max-width:760px){.topbar{flex-wrap:wrap;gap:8px;}}
-  /* Janela de Configurações: menu de abas à esquerda e conteúdo à direita (vira coluna no celular). */
   .modal-box.cfg-box{max-width:860px;height:min(680px,90vh);display:flex;flex-direction:column;overflow:hidden;}
   .cfg-layout{display:flex;gap:22px;flex:1;min-height:0;}
   .cfg-tabs{width:200px;flex:none;display:flex;flex-direction:column;gap:3px;border-right:2px solid var(--borda2);
@@ -33,7 +28,6 @@
     .cfg-tab{white-space:nowrap;width:auto;}
     .cfg-grupo{display:none;}
   }
-  /* Prévias das configurações (nome do login, logo, foto) e campos. */
   .nm-prev-login{background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:10px;padding:12px 18px;margin-bottom:12px;}
   .nm-prev-login > div{background:var(--white);border-radius:10px;padding:10px 14px;text-align:center;}
   .nm-prev-login .t{font-size:17px;font-weight:700;color:var(--titulo);}
@@ -49,11 +43,9 @@
   .emoji-btn{width:38px;height:38px;font-size:20px;border:1.5px solid var(--borda2);background:var(--white);border-radius:8px;cursor:pointer;}
   .emoji-btn:hover{background:#eff6ff;border-color:var(--azul2);}
   .cfg-btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px;}
-  /* Botão com contorno (Escolher imagem, Restaurar...). */
   .btn-outline{padding:9px 14px;border:1.5px solid var(--borda);background:var(--white);color:var(--titulo);border-radius:8px;
     font-size:13px;font-weight:600;cursor:pointer;}
   .btn-outline:hover{background:#f1f5f9;}
-  /* Editor de imagem (recorte, zoom, girar e inverter). */
   .crop-stage{display:flex;justify-content:center;}
   #cropCanvas{max-width:100%;height:auto;border-radius:8px;cursor:grab;touch-action:none;background:var(--borda2);}
   #cropCanvas:active{cursor:grabbing;}
@@ -72,7 +64,6 @@
     font-size:13.5px;cursor:pointer;color:var(--texto);}
   .dl-menu button:hover{background:rgba(37,99,235,.1);}
   .dl-menu small{display:block;color:var(--cinza);font-size:11.5px;margin-top:2px;}
-  /* Aba Reunião: cartões numéricos (KPIs) por atividade. */
   .reu-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:20px;}
   .reu-kpi{background:var(--white);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);border-left:6px solid var(--azul2);
     display:flex;flex-direction:column;gap:2px;}
@@ -82,13 +73,11 @@
   .reu-kpi.main{background:linear-gradient(135deg,#1e3a5f,#2563eb);border-left-color:transparent;}
   .reu-kpi.main span,.reu-kpi.main small{color:rgba(255,255,255,.8);}
   .reu-kpi.main strong{color:#fff;font-size:40px;}
-  /* Aba Reunião: painéis de gráficos. */
   .reu-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;margin-bottom:18px;}
   @media(max-width:900px){.reu-grid{grid-template-columns:1fr;}}
   .reu-panel{background:var(--white);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:18px;min-width:0;}
   .reu-grid .reu-panel{margin-bottom:0;}
   .reu-panel h3{font-size:15px;color:var(--titulo);margin-bottom:12px;}
-  /* Gráficos desenhados em SVG (barras e rosca): eixos, grades, rótulos e destaque ao passar o mouse. */
   svg.ch{width:100%;height:auto;display:block;}
   .ch-grid{stroke:var(--borda2);stroke-width:1;}
   .ch-ax{fill:var(--cinza);font-size:11px;}
@@ -130,7 +119,6 @@
   .leg div{padding:3px 6px;border-radius:6px;cursor:default;transition:background .15s;}
   .leg div.hot{background:rgba(37,99,235,.12);}
   .leg div.hot b{color:var(--azul2);}
-  /* Balão de informação que aparece ao passar o mouse sobre os gráficos. */
   #chTip{position:fixed;z-index:500;pointer-events:none;display:none;background:var(--white);color:var(--texto);
     border:1.5px solid var(--borda);border-radius:10px;padding:9px 13px;font-size:13px;line-height:1.5;
     box-shadow:0 8px 22px rgba(0,0,0,.28);max-width:280px;}
