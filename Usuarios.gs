@@ -1,8 +1,12 @@
+// USUÁRIOS: cadastro, edição, exclusão, avatares e liberação de acesso ao Call Center (coluna H da aba Usuarios).
+// Perfis válidos: Admin e Colab (o antigo "Atend" é convertido automaticamente).
+// Atenção: criarUsuario, excluirUsuario e salvarMeuAvatar não conferem o perfil no servidor; a restrição a Admin hoje vem da tela.
 // ══════════════════════════════════════════════════════════════════════
 // USUÁRIOS — cadastro, edição, exclusão e avatares.
 // ══════════════════════════════════════════════════════════════════════
 
 // Lista de avatares (só quem tem) para o histórico
+// Lista nome/tipo/valor dos usuários que têm avatar, para mostrar nas telas de Histórico e Ranque.
 function getAvatares() {
   try {
     var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
@@ -43,6 +47,7 @@ function salvarMeuAvatar(userId, tipo, valor) {
 
 // ── Usuários ─────────────────────────────────────────────────────────────────
 
+// Lista os usuários para a tela de gerenciamento, já com o indicador de acesso ao Call Center.
 function getUsuarios() {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -67,6 +72,7 @@ function ccFlagTexto_(v) {
   return (v === true || s === 'sim' || s === 's' || s === 'true' || s === '1') ? 'Sim' : 'Não';
 }
 
+// Garante a coluna H "CallCenter" na aba Usuarios.
 function garantirColunaCC_(sheet) {
   if (sheet.getMaxColumns() < 8) sheet.insertColumnsAfter(sheet.getMaxColumns(), 8 - sheet.getMaxColumns());
   if (!String(sheet.getRange(1, 8).getValue()).trim()) sheet.getRange(1, 8).setValue('CallCenter');
@@ -102,6 +108,7 @@ function migrarPerfilColab_(sheet, data) {
   }
 }
 
+// Cadastra um usuário novo (e-mail único), com perfil e acesso ao Call Center (Sim/Não).
 function criarUsuario(nome, email, senha, perfil, cc) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -117,6 +124,8 @@ function criarUsuario(nome, email, senha, perfil, cc) {
   } catch(e) { return { success: false, message: e.message }; }
 }
 
+// Admin: altera nome, e-mail, perfil, senha (vazia = mantém) e acesso ao Call Center.
+// Impede ficar sem nenhum Admin e, se o nome mudou, renomeia o colaborador nos registros dos períodos.
 function editarUsuario(id, nome, email, senha, perfil, adminId, cc) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode editar usuários.' };
@@ -194,6 +203,7 @@ function renomearColaborador_(antigo, novo) {
   return total;
 }
 
+// Remove o usuário da aba Usuarios (sem checagem de perfil no servidor).
 function excluirUsuario(id) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
