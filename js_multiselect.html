@@ -1,4 +1,5 @@
 <script>
+// SELETOR MÚLTIPLO (checkbox em lista suspensa) usado nos filtros de mês, atividade e colaborador. Os ids seguem o padrão msXxx, com msXxx_all e msXxxLabel.
 /* ══════════ MULTI-SELECT ══════════ */
 // Fecha todos ao clicar fora
 document.addEventListener('click',function(e){
@@ -6,12 +7,14 @@ document.addEventListener('click',function(e){
     if(!dd.closest('.ms-container').contains(e.target))dd.classList.remove('open');
   });
 });
+// Abre/fecha uma lista suspensa (fecha as outras).
 function toggleMs(id){
   var dd=document.getElementById(id);
   var wasOpen=dd.classList.contains('open');
   document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});
   if(!wasOpen)dd.classList.add('open');
 }
+// Valores marcados (sem contar o "Todos").
 function getMsValues(id){
   // retorna array de valores marcados (excluindo checkbox "todos")
   var dd=document.getElementById(id);
@@ -21,6 +24,7 @@ function getMsValues(id){
   });
   return checked;
 }
+// Atualiza o rótulo ("Todos", o nome ou "N selecionados") e o "Todos".
 function syncMsLabel(id){
   var vals=getMsValues(id);
   var allCb=document.getElementById(id+'_all');
@@ -37,12 +41,14 @@ function syncMsLabel(id){
     labelEl.textContent=vals.length+' selecionados';
   }
 }
+// Marca/desmarca todas as opções.
 function syncMsAll(id,allCb){
   if(id.indexOf('msMes')===0)MES_TOQUE[id]=false;
   var dd=document.getElementById(id);
   dd.querySelectorAll('input[type=checkbox][value]').forEach(function(cb){cb.checked=allCb.checked;});
   syncMsLabel(id);
 }
+// Clique na linha "Todos".
 function toggleMsAll(id,e){
   // evita disparar ao clicar direto no checkbox
   if(e&&e.target&&e.target.type==='checkbox')return;
@@ -50,6 +56,7 @@ function toggleMsAll(id,e){
   allCb.checked=!allCb.checked;
   syncMsAll(id,allCb);
 }
+// Define todas as opções por código.
 function setMsAll(id,checked){
   if(id.indexOf('msMes')===0)MES_TOQUE[id]=false;
   var allCb=document.getElementById(id+'_all');
