@@ -1,10 +1,18 @@
 <script>
+// OCORRÊNCIAS UNILEÃO / UNIVS (cliente): lista de alunos pendentes, responsável por aluno e confirmação de Ocorrência e Anexo.
+// Atualização automática: a cada 5 s consulta só quem está com cada aluno (ocSync); a lista completa é relida a cada 2 min.
+// Regra de convivência: quem abre um aluno vira o responsável; outros veem o aviso e precisam aguardar ou assumir.
 /* ══════════ OCORRÊNCIAS (UNILEÃO / UNIVS) ══════════ */
 var OC={ies:null,itens:[],cur:null,rotulo:{unileao:'Unileão',univs:'Univs'},poll:null,beat:null,reload:null,sel:{},vis:[],sig:'',busy:false,visHook:false};
+// Data do computador do usuário (AAAA-MM-DD), enviada na confirmação.
 function dataLocalISO(){var d=new Date(),p=function(n){return String(n).padStart(2,'0');};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+// Chave "linha|cpf" do aluno.
 function ocKey(it){return it.linha+'|'+String(it.cpf==null?'':it.cpf).replace(/\D/g,'');}
+// Indica se o responsável é o usuário logado.
 function ocEu(r){return !!(r&&USUARIO&&String(r.id)===String(USUARIO.id));}
+// Mensagem no lugar da tabela.
 function ocMsg(t){document.getElementById('ocTabela').innerHTML='<p class="ind-msg" style="padding:20px;">'+t+'</p>';document.getElementById('ocCont').textContent='';}
+// Abre a janela da lista (UNILEÃO ou UNIVS), carrega os pendentes e liga a atualização.
 function abrirOcorrencias(ies){
   OC.ies=ies;OC.itens=[];OC.cur=null;OC.sel={};OC.vis=[];OC.sig='';OC.busy=false;
   document.getElementById('ocTitulo').textContent='📁 Ocorrências - '+OC.rotulo[ies]+' — pendentes';
@@ -22,11 +30,13 @@ function ocIniciarSync(){
   clearInterval(OC.reload);OC.reload=setInterval(function(){if(!OC.cur&&!document.hidden)ocCarregar(true);},120000);
   if(!OC.visHook){OC.visHook=true;document.addEventListener('visibilitychange',function(){if(!document.hidden)ocSync();});}
 }
+// Fecha a janela e desliga as atualizações automáticas.
 function ocFechar(){
   if(OC.cur)ocFecharPopup();
   clearInterval(OC.poll);OC.poll=null;clearInterval(OC.reload);OC.reload=null;
   document.getElementById('ocPopOverlay').classList.remove('open');document.getElementById('ocOverlay').classList.remove('open');
 }
+// Lê a lista de pendentes na planilha (getOcorrenciasPendentes), mantendo a seleção.
 function ocCarregar(silencioso){
   var ies=OC.ies;
   if(!silencioso){ocMsg('Carregando ocorrências...');document.getElementById('fbOcLista').style.display='none';}
@@ -44,6 +54,7 @@ function ocCarregar(silencioso){
     .withFailureHandler(function(err){if(!silencioso&&OC.ies===ies)ocMsg('<span style="color:#dc2626;">Falha ao carregar: '+escHtml((err&&err.message)||'sem conexão')+'</span>');})
     .getOcorrenciasPendentes(PERIODO,ies);
 }
+// Atualização leve do responsável e das etapas concluídas por outras pessoas.
 function ocSync(){
   if(OC.busy||!OC.ies||!OC.itens.length||document.hidden||!document.getElementById('ocOverlay').classList.contains('open'))return;
   var ies=OC.ies;OC.busy=true;
@@ -52,6 +63,7 @@ function ocSync(){
     .withFailureHandler(function(){OC.busy=false;})
     .ocSync(PERIODO,ies,OC.itens.map(function(it){return {linha:it.linha,cpf:it.cpf};}),USUARIO.id);
 }
+// Aplica o retorno da sincronização na lista.
 function ocAplicarSync(r){
   OC.itens.forEach(function(it){
     it.resp=r.resp[it.linha]||null;
@@ -71,9 +83,11 @@ function ocAplicarSync(r){
   if(c&&c._meu&&c.resp&&!ocEu(c.resp)){c._meu=false;c._ocupado=c.resp;ocPopBanner();ocPopEstado();}
   if(concl||ocSig()!==OC.sig)ocRender();
 }
+// Assinatura da lista, para redesenhar só quando algo mudou.
 function ocSig(){
   return JSON.stringify(OC.itens.map(function(it){var r=it.resp;return [it.linha,r&&r.id,r&&r.aberto,r&&r.tipo,it.ocPend,it.anPend];}));
 }
+// HTML de um link de arquivo da planilha.
 function ocLink(l,vazioTxt){
   if(!l||(!l.url&&!l.texto))return '<span class="oc-nil">'+(vazioTxt||'—')+'</span>';
   var t=l.texto||'';if(!t||/^https?:\/\//i.test(t))t='Abrir link';
@@ -81,18 +95,21 @@ function ocLink(l,vazioTxt){
   if(!l.url)return escHtml(t);
   return '<a class="oc-link" href="'+escHtml(l.url)+'" target="_blank" rel="noopener noreferrer" title="'+escHtml(l.texto||l.url)+'">🔗 '+escHtml(t)+'</a>';
 }
+// Etiqueta com o responsável do aluno.
 function ocChipResp(r){
   if(!r)return '<span class="oc-nil">Livre</span>';
   var eu=ocEu(r);
   var dica=(r.aberto?'Com a janela deste aluno aberta agora':'Aluno atribuído')+(r.desde?' desde '+r.desde:'');
   return '<span class="oc-chip" title="'+escHtml(dica)+'">'+avatarHTML(avatarDe(r.nome),22)+escHtml(eu?'Você':r.nome)+(r.aberto?' <small>· aberto agora</small>':'')+'</span>';
 }
+// Célula com o estado Ocorrência/Anexo (pendente ou feito).
 function ocPendCel(it){
   var p=[];
   p.push(it.ocPend?'<span class="oc-tag pend">Ocorrência</span>':'<span class="oc-tag ok" title="'+escHtml(it.feitos&&it.feitos.oc?'Concluída por '+it.feitos.oc.nome:'')+'">✔ Ocorrência</span>');
   if(it.temAnexo)p.push(it.anPend?'<span class="oc-tag pend">Anexo</span>':'<span class="oc-tag ok" title="'+escHtml(it.feitos&&it.feitos.an?'Concluído por '+it.feitos.an.nome:'')+'">✔ Anexo</span>');
   return p.join('');
 }
+// Filtra (busca e responsável) e desenha a tabela.
 function ocRender(){
   var tab=document.getElementById('ocTabela'),sc=tab.scrollTop,scx=tab.scrollLeft;
   var q=semAcento(document.getElementById('ocBusca').value||'').trim(),qd=q.replace(/\D/g,'');
@@ -128,24 +145,32 @@ function ocRender(){
 }
 
 /* ── Seleção e atribuição de responsável em lote ── */
+// Alunos selecionados na lista.
 function ocItensSel(){return OC.itens.filter(function(it){return OC.sel[ocKey(it)];});}
+// Atualiza o contador de selecionados.
 function ocSelCont(){
   var n=ocItensSel().length;
   var b=document.getElementById('btnOcAssumirSel');if(b)b.textContent='👤 Assumir selecionados ('+n+')';
 }
+// Marca/desmarca um aluno.
 function ocSelItem(i,on){var it=OC.itens[i];if(!it)return;if(on)OC.sel[ocKey(it)]=true;else delete OC.sel[ocKey(it)];ocSelCont();}
+// Marca/desmarca todos os visíveis.
 function ocSelTodos(on){
   OC.vis.forEach(function(i){var k=ocKey(OC.itens[i]);if(on)OC.sel[k]=true;else delete OC.sel[k];});
   ocRender();
 }
+// Botão: assumir os selecionados.
 function ocAssumirSel(){ocAtribuir(ocItensSel(),'assumir');}
+// Botão: liberar os selecionados.
 function ocLiberarSel(){ocAtribuir(ocItensSel(),'soltar');}
+// Botão: assumir os próximos N alunos livres.
 function ocAssumirN(){
   var n=Math.max(1,Math.min(200,parseInt(document.getElementById('ocN').value,10)||0));
   var lista=OC.vis.map(function(i){return OC.itens[i];}).filter(function(it){return !it.resp;}).slice(0,n);
   if(!lista.length){showFeedback('fbOcLista','Não há alunos livres na lista atual.',false);return;}
   ocAtribuir(lista,'assumir');
 }
+// Envia a atribuição ou liberação em lote (ocAtribuir no servidor).
 function ocAtribuir(lista,modo){
   if(!lista.length){showFeedback('fbOcLista','Selecione ao menos um aluno.',false);return;}
   var ies=OC.ies;
@@ -173,10 +198,12 @@ function ocAtribuir(lista,modo){
 }
 
 /* ── Janela de um aluno ── */
+// Dados do aluno na janela de confirmação.
 function ocPopInfo(it){
   function campo(l,v){return '<div><small>'+l+'</small><b>'+(v?escHtml(v):'—')+'</b></div>';}
   document.getElementById('ocPopInfo').innerHTML=campo('Data a ser informada',it.dataInfo)+campo('Semestre referência',it.semestre)+campo('Tipo de ocorrência',it.tipo);
 }
+// Faixa que mostra se o aluno está com você ou com outra pessoa.
 function ocPopBanner(){
   var it=OC.cur,bx=document.getElementById('ocPopResp');if(!it)return;
   if(it._ocupado){
@@ -190,6 +217,7 @@ function ocPopBanner(){
     bx.className='oc-resp espera';bx.textContent='Verificando se alguém já está com este aluno...';
   }
 }
+// Abre a janela de um aluno e tenta reservá-lo (ocClaim "abrir").
 function ocAbrir(i){
   var it=OC.itens[i];if(!it)return;
   if(OC.cur)ocFecharPopup();
@@ -212,6 +240,7 @@ function ocAbrir(i){
     .withFailureHandler(function(){if(OC.cur===it){it._meu=true;ocPopBanner();ocPopEstado();}})
     .ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'abrir',USUARIO.id);
 }
+// A cada 40 s renova a marcação de "aberto agora" enquanto a janela estiver aberta.
 function ocBeat(it){         // mantém a marcação de "aberto agora" enquanto a janela estiver aberta
   clearInterval(OC.beat);
   OC.beat=setInterval(function(){
@@ -222,6 +251,7 @@ function ocBeat(it){         // mantém a marcação de "aberto agora" enquanto 
     }).ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'bater',USUARIO.id);
   },40000);
 }
+// Assume o aluno mesmo que outra pessoa esteja com ele (ocClaim "forcar").
 function ocAssumir(){
   var it=OC.cur;if(!it||!it._ocupado)return;
   if(!confirm(it._ocupado.nome+' está com este aluno. Assumir mesmo assim?'))return;
@@ -231,6 +261,7 @@ function ocAssumir(){
     ocPopBanner();ocPopEstado();
   }).ocClaim(PERIODO,OC.ies,it.linha,it.cpf,'forcar',USUARIO.id);
 }
+// Habilita ou desabilita os botões Confirmar conforme o estado.
 function ocPopEstado(){
   var it=OC.cur;if(!it)return;
   var bloq=!it._meu;      // aguardando a verificação ou aluno em uso por outra pessoa
@@ -239,6 +270,7 @@ function ocPopEstado(){
   ba.disabled=bloq||!(it.temAnexo&&it.anPend);
   ba.textContent=!it.temAnexo?'Sem anexo':(it.anPend?'Confirmar':'✔ Confirmado');
 }
+// Confirma a etapa (confirmarOcorrencia): grava nome e data na planilha de ocorrências e no sistema.
 function ocConfirmar(etapa){
   var it=OC.cur;if(!it)return;
   var btn=document.getElementById(etapa==='Ocorrência'?'btnOcOcorr':'btnOcAnexo');
@@ -261,6 +293,7 @@ function ocConfirmar(etapa){
     .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar.',false);})
     .confirmarOcorrencia(PERIODO,OC.ies,it.linha,it.cpf,etapa,document.getElementById('ocObs').value,USUARIO.id,dataLocalISO());
 }
+// Fecha a janela do aluno e libera a marcação.
 function ocFecharPopup(){
   var it=OC.cur;
   clearInterval(OC.beat);OC.beat=null;
