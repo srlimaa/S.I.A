@@ -1,13 +1,19 @@
 <script>
+// CALL CENTER dentro do sistema (cliente): abre a tela CallCenter.html em um iframe (srcdoc) e faz a "ponte" de mensagens (postMessage).
+// O iframe não chama o servidor direto: pede ao sistema principal, que só aceita ccApi e ccApiLogout. Também pré-carrega os dados enquanto a tela abre.
 /* ══════════ CALL CENTER (iframe + ponte) ══════════ */
+// Mostra mensagem (ou erro) sobre a área do Call Center, com atalhos de trocar período ou sistema.
 function ccMensagem(txt,erro,botoes){
   var m=document.getElementById('ccMsg');
   m.className='cc-msg'+(erro?' erro':'');m.style.display='flex';
   m.innerHTML='<div>'+escHtml(txt)+'</div>'+(botoes?'<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"><button class="btn-outline" onclick="ccTrocarPeriodo()">📅 Escolher outro período</button><button class="btn-outline" onclick="ccTrocarSistema()">⇄ Sistemas</button></div>':'');
 }
+// Remove o iframe.
 function ccRemoverFrame(){var f=document.getElementById('ccFrame');if(f)f.remove();}
 /* Dados do Call Center buscados enquanto a tela ainda está abrindo (evita esperar em fila) */
+// Dados do Call Center buscados antecipadamente.
 var CC_PRE=null;
+// Busca boot e getData em paralelo, antes de a tela estar pronta.
 function ccPrefetch(){
   var p={ok:false,fim:false,boot:null,data:null,espera:null};CC_PRE=p;
   function chamar(fn,a){return new Promise(function(res,rej){google.script.run.withSuccessHandler(res).withFailureHandler(rej).ccApi(CC_SESSAO.token,fn,a);});}
@@ -15,6 +21,7 @@ function ccPrefetch(){
     if(r[0]&&r[0].ok&&r[1]&&r[1].ok){p.boot=r[0].ok;p.data=r[1].ok;p.ok=true;}
   }).catch(function(){}).then(function(){p.fim=true;if(p.espera){var f=p.espera;p.espera=null;f();}});
 }
+// Abre o Call Center: define o semestre do usuário (ccAbrirPeriodo) enquanto carrega a tela.
 function abrirCC(){
   ABERTO='cc';CC_PRE=null;
   document.getElementById('ccScreen').style.display='flex';
@@ -36,8 +43,10 @@ function abrirCC(){
     .withFailureHandler(function(err){falhou=true;ccMensagem('Não foi possível abrir o Call Center: '+((err&&err.message)||'falha ao conectar'),true,true);})
     .ccAbrirPeriodo(CC_SESSAO.token,PERIODO);
 }
+// Fila de espera da tela HTML.
 var CC_HTML_CBS=null;
 // silencioso = pré-carga em segundo plano (logo após o login), sem mensagens de erro
+// Busca o HTML da tela (ccGetHtml), com cache; silencioso = pré-carga após o login.
 function ccCarregarHtml(cb,silencioso){
   if(CC_HTML){if(cb)cb();return;}
   if(CC_HTML_CBS){if(cb)CC_HTML_CBS.push(cb);return;}
@@ -48,13 +57,17 @@ function ccCarregarHtml(cb,silencioso){
       if(l.length&&!silencioso)ccMensagem('Não foi possível carregar a tela do Call Center ('+((err&&err.message)||'erro')+'). Confira se existe, no projeto, um arquivo HTML chamado "CallCenter".',true,true);})
     .ccGetHtml();
 }
+// Cria o iframe com o HTML carregado.
 function ccMontarFrame(){
   ccRemoverFrame();
   var f=document.createElement('iframe');f.id='ccFrame';f.title='Call Center';f.srcdoc=CC_HTML;
   document.getElementById('ccFrameBox').appendChild(f);
 }
+// Volta à escolha de sistema.
 function ccTrocarSistema(){ABERTO=null;SISTEMA=null;ccRemoverFrame();document.getElementById('ccScreen').style.display='none';mostrarSistemas();}
+// Volta à escolha do período.
 function ccTrocarPeriodo(){abrirSelecaoPeriodo();}
+// Recebe mensagens do iframe: pronto (envia token e dados pré-carregados), chamada ao servidor (somente ccApi/ccApiLogout), sair, trocar período/sistema e sessão expirada.
 window.addEventListener('message',function(e){
   var f=document.getElementById('ccFrame');
   if(!f||e.source!==f.contentWindow)return;
