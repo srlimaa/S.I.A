@@ -1,6 +1,9 @@
 <script>
+// FUNDO DA TELA DE LOGIN (cliente): padrão, cor, degradê ou imagem; vale para login, período e escolha de sistema.
 /* ══════════ FUNDO DA TELA DE LOGIN ══════════ */
+// Fundo atual e rascunho da edição.
 var FUNDO_LOGIN=null,FUNDO_DRAFT={tipo:'padrao',c1:'#1e3a5f',c2:'#2563eb',ang:135,img:''};
+// Converte o fundo em valor CSS.
 function fundoCSS(f){
   var pad='linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)';
   if(!f||!f.tipo||f.tipo==='padrao')return pad;
@@ -9,10 +12,12 @@ function fundoCSS(f){
   if(f.tipo==='imagem'&&f.img)return 'url("'+f.img+'") center/cover no-repeat, '+(f.c1||'#1e3a5f');
   return pad;
 }
+// Aplica o fundo nas três telas de acesso.
 function aplicarFundoLogin(){
   var css=fundoCSS(FUNDO_LOGIN);
   ['loginScreen','periodoScreen','sistemaScreen'].forEach(function(id){document.getElementById(id).style.background=css;});
 }
+// Prepara o painel de edição.
 function fundoIniciar(){
   var f=FUNDO_LOGIN||{tipo:'padrao'};
   FUNDO_DRAFT={tipo:f.tipo||'padrao',c1:f.c1||'#1e3a5f',c2:f.c2||'#2563eb',ang:f.ang==null?135:f.ang,img:f.img||''};
@@ -21,6 +26,7 @@ function fundoIniciar(){
   document.getElementById('fundoAng').value=String(FUNDO_DRAFT.ang);
   fundoTipo(FUNDO_DRAFT.tipo);
 }
+// Troca o tipo de fundo.
 function fundoTipo(t){
   FUNDO_DRAFT.tipo=t;
   document.querySelectorAll('#fundoSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===t);});
@@ -30,13 +36,16 @@ function fundoTipo(t){
   document.getElementById('lblFundoC1').textContent=t==='degrade'?'Primeira cor':'Cor';
   fundoPreview();
 }
+// Lê cores e direção.
 function fundoInput(){
   FUNDO_DRAFT.c1=document.getElementById('fundoC1').value;
   FUNDO_DRAFT.c2=document.getElementById('fundoC2').value;
   FUNDO_DRAFT.ang=parseInt(document.getElementById('fundoAng').value,10);
   fundoPreview();
 }
+// Atualiza a prévia.
 function fundoPreview(){document.getElementById('fundoPreview').style.background=fundoCSS(FUNDO_DRAFT);}
+// Escolhe e recorta a imagem (16:9).
 function fundoArquivo(inp){
   var f=inp.files&&inp.files[0];inp.value='';
   if(!f)return;
@@ -46,6 +55,7 @@ function fundoArquivo(inp){
     onDone:function(url){FUNDO_DRAFT.img=url;fundoPreview();}
   });
 }
+// Salva o fundo (salvarFundoLogin, Admin).
 function fundoSalvar(){
   var d=FUNDO_DRAFT;
   if(d.tipo==='imagem'&&!d.img){showFeedback('fbCfg','Escolha uma imagem para o fundo.',false);return;}
