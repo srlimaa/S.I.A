@@ -1,7 +1,4 @@
-<!-- ARQUIVO: html_modal_imagem.html -->
-<!-- O QUE É: a janela "Ajustar imagem" (recortar, zoom, girar e inverter). -->
-<!-- ONDE É USADO: incluído em Index.html. Programa: js_imagem_crop.html. -->
-
+<!-- JANELA AJUSTAR IMAGEM: recorte, zoom, giro e inversão usados em logo, avatar e fundo. Lógica em js_imagem_crop.html. -->
 <!-- MODAL AJUSTAR IMAGEM -->
 <div class="modal-overlay" id="cropOverlay" style="z-index:300;">
   <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px;">
@@ -11,18 +8,15 @@
       <label class="cfg-label">Formato</label>
       <select id="cropAspect" onchange="cropTrocarAspecto()" style="width:100%;padding:9px 12px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;background:var(--white);"></select>
     </div>
-    <!-- Quadro onde a imagem é desenhada; arraste para posicionar. -->
     <div class="crop-stage"><canvas id="cropCanvas" width="340" height="260"></canvas></div>
     <p class="cfg-hint" style="margin:8px 0 0;">Arraste a imagem para posicionar. A área clara é o que será usado.</p>
     <div class="crop-zoom">🔍 <span>−</span><input type="range" id="cropZoom" min="0.1" max="6" step="0.01" value="1" oninput="cropZoomChange(this.value)"/><span>+</span></div>
-    <!-- Inverter, girar e redefinir. -->
     <div class="crop-tools">
       <button type="button" class="btn-outline" onclick="cropFlip('h')">↔ Inverter</button>
       <button type="button" class="btn-outline" onclick="cropFlip('v')">↕ Inverter</button>
       <button type="button" class="btn-outline" onclick="cropGirar()">⟳ Girar</button>
       <button type="button" class="btn-outline" onclick="cropReset()">Redefinir</button>
     </div>
-    <!-- Cancelar ou Aplicar (gera a imagem final). -->
     <div class="crop-actions">
       <button type="button" class="btn-secundario" onclick="fecharCropper()">Cancelar</button>
       <button type="button" class="btn-salvar-edit" onclick="cropAplicar()">Aplicar</button>
