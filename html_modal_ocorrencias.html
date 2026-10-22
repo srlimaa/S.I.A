@@ -1,19 +1,14 @@
-<!-- ARQUIVO: html_modal_ocorrencias.html -->
-<!-- O QUE É: as janelas de OCORRÊNCIAS (lista de pendentes e janela do aluno) de Unileão e Univs. -->
-<!-- ONDE É USADO: incluído em Index.html. Programa: js_ocorrencias.html. Servidor: Ocorrencias.gs. -->
-
+<!-- JANELAS DE OCORRÊNCIAS: lista de pendentes (UNILEÃO/UNIVS) e janela de um aluno para confirmar Ocorrência/Anexo. Lógica em js_ocorrencias.html. -->
 <!-- MODAL OCORRÊNCIAS -->
 <div class="modal-overlay" id="ocOverlay">
   <div class="modal-box oc-box" onclick="event.stopPropagation()">
     <span class="modal-close" onclick="ocFechar()">✕</span>
     <h3 id="ocTitulo">Ocorrências</h3>
-    <!-- Busca por nome ou CPF, contador e botão Atualizar. -->
     <div class="oc-topo">
       <input type="text" class="oc-busca" id="ocBusca" placeholder="🔍 Buscar por nome ou CPF..." oninput="ocRender()"/>
       <span class="oc-cont" id="ocCont"></span>
       <button type="button" class="btn-outline" onclick="ocCarregar()">↻ Atualizar</button>
     </div>
-    <!-- Filtro de responsável e botões Assumir/Liberar selecionados ou os próximos N livres. -->
     <div class="oc-barra">
       <label>Responsável
         <select id="ocFiltroResp" onchange="ocRender()">
@@ -30,11 +25,9 @@
       <button type="button" class="btn-outline" onclick="ocAssumirN()">Assumir</button>
     </div>
     <div class="feedback" id="fbOcLista" style="margin:0 0 10px;"></div>
-    <!-- Tabela de pendentes, desenhada por ocRender() (js_ocorrencias.html). -->
     <div class="oc-tabela" id="ocTabela"></div>
   </div>
 </div>
-<!-- Janela do aluno: dados, quem está com ele e botões Ocorrência e Anexo. -->
 <div class="modal-overlay oc-pop-overlay" id="ocPopOverlay">
   <div class="modal-box oc-pop" onclick="event.stopPropagation()">
     <span class="modal-close" onclick="ocFecharPopup()">✕</span>
