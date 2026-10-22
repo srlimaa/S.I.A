@@ -1,22 +1,29 @@
+// INDICADORES: soma dos atendimentos por dia, atividade e colaborador de um período.
+// Lê Presencial, Ramal, E-mail e Virtual, as planilhas de ocorrências/anexos (Ocorrencias.gs) e os registros do Call Center (CallCenterBase.gs).
+// Resultado: { indicadores: {data: {atividade: {colaborador: n}}}, colaboradores, avisos }. Usado em Indicadores, Ranque e Reunião.
 // ══════════════════════════════════════════════════════════════════════
 // INDICADORES — soma dos atendimentos por dia/atividade/colaborador.
 // ══════════════════════════════════════════════════════════════════════
 
 // ── Indicadores ───────────────────────────────────────────────────────────────
+// Monta o objeto de indicadores do período; erros em fontes externas viram "avisos" em vez de derrubar a tela.
 function getIndicadores(periodo) {
   try {
     var ss = abrirPlanilhaPeriodo_(periodo);
     var ind = {};
     var colaboradores = [];
 
+    // Registra o colaborador na lista de colaboradores encontrados (sem repetir).
     function addColab(c) {
       if (c && String(c).trim() && colaboradores.indexOf(String(c).trim()) === -1)
         colaboradores.push(String(c).trim());
     }
+    // Garante a estrutura ind[data][atividade] antes de somar.
     function ensure(d, t) {
       if (!ind[d]) ind[d] = {};
       if (!ind[d][t]) ind[d][t] = {};
     }
+    // Converte qualquer valor de data para DD/MM/AAAA.
     function toStr(val) {
       if (!val) return null;
       if (val instanceof Date)
@@ -93,6 +100,7 @@ function getIndicadores(periodo) {
       }
     }
 
+    // Contexto compartilhado com as funções de leitura externas: nomes canônicos (colaboradores + usuários), avisos e funções auxiliares.
     // ── Planilhas de ocorrências/anexos (registro manual; só leitura) ──
     var avisos = [];
     var canon = {}, ctx = null;
