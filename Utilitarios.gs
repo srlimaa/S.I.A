@@ -1,3 +1,4 @@
+// UTILITÁRIOS compartilhados: formatação de datas e semestres, normalização de nomes e CPF e conversões de data para planilha.
 // ══════════════════════════════════════════════════════════════════════
 // UTILITÁRIOS — formatação de datas, semestres e nomes usados por vários arquivos.
 // ══════════════════════════════════════════════════════════════════════
@@ -44,6 +45,7 @@ function formatSemestre(val) {
   return s;
 }
 
+// Normaliza nome para comparação: minúsculas, sem acento e sem espaços repetidos.
 function normNome_(s) {
   s = String(s || '').toLowerCase();
   var mapa = {'á':'a','à':'a','â':'a','ã':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i',
@@ -52,12 +54,14 @@ function normNome_(s) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+// Devolve sempre a mesma grafia para um nome (primeira encontrada), para somar corretamente nos indicadores.
 function nomeCanonico_(nome, canon) {
   var k = normNome_(nome);
   if (!canon[k]) canon[k] = String(nome).replace(/\s+/g, ' ').trim();
   return canon[k];
 }
 
+// Converte data (Date, DD/MM/AAAA ou AAAA-MM-DD) para DD/MM/AAAA; null se inválida. Com tz usa o fuso da planilha.
 function dataBR_(val, tz) {
   if (!val) return null;
   if (val instanceof Date) {
@@ -76,12 +80,16 @@ function dataBR_(val, tz) {
   return null;
 }
 
+// true se o valor é nulo ou só espaços.
 function vazio_(v) { return String(v == null ? '' : v).trim() === ''; }
 
+// true se a célula de anexo está vazia ou só tem traços ("--"), isto é, o aluno não tem anexo.
 function semAnexo_(v) { var t = String(v == null ? '' : v).trim(); return !t || /^[-–—\s]+$/.test(t); }
 
+// Mantém só os dígitos do CPF.
 function cpfNum_(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
 
+// Texto de data DD/MM/AAAA no fuso informado (ou o texto da célula).
 function dataTxt_(v, tz) {
   if (v instanceof Date) return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, tz, 'dd/MM/yyyy');
   return String(v == null ? '' : v).trim();
