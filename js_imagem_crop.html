@@ -1,6 +1,9 @@
 <script>
+// EDITOR DE IMAGEM (cliente): recortar, ampliar, girar e inverter; exporta WebP/PNG dentro do limite de caracteres da planilha.
 /* ── Editor de imagem (recortar / redimensionar / inverter / girar) ── */
+// Estado do editor e tamanho do canvas.
 var CROP=null,CROP_DRAG=null,CW=340,CH=260;
+// Abre o editor com o arquivo escolhido (valida tipo e tamanho).
 function abrirCropper(file,opts){
   if(!file)return;
   if(!/^image\//.test(file.type)){alert('Escolha um arquivo de imagem (PNG, JPG ou WebP).');return;}
@@ -22,7 +25,9 @@ function abrirCropper(file,opts){
   };
   fr.readAsDataURL(file);
 }
+// Fecha o editor.
 function fecharCropper(){document.getElementById('cropOverlay').classList.remove('open');CROP=null;CROP_DRAG=null;}
+// Calcula a área de recorte e os limites de zoom.
 function cropGeom(){
   var a=CROP.opts.aspects[CROP.ai].ratio;
   var fw=Math.min(CW-40,(CH-40)*a),fh=fw/a;
@@ -30,12 +35,14 @@ function cropGeom(){
   var cover=Math.max(fw/rw,fh/rh),contain=Math.min(fw/rw,fh/rh);
   return {fw:fw,fh:fh,fx:(CW-fw)/2,fy:(CH-fh)/2,cover:cover,zmin:Math.max(0.05,contain/cover*0.9),zmax:6};
 }
+// Ajusta o controle de zoom.
 function cropSyncSlider(){
   var g=cropGeom(),z=document.getElementById('cropZoom');
   z.min=g.zmin;z.max=g.zmax;
   CROP.zoom=Math.min(g.zmax,Math.max(g.zmin,CROP.zoom));
   z.value=CROP.zoom;
 }
+// Desenha a prévia.
 function cropDraw(){
   if(!CROP)return;
   var c=document.getElementById('cropCanvas'),x=c.getContext('2d'),g=cropGeom();
@@ -51,14 +58,19 @@ function cropDraw(){
   x.beginPath();x.rect(0,0,CW,CH);x.rect(g.fx,g.fy,g.fw,g.fh);x.fill('evenodd');
   x.strokeStyle='#fff';x.lineWidth=2;x.strokeRect(g.fx,g.fy,g.fw,g.fh);
 }
+// Zoom pelo controle.
 function cropZoomChange(v){if(!CROP)return;CROP.zoom=parseFloat(v);cropDraw();}
+// Inverte horizontal/vertical.
 function cropFlip(eixo){if(!CROP)return;if(eixo==='h')CROP.flipH=!CROP.flipH;else CROP.flipV=!CROP.flipV;cropDraw();}
+// Gira 90 graus.
 function cropGirar(){if(!CROP)return;CROP.rot=(CROP.rot+1)%4;cropSyncSlider();cropDraw();}
+// Redefine.
 function cropReset(){
   if(!CROP)return;
   CROP.rot=0;CROP.flipH=false;CROP.flipV=false;CROP.zoom=1;CROP.cx=0;CROP.cy=0;
   cropSyncSlider();cropDraw();
 }
+// Troca o formato (1:1, 3:1, 16:9).
 function cropTrocarAspecto(){
   if(!CROP)return;
   CROP.ai=parseInt(document.getElementById('cropAspect').value)||0;
@@ -87,6 +99,7 @@ function cropTrocarAspecto(){
     document.getElementById('cropZoom').value=CROP.zoom;cropDraw();
   },{passive:false});
 })();
+// Renderiza a imagem final no tamanho de saída.
 function cropRender(outW,outH,g){
   var c=document.createElement('canvas');c.width=outW;c.height=outH;
   var x=c.getContext('2d'),k=outW/g.fw;
@@ -99,6 +112,7 @@ function cropRender(outW,outH,g){
   return c;
 }
 // Gera a imagem final dentro do limite de caracteres (reduz qualidade/tamanho até caber)
+// Reduz tamanho/qualidade até caber no limite de caracteres.
 function cropExportar(ratio,outW,maxChars,g){
   var fatores=[1,0.75,0.55,0.4],qual=[0.92,0.8,0.65,0.5];
   for(var i=0;i<fatores.length;i++){
@@ -115,6 +129,7 @@ function cropExportar(ratio,outW,maxChars,g){
   }
   return null;
 }
+// Aplica o recorte e devolve a imagem a quem chamou (onDone).
 function cropAplicar(){
   if(!CROP)return;
   var g=cropGeom(),o=CROP.opts,asp=o.aspects[CROP.ai];
