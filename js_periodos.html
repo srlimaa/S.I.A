@@ -1,5 +1,8 @@
 <script>
+// PERÍODO LETIVO e PREFERÊNCIAS (cliente): seleção do período, entrada no sistema escolhido, links de planilhas e cadastro de períodos.
+// No Call Center a lista vem dos semestres cadastrados nele; no Atendimentos, da aba Periodos.
 /* ── Período letivo ── */
+// Mostra a tela de seleção de período.
 function abrirSelecaoPeriodo(){
   document.getElementById('appScreen').style.display='none';
   document.getElementById('ccScreen').style.display='none';
@@ -9,6 +12,7 @@ function abrirSelecaoPeriodo(){
   document.getElementById('fbPeriodoSel').style.display='none';
   carregarPeriodos(PERIODO);
 }
+// Preenche o seletor de período (Call Center: lista rápida do login conferida em segundo plano).
 function carregarPeriodos(selecionar){
   var sel=document.getElementById('periodoSelect');
   sel.innerHTML='<option>Carregando...</option>';
@@ -39,6 +43,7 @@ function carregarPeriodos(selecionar){
       .ccApi(CC_SESSAO.token,'boot',{});
   }else doRegistro();
 }
+// Admin: carrega os links das planilhas de ocorrências do período escolhido (Configurações > Planilhas).
 function carregarLinks(){
   if(!USUARIO||USUARIO.perfil!=='Admin')return;
   var p=document.getElementById('lkPeriodo').value;
@@ -54,6 +59,7 @@ function carregarLinks(){
     })
     .getLinksOcorrencias(p,USUARIO.id);
 }
+// Admin: salva os links de ocorrências do período.
 function salvarLinks(){
   var p=document.getElementById('lkPeriodo').value;
   if(!p){showFeedback('fbLinks','Selecione um período.',false);return;}
@@ -65,6 +71,7 @@ function salvarLinks(){
     .withFailureHandler(function(err){showFeedback('fbLinks','Erro: '+((err&&err.message)||'falha ao conectar.'),false);})
     .salvarLinksOcorrencias(p,document.getElementById('lk_unileao').value,document.getElementById('lk_univs').value,USUARIO.id);
 }
+// Abre o painel Planilhas: lista os períodos (a planilha do Call Center não é mais informada aqui).
 function lkIniciar(){
   var sel=document.getElementById('lkPeriodo');sel.innerHTML='<option>Carregando...</option>';
   google.script.run.withSuccessHandler(function(lista){
@@ -73,18 +80,22 @@ function lkIniciar(){
     if(PERIODO&&lista.indexOf(PERIODO)!==-1)sel.value=PERIODO;
     carregarLinks();
   }).getPeriodos();
-  document.getElementById('lk_cc').value='';
-  google.script.run.withSuccessHandler(function(r){if(r&&r.success)document.getElementById('lk_cc').value=r.link||'';}).getPlanilhaCC(USUARIO.id);
 }
-function lkSalvarCC(){
+// Admin: botão de migração. Confirma, chama migrarCallCenterAdmin (CallCenterMigracao.gs) e mostra o relatório linha a linha.
+function lkMigrarCC(){
+  if(!confirm('Copiar os dados da planilha antiga do Call Center para a estrutura do Atendimentos? Nada é apagado na planilha antiga.'))return;
+  var btn=document.getElementById('btnMigrarCC');btn.disabled=true;btn.textContent='Migrando... aguarde';
+  function liberar(){btn.disabled=false;btn.textContent='Migrar dados da planilha antiga do Call Center';}
   google.script.run
     .withSuccessHandler(function(r){
-      if(r&&r.success){INDICADORES_CACHE={};document.getElementById('lk_cc').value=r.link||'';showFeedback('fbCC','✔ Planilha do Call Center salva!',true);}
+      liberar();
+      if(r&&r.success){INDICADORES_CACHE={};var fb=document.getElementById('fbCC');fb.textContent='✔ '+r.message+'\n'+(r.linhas||[]).join('\n');fb.className='feedback ok';fb.style.whiteSpace='pre-line';fb.style.display='block';}
       else showFeedback('fbCC','Erro: '+((r&&r.message)||'sem resposta do servidor. Confira se a nova versão do script foi implantada.'),false);
     })
-    .withFailureHandler(function(err){showFeedback('fbCC','Erro: '+((err&&err.message)||'falha ao conectar.'),false);})
-    .salvarPlanilhaCC(document.getElementById('lk_cc').value,USUARIO.id);
+    .withFailureHandler(function(err){liberar();showFeedback('fbCC','Erro: '+((err&&err.message)||'falha ao conectar.'),false);})
+    .migrarCallCenterAdmin(USUARIO.id);
 }
+// Lista os períodos cadastrados (painel Períodos letivos).
 function perListar(){
   var box=document.getElementById('perLista');box.innerHTML='<p class="vc-vazio">Carregando...</p>';
   google.script.run.withSuccessHandler(function(lista){
@@ -92,17 +103,22 @@ function perListar(){
       return '<div class="vc-item"><span>📅 '+escHtml(p)+(p===PERIODO?' <small style="color:var(--cinza);">(em uso)</small>':'')+'</span></div>';}).join(''):'<p class="vc-vazio">Nenhum período cadastrado.</p>';
   }).getPeriodos();
 }
+// Marca o tema atual no painel Tema.
 function prefAtualizar(){
   document.querySelectorAll('#prefTemaSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===temaAtual());});
 }
+// Aplica e guarda o tema escolhido no navegador.
 function prefTema(t){aplicarTema(t);try{localStorage.setItem('tema',t);}catch(e){}}
+// Atalhos do menu das configurações: trocar semestre e trocar sistema.
 function prefTrocarPeriodo(){fecharConfig();abrirSelecaoPeriodo();}
 function prefTrocarSistema(){fecharConfig();ABERTO=null;SISTEMA=null;mostrarSistemas();}
+// Botão Continuar da tela de período.
 function confirmarPeriodo(){
   var p=document.getElementById('periodoSelect').value;
   if(!p){showFeedback('fbPeriodoSel','Selecione um período letivo.',false);return;}
   entrarPeriodo(p);
 }
+// Define o período, guarda o estado e abre o app (Atendimentos) ou o Call Center; limpa caches se o período mudou.
 function entrarPeriodo(p){
   if(p!==PERIODO){HISTORICO_CACHE=[];INDICADORES_CACHE={};RANQUE_DADOS=null;}
   PERIODO=p;
@@ -114,12 +130,14 @@ function entrarPeriodo(p){
   document.getElementById('appScreen').style.display='block';
   aplicarPermissoes();carregarAvatares();carregarColabsVirtual();carregarAssuntosExtra();carregarSemestresExtra();showSection('registro');
 }
+// Botão Voltar: retorna para onde o usuário estava.
 function voltarDoPeriodo(){
   document.getElementById('periodoScreen').style.display='none';
   if(ABERTO==='registro')document.getElementById('appScreen').style.display='block';
   else if(ABERTO==='cc')document.getElementById('ccScreen').style.display='flex';
   else mostrarSistemas();
 }
+// Admin: cadastra um novo período (criarPeriodo no servidor).
 function adicionarPeriodo(){
   var periodo=document.getElementById('np_periodo').value.trim();
   var planilha=document.getElementById('np_planilha').value.trim();
