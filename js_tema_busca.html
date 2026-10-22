@@ -1,11 +1,15 @@
 <script>
+// TEMA CLARO/ESCURO e CAMPO DE BUSCA no assunto (cliente). A busca transforma os selects de assunto em lista pesquisável, mantendo o select original como fonte do valor.
 /* ══════════ TEMA CLARO / ESCURO ══════════ */
+// Tema em uso.
 function temaAtual(){return document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';}
+// Aplica o tema.
 function aplicarTema(t){
   if(t==='dark')document.documentElement.setAttribute('data-theme','dark');
   else document.documentElement.removeAttribute('data-theme');
   document.querySelectorAll('#prefTemaSeg button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===t);});
 }
+// Alterna e guarda no navegador.
 function alternarTema(){
   var t=temaAtual()==='dark'?'light':'dark';
   aplicarTema(t);
@@ -14,11 +18,13 @@ function alternarTema(){
 aplicarTema(temaAtual());
 
 /* ══════════ CAMPO DE BUSCA NO ASSUNTO ══════════ */
+// Normaliza texto (minúsculas, sem acento) para buscar.
 function semAcento(s){
   return String(s||'').toLowerCase().replace(/[áàâãä]/g,'a').replace(/[éèêë]/g,'e').replace(/[íìîï]/g,'i')
     .replace(/[óòôõö]/g,'o').replace(/[úùûü]/g,'u').replace(/ç/g,'c');
 }
 // Transforma um <select> em lista com pesquisa (o select original continua guardando o valor)
+// Transforma um select em lista com pesquisa e navegação por teclado.
 function pesquisavel(id){
   var sel=document.getElementById(id);
   if(!sel||sel._ps)return;
