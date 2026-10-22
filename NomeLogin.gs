@@ -1,3 +1,5 @@
+// NOME NA TELA DE LOGIN: texto próprio para o título do login, sem alterar o nome do sistema (topo, escolha de sistema, aba do navegador).
+// Guardado na aba Config, chave "nome_login". Vazio = o login usa o nome do sistema.
 // ══════════════════════════════════════════════════════════════════════
 // NOME NA TELA DE LOGIN — texto próprio para o título do login.
 // Não altera o nome do sistema (escolha do sistema, topo e aba do navegador).
@@ -11,6 +13,7 @@ function getNomeLogin() {
   catch (e) { return ''; }
 }
 
+// Admin: grava só o nome do login. Nas telas atuais quem é usada é salvarTelaLogin (nome + subtítulo); esta fica como alternativa.
 function salvarNomeLogin(nome, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar o nome da tela de login.' };
