@@ -1,6 +1,8 @@
 <script>
+// USUÁRIOS (cliente, somente Admin): lista, cadastro, edição e exclusão, com liberação de acesso ao Call Center.
 /* ══════════ USUÁRIOS ══════════ */
 var USUARIOS_LISTA=[];
+// Busca e desenha a tabela de usuários.
 function carregarUsuarios(){
   carregarAvisoCC();
   google.script.run
@@ -19,6 +21,7 @@ function carregarUsuarios(){
       }).join('');
     }).getUsuarios();
 }
+// Abre a janela de edição preenchida.
 function abrirEdicaoUsuario(id){
   var u=USUARIOS_LISTA.find(function(x){return String(x.id)===String(id);});
   if(!u)return;
@@ -31,7 +34,9 @@ function abrirEdicaoUsuario(id){
   document.getElementById('fbEditUser').style.display='none';
   document.getElementById('editUserOverlay').classList.add('open');
 }
+// Fecha a janela de edição.
 function fecharEdicaoUsuario(){document.getElementById('editUserOverlay').classList.remove('open');}
+// Salva a edição; se o próprio usuário perder o Admin, ajusta a tela.
 function salvarEdicaoUsuario(){
   var id=document.getElementById('eu_id').value;
   var nome=document.getElementById('eu_nome').value.trim();
@@ -65,6 +70,7 @@ function salvarEdicaoUsuario(){
     .withFailureHandler(function(err){liberar();showFeedback('fbEditUser','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
     .editarUsuario(id,nome,email,senha,perfil,USUARIO.id,document.getElementById('eu_cc').value);
 }
+// Cadastra um usuário novo.
 function criarUsuario(){
   var nome=document.getElementById('u_nome').value.trim();
   var email=document.getElementById('u_email').value.trim();
@@ -78,6 +84,7 @@ function criarUsuario(){
       }else showFeedback('fbUsuario','Erro: '+r.message,false);
     }).criarUsuario(nome,email,senha,perfil,document.getElementById('u_cc').value);
 }
+// Exclui após confirmação.
 function excluirUsuario(id){
   if(!confirm('Confirmar exclusão do usuário?'))return;
   google.script.run
@@ -86,6 +93,7 @@ function excluirUsuario(id){
 }
 
 /* Usuários que só existiam na planilha do Call Center (cadastro antigo): precisam ser criados aqui */
+// Avisa sobre pessoas cadastradas só na planilha do Call Center (que precisam ser criadas aqui).
 function carregarAvisoCC(){
   var box=document.getElementById('usuariosAvisoCC');box.style.display='none';
   google.script.run.withSuccessHandler(function(l){
