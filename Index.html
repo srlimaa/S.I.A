@@ -1,3 +1,6 @@
+<!-- PÁGINA PRINCIPAL do sistema de Atendimentos (servida por doGet em Código.gs). -->
+<!-- Só monta a estrutura: junta CSS, telas, janelas e scripts de outros arquivos pelo include() do Código.gs. -->
+<!-- Fluxo: login (js_login) > escolha do sistema (Atendimentos ou Call Center) > período letivo (js_periodos) > app (abas Registro, Histórico, Ranque, Indicadores, Reunião, Usuários). -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -5,6 +8,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Sistema de Atendimentos</title>
 <script>try{if(localStorage.getItem("tema")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>
+<!-- Estilos, em ordem (os últimos podem sobrescrever os primeiros): base, marca/config/reunião, app/histórico, indicadores/usuários, tema escuro/ranque/ocorrências, polimento. -->
 <style>
 <?!= include('css_base') ?>
 <?!= include('css_marca_config_reuniao') ?>
@@ -15,10 +19,13 @@
 </style>
 </head>
 <body>
+<!-- Telas de acesso: login, retomada de sessão, escolha do sistema, período letivo e Call Center (iframe). -->
 <?!= include('html_telas_acesso') ?>
 <!-- ════ APP ════ -->
+<!-- APP do sistema de Atendimentos (aparece depois do login e da escolha do período). -->
 <div id="appScreen">
 
+  <!-- Barra superior: logo, nome do sistema, usuário, engrenagem de configurações e Sair. -->
   <div class="topbar">
     <div class="topbar-left">
       <span class="brand-icon" id="brandIcon" style="font-size:22px;">🏛️</span>
@@ -31,6 +38,7 @@
     </div>
   </div>
 
+  <!-- Abas. Indicadores, Reunião e Usuários só aparecem para Admin (aplicarPermissoes em js_nucleo.html). -->
   <div class="navbar">
     <div class="nav-item active" data-sec="registro" onclick="showSection('registro')">📝 Registro</div>
     <div class="nav-item" data-sec="historico" onclick="showSection('historico')">📋 Histórico</div>
@@ -40,6 +48,7 @@
     <div class="nav-item" data-sec="usuarios" id="navUsuarios" onclick="showSection('usuarios')" style="display:none;">👥 Usuários</div>
   </div>
 
+  <!-- Aba Registro: escolha do tipo (Presencial, Ramal, E-mail e Virtual só para Admin), atalhos de Ocorrências e formulários. -->
   <!-- ═══ REGISTRO ═══ -->
   <div class="content" id="secRegistro">
     <div class="tipo-grid">
@@ -79,6 +88,7 @@
 <?!= include('html_form_virtual') ?>
   </div>
 
+<!-- Demais abas do app. -->
 <?!= include('html_sec_historico') ?>
 <?!= include('html_sec_ranque') ?>
 <?!= include('html_sec_indicadores') ?>
@@ -86,12 +96,15 @@
 <?!= include('html_sec_usuarios') ?>
 </div><!-- /appScreen -->
 
+<!-- Janelas (modais): ocorrências, configurações, ajuste de imagem, edição de usuário e detalhe de registro. -->
 <?!= include('html_modal_ocorrencias') ?>
 <?!= include('html_modal_config') ?>
 <?!= include('html_modal_imagem') ?>
 <?!= include('html_modal_usuario') ?>
 <?!= include('html_modal_registro') ?>
 <script>
+// Scripts, na ordem de carga. Pontos de atenção: os primeiros (login, periodos, nucleo) definem variáveis e funções globais usadas pelos
+// seguintes; js_boot precisa ser o último, pois dispara a leitura da configuração e a retomada da sessão.
 <?!= include('js_login') ?>
 <?!= include('js_periodos') ?>
 <?!= include('js_nucleo') ?>
