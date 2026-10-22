@@ -559,9 +559,46 @@ function tSem(bd,o){bd.innerHTML='<h2>Semestre Ativo</h2><p class="sb-desc">Sele
 function tTema(bd){var esc_=ME.tema==='Tema Escuro';bd.innerHTML='<h2>Tema do Sistema</h2><p class="sb-desc">Escolha entre o tema padrão (claro) ou o tema escuro.</p><div class="theme-btns"><div class="theme-btn'+(esc_?'':' active')+'" data-t="Padrão"><span class="tb-icon">☀️</span><span class="tb-label">Padrão</span></div><div class="theme-btn'+(esc_?' active':'')+'" data-t="Tema Escuro"><span class="tb-icon">🌙</span><span class="tb-label">Tema Escuro</span></div></div>';
   Array.prototype.forEach.call(bd.querySelectorAll('.theme-btn'),function(b){b.onclick=function(){call('setTema',{tema:b.dataset.t}).then(function(){ME.tema=b.dataset.t;tema(b.dataset.t);tTema(bd);if(D&&ADMIN){if(TAB==='ger')renderGer();if(TAB==='col')renderCol()}})}})}
 function tOpc(bd){var T3=[['Objetivo','Objetivo do Contato'],['Meio','Meio de Comunicação'],['Resultado','Resultado do Contato']];
-  bd.innerHTML='<h2>Opções de Registro</h2><p class="sb-desc">Gerencie as opções disponíveis nos campos de registro de contato.</p>'+T3.map(function(t){return '<div><div class="lbl">'+t[1]+'</div><div class="opts-list">'+OPC[t[0]].map(function(v){return '<div class="opt-item"><span>'+esc(v)+'</span><button class="btn-del" title="Excluir" data-d="'+t[0]+'" data-v="'+esc(v)+'">🗑️</button></div>'}).join('')+'</div><div class="add-opt-row"><input id="n'+t[0]+'" placeholder="Nova opção..."><button class="btn-primary" data-a="'+t[0]+'">+ Adicionar</button></div></div>'}).join('');
+  bd.innerHTML='<h2>Opções de Registro</h2><p class="sb-desc">Gerencie as opções disponíveis nos campos de registro de contato.</p>'+T3.map(function(t){return '<div><div class="lbl">'+t[1]+'</div><div class="opts-list">'+OPC[t[0]].map(function(v){return '<div class="opt-item"><span class="opt-grip" title="Arraste para mudar a ordem"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="opt-txt">'+esc(v)+'</span><button class="btn-del" title="Excluir" data-d="'+t[0]+'" data-v="'+esc(v)+'">🗑️</button></div>'}).join('')+'</div><div class="add-opt-row"><input id="n'+t[0]+'" placeholder="Nova opção..."><button class="btn-primary" data-a="'+t[0]+'">+ Adicionar</button></div></div>'}).join('');
   Array.prototype.forEach.call(bd.querySelectorAll('button[data-a]'),function(b){b.onclick=function(){call('opcAdd',{tipo:b.dataset.a,valor:$('n'+b.dataset.a).value.trim()}).then(function(x){OPC=x;tOpc(bd)})}});
-  Array.prototype.forEach.call(bd.querySelectorAll('button[data-d]'),function(b){b.onclick=function(){if(confirm('Excluir "'+b.dataset.v+'"? Registros antigos continuam com esse texto.'))call('opcDel',{tipo:b.dataset.d,valor:b.dataset.v}).then(function(x){OPC=x;tOpc(bd)})}})}
+  Array.prototype.forEach.call(bd.querySelectorAll('button[data-d]'),function(b){b.onclick=function(){if(confirm('Excluir "'+b.dataset.v+'"? Registros antigos continuam com esse texto.'))call('opcDel',{tipo:b.dataset.d,valor:b.dataset.v}).then(function(x){OPC=x;tOpc(bd)})}})
+  opcArrastar(bd,function(){tOpc(bd)})}
+/* Arraste pelo símbolo de pontos (⋮⋮) para mover a opção dentro do próprio grupo. A opção só troca de lugar quando o ponteiro
+   passa exatamente por cima de outra opção. Ao soltar, a ordem é salva para todos. */
+function opcArrastar(bd,refazer){
+  if(!document.getElementById('opcDragCss')){var st=document.createElement('style');st.id='opcDragCss';
+    st.textContent='.opts-list .opt-item{justify-content:flex-start;gap:10px}.opt-txt{flex:1;min-width:0;overflow-wrap:anywhere}'
+    +'.opt-grip{display:grid;grid-template-columns:repeat(2,3px);grid-auto-rows:3px;gap:2px;padding:6px 5px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;flex:none;border-radius:4px}'
+    +'.opt-grip i{width:3px;height:3px;border-radius:50%;background:var(--text-muted,#94a3b8)}.opt-grip:hover i{background:var(--info,#2563eb)}'
+    +'.opts-list .opt-item.arr{opacity:.6;border-style:dashed;box-shadow:0 4px 14px rgba(0,0,0,.2)}.opts-list.arrastando,.opts-list.arrastando .opt-grip{cursor:grabbing}';
+    document.head.appendChild(st)}
+  Array.prototype.forEach.call(bd.querySelectorAll('.opts-list'),function(lista){
+    var add=lista.nextSibling&&lista.nextSibling.querySelector?lista.nextSibling.querySelector('button[data-a]'):null,tipo=add?add.dataset.a:'';
+    function itens(){return Array.prototype.slice.call(lista.querySelectorAll('.opt-item'))}
+    Array.prototype.forEach.call(lista.querySelectorAll('.opt-grip'),function(g){
+      var it=g.parentNode;
+      g.addEventListener('pointerdown',function(e){
+        if(e.pointerType==='mouse'&&e.button!==0)return;
+        e.preventDefault();it.classList.add('arr');lista.classList.add('arrastando');
+        document.addEventListener('pointermove',mov);document.addEventListener('pointerup',soltou);document.addEventListener('pointercancel',cancelou)});
+      function mov(e){
+        var outros=itens().filter(function(o){return o!==it}),pos=itens(),antes=pos.indexOf(it);
+        var y0=lista.getBoundingClientRect().top+lista.clientTop-pos[0].offsetTop;   // posição "de layout" (ignora a animação em andamento)
+        for(var i=0;i<outros.length;i++){var rt=y0+outros[i].offsetTop,rb=rt+outros[i].offsetHeight;
+          if(e.clientY>=rt&&e.clientY<=rb){
+            var depois=pos.indexOf(outros[i])>antes,tops=pos.map(function(o){return o.getBoundingClientRect().top});
+            if(depois)lista.insertBefore(it,outros[i].nextSibling);else lista.insertBefore(it,outros[i]);
+            pos.forEach(function(o,k){var d=tops[k]-o.getBoundingClientRect().top;if(!d||o===it)return;   // desliza suavemente quem foi empurrado
+              o.style.transition='none';o.style.transform='translateY('+d+'px)';o.getBoundingClientRect();o.style.transition='transform .15s';o.style.transform='';});
+            break}}}
+      function limpa(){it.classList.remove('arr');lista.classList.remove('arrastando');
+        document.removeEventListener('pointermove',mov);document.removeEventListener('pointerup',soltou);document.removeEventListener('pointercancel',cancelou)}
+      function soltou(){limpa();
+        var vs=Array.prototype.map.call(lista.querySelectorAll('.opt-item button[data-v]'),function(b){return b.dataset.v});
+        if(vs.join('\u0001')===(OPC[tipo]||[]).join('\u0001'))return;
+        call('opcOrdem',{tipo:tipo,valores:vs}).then(function(r){OPC=r;toast('Ordem salva')},function(){toast('Não foi possível salvar a ordem.','err')}).then(refazer)}
+      function cancelou(){limpa();refazer()}
+    })})}
 function tMarca(bd){
   var dLogo=CFG.logo||'';
   bd.innerHTML='<h2>Logo e Nome do Sistema</h2><p class="sb-desc">A logo e o nome aparecem no cabeçalho do Call Center.</p>'+
