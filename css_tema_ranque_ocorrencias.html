@@ -1,9 +1,15 @@
 <style>
+
+/* ARQUIVO: css_tema_ranque_ocorrencias.html */
+/* O QUE FAZ: tema escuro, campo de busca no Assunto, fundo do login, Ranque, Ocorrências, botão de download e janela Semana. */
+/* ONDE É USADO: incluído em Index.html. */
+
   /* TEMA ESCURO / BUSCA NO ASSUNTO / FUNDO DO LOGIN / AÇÕES DO REGISTRO */
   .ind-avisos{display:none;background:#fef9c3;color:#854d0e;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;}
   .tema-fab{position:fixed;top:14px;right:14px;z-index:5;border:1.5px solid rgba(255,255,255,.6);
     background:rgba(0,0,0,.25);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;}
   .tema-fab:hover{background:rgba(0,0,0,.4);}
+  /* Campo de Assunto com pesquisa (lista que abre com caixa de busca). */
   .ps-wrap{position:relative;}
   .ps-trigger{padding:9px 12px;border:1.5px solid var(--borda);border-radius:8px;font-size:14px;background:var(--white);
     cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;user-select:none;}
@@ -22,21 +28,25 @@
   .ps-op.sel{font-weight:700;color:var(--azul2);}
   .ps-sep{height:1px;background:var(--borda2);margin:6px 0;}
   .ps-vazio{padding:12px;text-align:center;color:var(--cinza);font-size:13px;}
+  /* Botões de escolha única (Tema claro/escuro, tipo de fundo). */
   .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
   .seg button{padding:8px 14px;border:1.5px solid var(--borda);background:var(--white);color:var(--texto);
     border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
   .seg button.active{border-color:var(--azul2);color:var(--azul2);background:rgba(37,99,235,.08);}
   .cor-input{width:64px;height:38px;padding:2px;border:1.5px solid var(--borda);border-radius:8px;background:var(--white);cursor:pointer;}
+  /* Prévia do fundo da tela de login. */
   .fundo-preview{height:90px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;
     color:#fff;font-weight:600;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.5);border:1.5px solid var(--borda);
     background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);}
   .fundo-linha{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+  /* Linha de botões no rodapé das janelas (Editar, Excluir, confirmar). */
   .modal-acoes{display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:20px;
     padding-top:16px;border-top:1px solid var(--borda2);}
   .modal-acoes button{padding:9px 18px;font-size:13px;border-radius:8px;margin:0;}
   .modal-acoes .conf-txt{font-size:13px;font-weight:600;color:#dc2626;margin-right:auto;}
   .btn-excluir-conf{background:#dc2626;color:#fff;border:none;font-weight:600;cursor:pointer;}
   .btn-excluir-conf:hover{background:#b91c1c;}
+  /* Itens das listas das Configurações (colaboradores, assuntos, semestres). */
   .vc-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;
     border:1.5px solid var(--borda2);border-radius:8px;margin-bottom:6px;font-size:14px;}
   .vc-vazio{color:var(--cinza);font-size:13px;padding:8px 0;}
@@ -51,6 +61,7 @@
   .edit-grid .form-group.full{grid-column:1/-1;}
   @media(max-width:600px){.edit-grid{grid-template-columns:1fr;}}
 
+  /* TEMA ESCURO: troca as variáveis de cor. As regras abaixo ajustam o que precisa de cor própria no escuro. */
   [data-theme="dark"]{--bg:#111523;--white:#1c2035;--surface2:#242840;--texto:#e4e8f5;--titulo:#c9d8ff;--cinza:#9aa3bb;
     --borda:#3a4066;--borda2:#2e3352;--chip:rgba(255,255,255,.07);--chip-b:rgba(255,255,255,.10);
     --shadow:0 2px 12px rgba(0,0,0,.35);--sombra:0 1px 2px rgba(0,0,0,.35),0 8px 28px rgba(0,0,0,.40);--ring:0 0 0 3px rgba(96,165,250,.30);color-scheme:dark;}
