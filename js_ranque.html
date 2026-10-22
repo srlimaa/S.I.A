@@ -1,6 +1,9 @@
 <script>
+// RANQUE (cliente): classificação de colaboradores em três colunas (Registro do Atendimento, InfoBip Fechadas e InfoBip Atribuídas), com Top 3 e lista completa.
+// Empate = mesma posição. Registro do Atendimento soma Presencial, Ramal, E-mail, Ocorrências e Anexos (filtráveis por chips). Exporta JPG e Excel.
 /* ══════════ RANQUE ══════════ */
 var RANQUE_DADOS=null;
+// Busca os indicadores do período (getIndicadores).
 function carregarRanque(){
   document.getElementById('rqPeriodo').textContent=PERIODO||'';
   document.getElementById('ranqueContainer').innerHTML='<p class="ind-msg">Carregando ranque...</p>';
@@ -9,6 +12,7 @@ function carregarRanque(){
     .withFailureHandler(function(){document.getElementById('ranqueContainer').innerHTML='<p class="ind-msg" style="color:#dc2626;">Falha ao carregar o ranque.</p>';})
     .getIndicadores(PERIODO);
 }
+// Preenche o filtro de meses.
 function preencherFiltrosRanque(data){
   var mesesSet={};
   Object.keys((data&&data.indicadores)||{}).forEach(function(d){var m=d.split('/');mesesSet[m[1]+'/'+m[2]]=true;});
@@ -29,17 +33,21 @@ function preencherFiltrosRanque(data){
   syncMsLabel('msMesQ');
 }
 var RQ_SEM=false;
+// Botão Filtrar.
 function filtrarRanque(){RQ_SEM=false;atualizarBotaoSem('btnSemRq',false);renderRanque();}
+// Botão Semestre.
 function rqSemestre(){
   RQ_SEM=!RQ_SEM;
   if(RQ_SEM){document.getElementById('rqDe').value='';document.getElementById('rqAte').value='';setMsAll('msMesQ',true);}
   atualizarBotaoSem('btnSemRq',RQ_SEM);renderRanque();
 }
+// Botão Limpar.
 function limparFiltrosRanque(){
   RQ_ATIV_SEL=null;RQ_SEM=false;atualizarBotaoSem('btnSemRq',false);
   document.getElementById('rqDe').value='';document.getElementById('rqAte').value='';
   setMsAll('msMesQ',true);renderRanque();
 }
+// Botão Hoje: ranque do dia.
 function rqHoje(){        // ranque do dia
   var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
   var iso=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
@@ -47,6 +55,7 @@ function rqHoje(){        // ranque do dia
   document.getElementById('rqDe').value=iso;document.getElementById('rqAte').value=iso;
   setMsAll('msMesQ',true);renderRanque();
 }
+// Ordena por valor e nome, atribuindo posições com empate.
 function rqOrdenar(mapa,extra){
   var lista=Object.keys(mapa).filter(function(n){return mapa[n]>0;}).map(function(n){return {nome:n,v:mapa[n],extra:extra?extra(n):''};});
   lista.sort(function(a,b){return b.v-a.v||a.nome.localeCompare(b.nome,'pt',{sensitivity:'base'});});
@@ -54,6 +63,7 @@ function rqOrdenar(mapa,extra){
   lista.forEach(function(it,i){if(it.v!==ant){pos=i+1;ant=it.v;}it.pos=pos;});
   return lista;
 }
+// HTML de uma linha do ranque (medalha, avatar, nome, valor e barra).
 function rqLinha(it,max,top,unidade){
   var medalha=it.pos===1?'🥇':it.pos===2?'🥈':it.pos===3?'🥉':'';
   var pct=max?Math.max(3,Math.round(it.v/max*100)):0;
@@ -66,9 +76,12 @@ function rqLinha(it,max,top,unidade){
     (top?'':'<div class="rq-barra"><i style="width:'+pct+'%"></i></div>')+'</div>';
 }
 /* Atividades que compõem o "Registro do Atendimento" (filtro acumulado com as datas) */
+// Atividades que compõem o Registro do Atendimento.
 var RQ_ATIVS=['Presencial','Ramal','E-mail','Ocorrências','Anexos'];
+// Atividades marcadas (null = todas).
 var RQ_ATIV_SEL=null;                       // null = todas
 function rqAtivAtivas(){return RQ_ATIV_SEL?RQ_ATIVS.filter(function(a){return RQ_ATIV_SEL[a];}):RQ_ATIVS.slice();}
+// Marca/desmarca uma atividade (mantém ao menos uma).
 function rqAtivToggle(nome,on){
   var sel={};rqAtivAtivas().forEach(function(a){sel[a]=true;});
   if(on)sel[nome]=true;else delete sel[nome];
@@ -76,7 +89,9 @@ function rqAtivToggle(nome,on){
   RQ_ATIV_SEL=Object.keys(sel).length===RQ_ATIVS.length?null:sel;
   renderRanque();
 }
+// Volta a considerar todas as atividades.
 function rqAtivTodas(){RQ_ATIV_SEL=null;renderRanque();}
+// HTML dos chips de atividades.
 function rqAtivChips(){
   var at=rqAtivAtivas();
   return '<div class="rq-ativ no-img"><b>Atividades:</b>'+RQ_ATIVS.map(function(a){
@@ -84,11 +99,13 @@ function rqAtivChips(){
     return '<label class="rq-chip'+(on?' on':'')+'"><input type="checkbox"'+(on?' checked':'')+' onchange="rqAtivToggle(\''+a+'\',this.checked)"/> '+a+'</label>';
   }).join('')+(at.length<RQ_ATIVS.length?'<button type="button" class="rq-todas" onclick="rqAtivTodas()">Todas</button>':'')+'</div>';
 }
+// Título do cartão com botões de download.
 function rqCardH4(titulo,col,card,excel){
   var ac=[{rot:'🖼️ Imagem (.jpg)',dica:'Baixar este cartão em imagem (.jpg)',f:function(){rqBaixarJpg(col,card);}}];
   if(excel)ac.push({rot:'📊 Excel (.xlsx)',f:function(){rqBaixarExcel(col);}});
   return '<h4 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+dlBtn('rq_'+col+'_'+card,ac)+'</span></h4>';
 }
+// HTML de uma coluna do ranque (Top 3 e Ranque Total).
 function rqColuna(col,titulo,lista,unidade,extraTopo){
   var max=lista.length?lista[0].v:0;
   var top=lista.slice(0,3).map(function(it){return rqLinha(it,max,true,unidade);}).join('')||'<p class="rq-vazio">Sem registros neste período.</p>';
@@ -97,6 +114,7 @@ function rqColuna(col,titulo,lista,unidade,extraTopo){
     '<div class="rq-card" data-card="'+col+'-top">'+rqCardH4('⭐ Top 3',col,'top',false)+top+'</div>'+
     '<div class="rq-card" data-card="'+col+'-tot">'+rqCardH4('📊 Ranque Total ('+lista.length+')',col,'tot',true)+'<div class="rq-lista">'+todos+'</div></div></div>';
 }
+// Soma os dados das datas filtradas e desenha as três colunas.
 function renderRanque(){
   var res=RANQUE_DADOS,cont=document.getElementById('ranqueContainer');
   if(!res||!res.indicadores){cont.innerHTML='<p class="ind-msg">Sem dados.</p>';return;}
@@ -131,14 +149,17 @@ function renderRanque(){
 }
 
 /* ── Download (JPG / Excel) ── */
+// Último resultado calculado, base do download.
 var RQ_ULT=null;
 var RQ_NOMES={reg:'Registro do Atendimento',fe:'InfoBip — Fechadas',at:'InfoBip — Atribuídas'};
+// Subtítulo das imagens exportadas.
 function rqSubImagem(col){
   var t='Período letivo '+PERIODO+' · '+RQ_ULT.filtro;
   if(col==='reg'&&RQ_ULT.atSel.length<RQ_ATIVS.length)t+=' · Atividades: '+RQ_ULT.atSel.join(', ');
   return t;
 }
 // col/card opcionais: sem argumentos baixa todos os cartões
+// Baixa cartões do ranque em JPG.
 function rqBaixarJpg(col,card){
   if(!RQ_ULT){expMsg('rqDlFb','Aguarde o carregamento do ranque.',false);return;}
   var cont=document.getElementById('ranqueContainer'),itens=[];
@@ -149,6 +170,7 @@ function rqBaixarJpg(col,card){
   });});
   baixarJpgs(itens,'Ranque_'+PERIODO,'rqDlFb');
 }
+// Monta a aba do Excel de uma coluna.
 function rqAbaExcel(c){
   var R=RQ_ULT,L=R[c];
   if(c==='reg'){
@@ -160,6 +182,7 @@ function rqAbaExcel(c){
   return {nome:RQ_NOMES[c],cab:['Posição','Colaborador',a1,a2],larg:[10,32,14,14],
     linhas:L.map(function(it){return [it.pos,it.nome,it.v,(c==='fe'?R.atrib:R.fech)[it.nome]||0];})};
 }
+// Baixa o ranque em Excel.
 function rqBaixarExcel(col){
   if(!RQ_ULT){expMsg('rqDlFb','Aguarde o carregamento do ranque.',false);return;}
   var cols=col?[col]:['reg','fe','at'],abas=cols.map(rqAbaExcel);
