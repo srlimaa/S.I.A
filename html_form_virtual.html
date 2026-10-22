@@ -1,7 +1,4 @@
-<!-- ARQUIVO: html_form_virtual.html -->
-<!-- O QUE É: formulário de registro Virtual (conversas atribuídas e fechadas por colaborador; só Admin). -->
-<!-- ONDE É USADO: incluído em Index.html (aba Registro). Programa: js_registro.html. -->
-
+<!-- FORMULÁRIO de atendimento VIRTUAL (conversas atribuídas e fechadas por colaborador). Visível só para Admin. Envio em confirmarVirtual, js_registro.html. -->
     <!-- Virtual -->
     <div class="form-card" id="formVirtual">
       <h2>💬 Registro Virtual</h2>
@@ -12,7 +9,6 @@
         </div>
         <div class="form-group">
           <label>Colaborador</label>
-          <!-- Colaborador do Virtual (lista gerenciada pelo Admin em Configurações › Colab. Virtual). -->
           <select id="v_colaborador">
             <option value="">— Selecione —</option>
           </select>
@@ -26,7 +22,6 @@
           <input type="number" id="v_fech" min="0" placeholder="0"/>
         </div>
       </div>
-      <!-- Botão Confirmar: chama confirmarVirtual() (js_registro.html). -->
       <button class="btn-confirmar roxo" onclick="confirmarVirtual()">✔ Confirmar</button>
       <div class="feedback" id="fbVirtual"></div>
     </div>
