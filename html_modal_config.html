@@ -1,9 +1,14 @@
+<!-- ARQUIVO: html_modal_config.html -->
+<!-- O QUE É: a janela ⚙️ CONFIGURAÇÕES (menu de abas à esquerda; cada "cfgPane..." é o conteúdo de uma aba). -->
+<!-- ONDE É USADO: incluído em Index.html. Programas: js_config.html (abas), js_listas_admin.html, js_nome_sistema.html, js_fundo_login.html, js_periodos.html. -->
+
 <!-- MODAL CONFIGURAÇÕES -->
 <div class="modal-overlay" id="configOverlay" onclick="if(event.target===this)fecharConfig()">
   <div class="modal-box cfg-box" onclick="event.stopPropagation()">
     <span class="modal-close" onclick="fecharConfig()">✕</span>
     <h3>⚙️ Configurações</h3>
     <div class="cfg-layout">
+    <!-- Menu de abas das Configurações. As marcadas "Administração" só aparecem para Admin (controladas por abrirConfig() em js_config.html). -->
     <nav class="cfg-tabs">
       <button class="cfg-tab active" id="tabCfgUser" onclick="cfgTab('user')">👤 Meu perfil</button>
       <button class="cfg-tab" id="tabCfgPref" onclick="cfgTab('pref')">🎨 Tema</button>
@@ -22,6 +27,7 @@
     </nav>
     <div class="cfg-content">
     <div class="feedback" id="fbCfg" style="margin:0 0 14px;"></div>
+    <!-- ABA Meu perfil: foto/emoji do usuário (salvarMeuAvatar). -->
     <div id="cfgPaneEmoji">
     <div class="cfg-preview user" id="cfgPreview"></div>
     <p class="cfg-hint" id="cfgHint"></p>
@@ -36,6 +42,7 @@
     <input type="file" id="cfgFile" accept="image/*" style="display:none;" onchange="cfgArquivo(this)"/>
     <button class="btn-salvar-edit" id="btnCfgSalvar" onclick="cfgSalvar()">Salvar</button>
     </div>
+    <!-- ABA Colab. Virtual (Admin): colaboradores do registro Virtual e correção de nome em registros antigos. -->
     <div id="cfgPaneVirtual" style="display:none;">
       <p class="cfg-hint">Nomes que aparecem na lista <strong>Colaborador</strong> do registro Virtual. Remover um nome não altera registros já salvos.</p>
       <div id="vcList"></div>
@@ -55,6 +62,7 @@
         <button type="button" class="btn-outline" onclick="vcTrocarRegistros()">Atualizar registros</button>
       </div>
     </div>
+    <!-- ABA Assuntos (Admin): assuntos extras dos formulários. -->
     <div id="cfgPaneAssunto" style="display:none;">
       <p class="cfg-hint">Adicione opções à lista <strong>Assunto</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
       <label class="cfg-label">Aplicar em</label>
@@ -76,6 +84,7 @@
       <label class="cfg-label">Assuntos adicionados</label>
       <div id="asLista"></div>
     </div>
+    <!-- ABA Semestres (Admin): semestres extras dos campos Semestre. -->
     <div id="cfgPaneSemestre" style="display:none;">
       <p class="cfg-hint">Adicione opções ao campo <strong>Semestre</strong>. Elas se somam às que já existem; só as adicionadas aqui podem ser removidas.</p>
       <label class="cfg-label">Aplicar em</label>
@@ -93,6 +102,7 @@
       <label class="cfg-label">Semestres adicionados</label>
       <div id="smLista"></div>
     </div>
+    <!-- ABA Tema: claro ou escuro. -->
     <div id="cfgPanePref" style="display:none;">
       <label class="cfg-label">Tema</label>
       <div class="seg" id="prefTemaSeg">
@@ -101,6 +111,7 @@
       </div>
       <p class="cfg-hint">A escolha fica salva neste navegador.</p>
     </div>
+    <!-- ABA Períodos letivos (Admin): cadastrar período e planilha. -->
     <div id="cfgPanePeriodos" style="display:none;">
       <p class="cfg-hint">Cadastre um novo período letivo e a planilha onde os registros dele serão salvos.</p>
       <label class="cfg-label">Período</label>
@@ -113,6 +124,7 @@
       <label class="cfg-label">Períodos cadastrados</label>
       <div id="perLista"></div>
     </div>
+    <!-- ABA Planilhas (Admin): planilhas de ocorrências (UNILEÃO e UNIVS) e a do Call Center. -->
     <div id="cfgPanePlanilhas" style="display:none;">
       <p class="cfg-hint">Planilhas de ocorrências de cada período. Os Indicadores leem as datas e a aba Registro lista os pendentes. Deixe em branco para não usar.</p>
       <label class="cfg-label">Período</label>
@@ -130,6 +142,7 @@
       <button class="btn-salvar-edit" onclick="lkSalvarCC()">Salvar planilha do Call Center</button>
       <div class="feedback" id="fbCC" style="margin-top:12px;"></div>
     </div>
+    <!-- ABA Nome do sistema (Admin): logo e nome. -->
     <div id="cfgPaneNome" style="display:none;">
       <p class="cfg-hint">Logo e nome do sistema: aparecem no topo do sistema e na escolha do sistema (o nome também na aba do navegador). A logo também aparece na tela de login. O título da tela de login é definido em “Nome no login”. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — topo do sistema</label>
@@ -148,6 +161,7 @@
       </div>
       <button class="btn-salvar-edit" id="btnNomeSalvar" onclick="nmSalvar()">Salvar</button>
     </div>
+    <!-- ABA Nome no login (Admin): título e subtítulo da tela de login. -->
     <div id="cfgPaneNomeLogin" style="display:none;">
       <p class="cfg-hint">Define o título e o subtítulo que aparecem <strong>somente na tela de login</strong>. O nome do topo do sistema e o da escolha do sistema não mudam. Somente Admin pode alterar.</p>
       <label class="cfg-label">Prévia — tela de login</label>
@@ -162,6 +176,7 @@
       </div>
       <button class="btn-salvar-edit" id="btnNomeLoginSalvar" onclick="nlSalvar()">Salvar</button>
     </div>
+    <!-- ABA Fundo do login (Admin): cor, degradê ou imagem. -->
     <div id="cfgPaneLogin" style="display:none;">
       <div class="fundo-preview" id="fundoPreview"><span>Prévia da tela de login e de período</span></div>
       <label class="cfg-label">Tipo de fundo</label>
