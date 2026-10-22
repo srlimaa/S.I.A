@@ -2,9 +2,17 @@
 // CALL CENTER — tabela de ações da API (CC_API) e despachante ccApi().
 // ══════════════════════════════════════════════════════════════════════
 
+// ARQUIVO: CallCenterApi.gs
+// O QUE FAZ: tabela CC_API com todas as ações que a tela do Call Center pode pedir ao servidor + o despachante ccApi().
+// ONDE É USADO: cc_js.html chama call('ação', dados) → ponte (CallCenter.html) → js_callcenter.html → ccApi(). Cada ação abaixo diz o que faz.
+// MARCAS: admin:1 = só perfil Admin; light:1 = chamada leve (só confere a sessão, sem reler usuários).
+
 const CC_API = {
+  // boot — dados iniciais da tela: usuário, configurações, semestres e listas de opções (Objetivo/Meio/Resultado).
   boot: { f: u => ({ user: ccPub_(u), cfg: ccCfg_(), sems: ccTab_('SEMESTRES').map(s => String(s.Semestre)), opc: ccOpc_() }) },
 
+  // getData — carga completa da tela: alunos (base em cache), registros, responsáveis, usuários e a versão dos dados.
+  // Admin com fresh:true força reler a base na planilha (botão 🗄️).
   getData: {
     f: (u, a) => {
       const sem = a.sem || ccSemU_(u);
@@ -35,6 +43,7 @@ const CC_API = {
     }
   },
 
+  // setResp — define o responsável de UM aluno (só Admin). Chamada ao trocar a lista "Responsável" na tabela.
   setResp: {
     admin: 1, f: (u, a) => {   // só Admin escolhe/altera o responsável (Colab apenas visualiza)
       const l = LockService.getScriptLock(); l.waitLock(20000);
@@ -78,6 +87,8 @@ const CC_API = {
     }
   },
 
+  // saveReg — grava um registro de contato (novo) ou edita um existente (só quem registrou ou Admin).
+  // Devolve a lista atualizada de registros do semestre.
   saveReg: {
     f: (u, a) => {
       if (!a.objetivo || !a.meio || !a.resultado) throw new Error('Preencha objetivo, meio e resultado.');
@@ -120,11 +131,15 @@ const CC_API = {
     }
   },
 
+  // setSem — guarda o semestre escolhido pelo usuário.
   setSem: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Semestre: a.sem }); return true; } },
+  // setTema — guarda o tema (cor) escolhido pelo usuário.
   setTema: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Tema: a.tema }); return true; } },
+  // opcAdd — Admin adiciona uma opção às listas (Objetivo, Meio, Resultado).
   opcAdd: { admin: 1, f: (u, a) => { if (!a.valor) throw new Error('Informe o texto.'); ccAdd_('OPCOES', { Tipo: a.tipo, Valor: a.valor }); return ccOpc_(); } },
   // Salva a nova ordem das opções de um grupo (Objetivo, Meio ou Resultado). Só reorganiza as linhas desse grupo,
   // dentro das posições que elas já ocupavam; os outros grupos e opções fora da lista não mudam.
+  // opcOrdem - Admin ordena uma opção das listas.
   opcOrdem: {
     admin: 1, f: (u, a) => {
       const tipo = String(a.tipo || ''), novo = (Array.isArray(a.valores) ? a.valores : []).map(x => String(x));
@@ -146,8 +161,10 @@ const CC_API = {
       return ccOpc_();
     }
   },
+  // opcDel — Admin remove uma opção das listas.
   opcDel: { admin: 1, f: (u, a) => { const r = ccTab_('OPCOES').find(x => x.Tipo === a.tipo && x.Valor === a.valor); if (r) ccDel_('OPCOES', r._row); return ccOpc_(); } },
 
+  // cfgSave — Admin salva nome do sistema, nome do login ou logo.
   cfgSave: {
     admin: 1, f: (u, a) => {
       if (['nomeLogin', 'nomeSistema', 'logo'].indexOf(a.chave) < 0) throw new Error('Chave inválida.');
@@ -158,6 +175,7 @@ const CC_API = {
     }
   },
 
+  // semList — Admin: lista os semestres cadastrados e as planilhas de cada um (base, aditamento, registros).
   semList: {
     admin: 1, f: () => {
       const principal = ccPlanilhaId_(), regsPrincipal = ccTab_('REGISTROS');
@@ -169,6 +187,7 @@ const CC_API = {
       });
     }
   },
+  // semSave — Admin: cadastra/atualiza um semestre e confere o acesso às planilhas informadas.
   semSave: {
     admin: 1, f: (u, a) => {
       const s = String(a.sem || '').trim();
@@ -187,9 +206,12 @@ const CC_API = {
       return CC_API.semList.f();
     }
   },
+  // semDel — Admin: remove um semestre (não apaga as planilhas).
   semDel: { admin: 1, f: (u, a) => { const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(a.sem)); if (r) ccDel_('SEMESTRES', r._row); return CC_API.semList.f(); } }
 };
 
+// DESPACHANTE: toda chamada da tela do Call Center chega aqui (ccApi(token, ação, dados)).
+// Confere a sessão, o perfil (ações marcadas admin:1 exigem Admin) e executa a ação da tabela CC_API.
 function ccApi(token, fn, a) {
   const cache = CacheService.getScriptCache(), email = cache.get('s_' + token);
   if (!email) return { err: 'SESSAO' };
