@@ -1,15 +1,20 @@
+// CALL CENTER: tabela de ações da API (CC_API) e despachante ccApi(). Cada ação tem f(usuário, argumentos); "admin: 1" exige perfil Admin e "light: 1" é chamada leve.
+// Quem chama: cc_js.html (função call), pela ponte do iframe e js_callcenter.html. Planilhas, semestres e cache ficam em CallCenterBase.gs.
+// Semestres = períodos letivos do Atendimentos; aqui só se informam os links da Base Geral e do Call Center de cada um.
 // ══════════════════════════════════════════════════════════════════════
 // CALL CENTER — tabela de ações da API (CC_API) e despachante ccApi().
 // ══════════════════════════════════════════════════════════════════════
 
 const CC_API = {
-  boot: { f: u => ({ user: ccPub_(u), cfg: ccCfg_(), sems: ccTab_('SEMESTRES').map(s => String(s.Semestre)), opc: ccOpc_() }) },
+  // Primeira chamada da tela: usuário, configuração (nomes e logo), semestres (ccSemNomes_) e opções de registro.
+  boot: { f: u => ({ user: ccPub_(u), cfg: ccCfg_(), sems: ccSemNomes_(), opc: ccOpc_() }) },
 
+  // Dados do semestre: base de alunos (cache de 10 min; Admin pode forçar), registros, responsáveis, usuários e versão. Falha se o semestre não tem Base Geral.
   getData: {
     f: (u, a) => {
       const sem = a.sem || ccSemU_(u);
-      const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(sem));
-      if (!r || !r.IdBase) throw new Error('Semestre sem planilha configurada. Peça ao Admin: Configurações > Semestres.');
+      const r = ccSems_().find(x => String(x.Semestre) === String(sem));
+      if (!r || !r.IdBase) throw new Error('Semestre sem Base Geral configurada. Peça ao Admin: Configurações > Semestres.');
       const b = ccBase_(r, sem, !!a.fresh && u.Perfil === 'Admin');   // base de alunos: do cache (10 min) ou lida da planilha
       const resp = {};
       const regs = ccRegs_(sem), info = ccUsuariosInfo_(regs.map(r => r.colab));
@@ -35,6 +40,7 @@ const CC_API = {
     }
   },
 
+  // Admin: define o responsável de um aluno (aba CC_RESPONSAVEIS da planilha do período).
   setResp: {
     admin: 1, f: (u, a) => {   // só Admin escolhe/altera o responsável (Colab apenas visualiza)
       const l = LockService.getScriptLock(); l.waitLock(20000);
@@ -61,7 +67,7 @@ const CC_API = {
       const alvo = {}; cpfs.forEach(c => alvo[c] = 1);
       const l = LockService.getScriptLock(); l.waitLock(30000);
       try {
-        const ssR = ccSsReg_(sem), sh = ssR.getSheetByName('RESPONSAVEIS');
+        const ssR = ccSsReg_(sem), sh = ssR.getSheetByName(ccAbaNome_('RESPONSAVEIS'));
         const ultima = sh.getLastRow(), achados = {};
         if (ultima >= 2) {                                           // atualiza as linhas existentes de uma só vez
           const vals = sh.getRange(2, 1, ultima - 1, 3).getValues();  // Semestre, CPF, Email
@@ -78,6 +84,7 @@ const CC_API = {
     }
   },
 
+  // Grava um novo contato ou edita um existente (somente quem registrou, ou Admin). Exige objetivo, meio e resultado.
   saveReg: {
     f: (u, a) => {
       if (!a.objetivo || !a.meio || !a.resultado) throw new Error('Preencha objetivo, meio e resultado.');
@@ -106,7 +113,7 @@ const CC_API = {
       if (!id) throw new Error('Registro não informado.');
       const l = LockService.getScriptLock(); l.waitLock(20000);
       try {
-        const ssR = ccSsReg_(a.sem), sh = ssR.getSheetByName('REGISTROS');
+        const ssR = ccSsReg_(a.sem), sh = ssR.getSheetByName(ccAbaNome_('REGISTROS'));
         const ultima = sh ? sh.getLastRow() : 0;
         if (ultima < 2) throw new Error('Registro não encontrado.');
         const ids = sh.getRange(2, 1, ultima - 1, 1).getValues();
@@ -120,8 +127,11 @@ const CC_API = {
     }
   },
 
+  // Guarda o semestre escolhido pelo usuário.
   setSem: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Semestre: a.sem }); return true; } },
+  // Guarda o tema do usuário (padrão ou escuro).
   setTema: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Tema: a.tema }); return true; } },
+  // Admin: adiciona uma opção de Objetivo, Meio ou Resultado.
   opcAdd: { admin: 1, f: (u, a) => { if (!a.valor) throw new Error('Informe o texto.'); ccAdd_('OPCOES', { Tipo: a.tipo, Valor: a.valor }); return ccOpc_(); } },
   // Salva a nova ordem das opções de um grupo (Objetivo, Meio ou Resultado). Só reorganiza as linhas desse grupo,
   // dentro das posições que elas já ocupavam; os outros grupos e opções fora da lista não mudam.
@@ -131,7 +141,8 @@ const CC_API = {
       if (['Objetivo', 'Meio', 'Resultado'].indexOf(tipo) < 0) throw new Error('Grupo inválido.');
       const l = LockService.getScriptLock(); l.waitLock(20000);
       try {
-        const ss = ccSs_(), sh = ss.getSheetByName('OPCOES'), ultima = sh.getLastRow();
+        ccTab_('OPCOES');   // garante a aba
+        const ss = ccSs_(), sh = ss.getSheetByName(ccAbaNome_('OPCOES')), ultima = sh.getLastRow();
         if (ultima >= 2) {
           const vals = sh.getRange(2, 1, ultima - 1, 2).getValues();
           const idx = [], atuais = [];
@@ -146,8 +157,10 @@ const CC_API = {
       return ccOpc_();
     }
   },
+  // Admin: exclui uma opção.
   opcDel: { admin: 1, f: (u, a) => { const r = ccTab_('OPCOES').find(x => x.Tipo === a.tipo && x.Valor === a.valor); if (r) ccDel_('OPCOES', r._row); return ccOpc_(); } },
 
+  // Admin: salva nome do login, nome do sistema ou logo (limite de tamanho).
   cfgSave: {
     admin: 1, f: (u, a) => {
       if (['nomeLogin', 'nomeSistema', 'logo'].indexOf(a.chave) < 0) throw new Error('Chave inválida.');
@@ -158,38 +171,27 @@ const CC_API = {
     }
   },
 
+  // Semestres = Períodos letivos do Atendimentos. Aqui só se informam a Base Geral e a planilha do Call Center de cada um.
+  // Admin: lista os semestres (períodos letivos) com os links de Base Geral e Call Center.
   semList: {
-    admin: 1, f: () => {
-      const principal = ccPlanilhaId_(), regsPrincipal = ccTab_('REGISTROS');
-      return ccTab_('SEMESTRES').map(x => {
-        const reg = ccId_(x.IdRegistros), propria = !!reg && reg !== principal;
-        // registros antigos do semestre que ficaram na planilha principal (não são movidos automaticamente)
-        const legado = propria ? regsPrincipal.filter(r => String(r.Semestre) === String(x.Semestre)).length : 0;
-        return { sem: String(x.Semestre), base: x.IdBase, cc: x.IdCallCenter, reg: reg, legado: legado };
-      });
-    }
+    admin: 1, f: () => ccSems_().map(x => ({ sem: String(x.Semestre), base: x.IdBase, cc: x.IdCallCenter }))
   },
+  // Admin: grava os links de Base Geral e Call Center de um semestre que já existe em Períodos letivos (ccSemSalvar_).
   semSave: {
     admin: 1, f: (u, a) => {
       const s = String(a.sem || '').trim();
       if (!s) throw new Error('Informe o semestre (ex.: 2027.1).');
-      const reg = ccId_(a.reg);
-      if (reg) {                                  // planilha própria de registros deste semestre
-        let ssR;
-        try { ssR = SpreadsheetApp.openById(reg); }
-        catch (e) { throw new Error('Não foi possível abrir a planilha de registros. Confira o link e se a conta que executa o script tem acesso (editor).'); }
-        ccPrepararRegistros_(ssR);                // cria as abas REGISTROS e RESPONSAVEIS com os cabeçalhos
-      }
-      ccGarantirColunaSem_();
-      const o = { Semestre: s, IdBase: ccId_(a.base), IdCallCenter: ccId_(a.cc), IdRegistros: reg };
-      const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === s);
-      if (r) ccUpd_('SEMESTRES', r._row, o); else ccAdd_('SEMESTRES', o);
+      ccSemSalvar_(s, a.base, a.cc);
       return CC_API.semList.f();
     }
   },
-  semDel: { admin: 1, f: (u, a) => { const r = ccTab_('SEMESTRES').find(x => String(x.Semestre) === String(a.sem)); if (r) ccDel_('SEMESTRES', r._row); return CC_API.semList.f(); } }
+  // "Excluir" só limpa os links do Call Center; o período em si continua no Atendimentos
+  // Admin: "excluir" só limpa os links do Call Center; o período e os registros continuam.
+  semDel: { admin: 1, f: (u, a) => { ccSemSalvar_(String(a.sem || ''), '', ''); return CC_API.semList.f(); } }
 };
 
+// Despachante único chamado pelo navegador: confere a sessão (token no cache), a existência da ação e a permissão Admin; devolve {ok} ou {err}.
+// Ações "light" só conferem a sessão (não leem as planilhas de usuários) e renovam a validade da sessão.
 function ccApi(token, fn, a) {
   const cache = CacheService.getScriptCache(), email = cache.get('s_' + token);
   if (!email) return { err: 'SESSAO' };
