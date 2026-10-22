@@ -1,5 +1,8 @@
 <script>
+// HISTÓRICO (cliente): lista, filtros (data, mês, semestre), detalhe, edição e exclusão de registros.
+// Ao abrir mostra só os registros do dia. Admin edita/exclui qualquer registro; os demais, só os seus (checado também no servidor).
 /* ══════════ HISTÓRICO ══════════ */
+// Busca os registros do período (getHistorico) e desenha a lista.
 function carregarHistorico(){
   histResetHoje();          // ao abrir a tela, só os registros do dia
   document.getElementById('histListContainer').innerHTML='<p class="loading-msg">Carregando...</p>';
@@ -20,6 +23,7 @@ function carregarHistorico(){
     .getHistorico(PERIODO);
 }
 
+// Aplica os filtros e desenha a lista de registros.
 function renderHistorico(){
   var filtroTipo=document.getElementById('filtroTipo').value;
   var filtroColab=document.getElementById('filtroColab').value;
@@ -70,34 +74,41 @@ function renderHistorico(){
 }
 
 /* ── Filtros de data, mês e semestre (ao abrir: só o dia de hoje) ── */
+// Data de hoje (AAAA-MM-DD) para o filtro.
 function histHojeISO(){
   var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
 }
+// Volta os filtros para somente o dia de hoje.
 function histResetHoje(){
   document.getElementById('filtroHistData').value=histHojeISO();
   document.getElementById('filtroHistMes').value='';
   document.getElementById('filtroHistSem').value='';
 }
+// Filtro por data: limpa mês e semestre.
 function histFiltroData(){
   if(document.getElementById('filtroHistData').value){
     document.getElementById('filtroHistMes').value='';document.getElementById('filtroHistSem').value='';
   }
   renderHistorico();
 }
+// Filtro por mês: limpa data e semestre.
 function histFiltroMes(){
   if(document.getElementById('filtroHistMes').value){
     document.getElementById('filtroHistData').value='';document.getElementById('filtroHistSem').value='';
   }
   renderHistorico();
 }
+// Filtro por semestre: limpa data e mês.
 function histFiltroSem(){
   if(document.getElementById('filtroHistSem').value){
     document.getElementById('filtroHistData').value='';document.getElementById('filtroHistMes').value='';
   }
   renderHistorico();
 }
+// Botão Hoje.
 function histHoje(){histResetHoje();renderHistorico();}
+// Botão Ver todos (remove os filtros de data).
 function histTodos(){
   document.getElementById('filtroHistData').value='';
   document.getElementById('filtroHistMes').value='';
@@ -105,6 +116,7 @@ function histTodos(){
   renderHistorico();
 }
 // Monta as listas de mês e semestre com o que existe nos registros carregados
+// Preenche as listas de mês e semestre com o que existe nos registros.
 function histPreencherFiltros(){
   var meses={},sems={};
   HISTORICO_CACHE.forEach(function(it){
@@ -122,6 +134,7 @@ function histPreencherFiltros(){
   ss.innerHTML='<option value="">Semestre</option>'+sl.map(function(s){return '<option value="'+s+'">'+s+' — '+semestreTexto(s)+'</option>';}).join('');
   sm.value=vm;ss.value=vs;
 }
+// Texto informando o filtro aplicado e a quantidade de registros.
 function histInfo(fData,fMes,fSem,n){
   var txt;
   if(fData){
@@ -133,12 +146,15 @@ function histInfo(fData,fMes,fSem,n){
   document.getElementById('histFiltroInfo').textContent='📅 '+txt+' · '+n+' registro(s)';
 }
 
+// Registro aberto na janela de detalhe e estado de edição.
 var MODAL_ITEM=null,MODAL_EDITANDO=false;
+// Regra de tela: Admin ou dono do registro (o servidor confere de novo).
 function podeMexerRegistro(item){
   if(USUARIO.perfil==='Admin')return true;
   var m=String(USUARIO.nome||'').trim().toLowerCase();
   return [item.colaborador,item.registradoPor].some(function(x){return String(x||'').trim().toLowerCase()===m;});
 }
+// Abre a janela de detalhe de um registro.
 function abrirModal(id){
   var item=(window._histFiltered||HISTORICO_CACHE).find(function(h){return String(h.id)===String(id);});
   if(!item)return;
@@ -152,6 +168,7 @@ function abrirModal(id){
   mostrarAcoesModal();
   document.getElementById('modalOverlay').classList.add('open');
 }
+// Mostra os botões Editar/Excluir só para quem pode.
 function mostrarAcoesModal(){
   var ac=document.getElementById('modalAcoes');
   if(!MODAL_ITEM||!podeMexerRegistro(MODAL_ITEM)){ac.style.display='none';ac.innerHTML='';return;}
@@ -159,12 +176,14 @@ function mostrarAcoesModal(){
   ac.innerHTML='<button type="button" class="btn-editar" onclick="iniciarEdicaoRegistro()">✏️ Editar</button>'+
                '<button type="button" class="btn-excluir" onclick="pedirExclusao()">🗑️ Excluir</button>';
 }
+// Pede confirmação antes de excluir.
 function pedirExclusao(){
   document.getElementById('modalAcoes').innerHTML=
     '<span class="conf-txt">Excluir este registro definitivamente?</span>'+
     '<button type="button" class="btn-outline" onclick="mostrarAcoesModal()">Cancelar</button>'+
     '<button type="button" class="btn-excluir-conf" id="btnExcluirReg" onclick="confirmarExclusao()">Sim, excluir</button>';
 }
+// Exclui o registro (excluirRegistro) e atualiza lista e caches.
 function confirmarExclusao(){
   var item=MODAL_ITEM;if(!item)return;
   var btn=document.getElementById('btnExcluirReg');btn.disabled=true;btn.textContent='Excluindo...';
@@ -183,6 +202,7 @@ function confirmarExclusao(){
 }
 
 /* ── Edição de registro ── */
+// Campos editáveis de cada tipo de registro (rótulo, tipo de campo, obrigatoriedade).
 var REG_CAMPOS={
   'Presencial':[
     {k:'data',l:'Data',t:'date',obr:1},
@@ -215,7 +235,9 @@ var REG_CAMPOS={
     {k:'atrib',l:'Conversas Atribuídas',t:'number',de:'ConversasAtribuidas'},
     {k:'fech',l:'Conversas Fechadas',t:'number',de:'ConversasFechadas'}]
 };
+// Converte DD/MM/AAAA em AAAA-MM-DD para campos de data.
 function dataParaISO(br){var m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';}
+// Seleciona um valor em um select, criando a opção se ela não existir.
 function setSelectValue(sel,val){
   val=String(val==null?'':val);
   for(var i=0;i<sel.options.length;i++){
@@ -223,10 +245,12 @@ function setSelectValue(sel,val){
   }
   if(val){var o=document.createElement('option');o.textContent=val;sel.insertBefore(o,sel.options[1]||null);o.selected=true;}
 }
+// Valor atual de um campo do registro.
 function valorAtual(item,f){
   if(f.k==='data')return item.data;
   return item.detalhes?item.detalhes[f.de]:'';
 }
+// Troca o detalhe por um formulário de edição.
 function iniciarEdicaoRegistro(){
   var item=MODAL_ITEM;if(!item)return;
   var campos=REG_CAMPOS[item.tipo];if(!campos)return;
@@ -261,6 +285,7 @@ function iniciarEdicaoRegistro(){
     else el.value=(v==null?'':v);
   });
 }
+// Cancela a edição e volta ao detalhe.
 function cancelarEdicaoRegistro(){
   MODAL_EDITANDO=false;
   if(MODAL_ITEM)document.getElementById('modalTitulo').textContent=MODAL_ITEM.tipo+' — '+MODAL_ITEM.data;
@@ -270,6 +295,7 @@ function cancelarEdicaoRegistro(){
   document.getElementById('fbModal').style.display='none';
   mostrarAcoesModal();
 }
+// Valida e envia a edição (editarRegistro).
 function salvarEdicaoRegistro(){
   var item=MODAL_ITEM;if(!item)return;
   var lista=REG_CAMPOS[item.tipo],campos={};
@@ -299,9 +325,11 @@ function salvarEdicaoRegistro(){
     .withFailureHandler(function(err){falha((err&&err.message)||'falha ao conectar.');})
     .editarRegistro(PERIODO,item.tipo,item.id,campos,USUARIO.id);
 }
+// HTML de um par rótulo/valor do detalhe.
 function detalheItem(l,v){
   return '<div class="detalhe-item"><div class="detalhe-label">'+l+'</div><div class="detalhe-valor">'+v+'</div></div>';
 }
+// Fecha a janela de detalhe.
 function fecharModal(e){
   if(e&&MODAL_EDITANDO)return;     // clique fora não descarta uma edição em andamento
   if(!e||e.target===document.getElementById('modalOverlay')){
