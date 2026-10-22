@@ -1,7 +1,10 @@
 <script>
+// NOME E LOGO DO SISTEMA e TELA DE LOGIN (cliente). Duas abas administrativas: "Nome do sistema" (logo + nome) e "Nome no login" (título e subtítulo só do login).
 /* ══════════ NOME E LOGO DO SISTEMA · TELA DE LOGIN ══════════ */
+// Valores padrão e atuais de nome e subtítulo.
 var NOME_PADRAO='Sistema de Atendimentos',SUBTITULO_PADRAO='UNILEÃO — Integração / FIES';
 var NOME_SISTEMA=NOME_PADRAO,SUBTITULO_LOGIN=SUBTITULO_PADRAO,NOME_LOGIN='';   // NOME_LOGIN vazio = o login usa NOME_SISTEMA
+// Aplica o título do login, o nome do topo e o título da aba do navegador.
 function aplicarNomes(){
   document.getElementById('loginTitulo').textContent=NOME_LOGIN||NOME_SISTEMA;   // título só da tela de login
   var sub=document.getElementById('loginSub');
@@ -11,7 +14,9 @@ function aplicarNomes(){
 }
 
 /* ── Aba "Nome do sistema": logo + nome (topo, escolha do sistema e aba do navegador) ── */
+// Rascunho da aba Nome do sistema.
 var NM_DRAFT={tipo:'emoji',valor:'🏛️'};
+// Prepara a aba.
 function nmIniciar(){
   NM_DRAFT=(CFG_SISTEMA&&CFG_SISTEMA.tipo&&CFG_SISTEMA.valor)?{tipo:CFG_SISTEMA.tipo,valor:CFG_SISTEMA.valor}:{tipo:'emoji',valor:'🏛️'};
   document.getElementById('nmNome').value=NOME_SISTEMA;
@@ -20,17 +25,21 @@ function nmIniciar(){
     return '<button type="button" class="emoji-btn" onclick="nmEscolherEmoji(this.textContent)">'+e+'</button>';}).join('');
   nmPreview();
 }
+// Prévia do topo.
 function nmPreview(){
   var n=(document.getElementById('nmNome').value||'').trim()||NOME_PADRAO;
   document.getElementById('nmPrevTop').innerHTML='<span class="brand-icon">'+brandHTML(NM_DRAFT,26)+'</span><strong>'+escHtml(n)+'</strong>';
 }
+// Escolha de emoji.
 function nmEscolherEmoji(e){document.getElementById('nmEmoji').value=e;nmEmojiInput();}
+// Digitação de emoji.
 function nmEmojiInput(){
   var inp=document.getElementById('nmEmoji'),e=primeiroEmoji(inp.value);
   inp.value=e;
   NM_DRAFT=e?{tipo:'emoji',valor:e}:{tipo:'emoji',valor:'🏛️'};
   nmPreview();
 }
+// Escolha de imagem para o logo.
 function nmArquivo(inp){
   var f=inp.files&&inp.files[0];inp.value='';
   if(!f)return;
@@ -44,12 +53,14 @@ function nmArquivo(inp){
     }
   });
 }
+// Volta ao padrão.
 function nmRestaurar(){
   NM_DRAFT={tipo:'emoji',valor:'🏛️'};
   document.getElementById('nmEmoji').value='🏛️';
   document.getElementById('nmNome').value=NOME_PADRAO;
   nmPreview();
 }
+// Salva logo (se mudou) e nome.
 function nmSalvar(){
   var nome=document.getElementById('nmNome').value.replace(/\s+/g,' ').trim();
   if(!nome){showFeedback('fbCfg','Informe o nome do sistema.',false);return;}
@@ -82,22 +93,26 @@ function nmSalvar(){
 }
 
 /* ── Aba "Nome no login": título e subtítulo só da tela de login ── */
+// Prepara a aba Nome no login.
 function nlIniciar(){
   document.getElementById('nlNome').value=NOME_LOGIN;
   document.getElementById('nlSub').value=SUBTITULO_LOGIN;
   nlPreview();
 }
+// Prévia da tela de login.
 function nlPreview(){
   var n=document.getElementById('nlNome').value.trim()||NOME_SISTEMA;
   document.getElementById('nlPrevLogo').innerHTML=brandHTML(CFG_SISTEMA,30);
   document.getElementById('nlPrevNome').textContent=n;
   document.getElementById('nlPrevSub').textContent=document.getElementById('nlSub').value.trim();
 }
+// Volta ao padrão.
 function nlRestaurar(){
   document.getElementById('nlNome').value='';
   document.getElementById('nlSub').value=SUBTITULO_PADRAO;
   nlPreview();
 }
+// Salva título e subtítulo do login (salvarTelaLogin).
 function nlSalvar(){
   var nome=document.getElementById('nlNome').value.replace(/\s+/g,' ').trim();
   var sub=document.getElementById('nlSub').value.replace(/\s+/g,' ').trim();
