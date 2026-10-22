@@ -1,14 +1,10 @@
-<!-- ARQUIVO: html_modal_usuario.html -->
-<!-- O QUE É: a janela "Editar Usuário". -->
-<!-- ONDE É USADO: incluído em Index.html. Programa: js_usuarios.html. -->
-
+<!-- JANELA EDITAR USUÁRIO (Admin): nome, e-mail, perfil, acesso ao Call Center e nova senha. Lógica em js_usuarios.html. -->
 <!-- MODAL EDITAR USUÁRIO -->
 <div class="modal-overlay" id="editUserOverlay" onclick="if(event.target===this)fecharEdicaoUsuario()">
   <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px;">
     <span class="modal-close" onclick="fecharEdicaoUsuario()">✕</span>
     <h3>✏️ Editar Usuário</h3>
     <div class="feedback" id="fbEditUser" style="margin:-6px 0 14px;"></div>
-    <!-- Campos: nome, e-mail, perfil (Admin/Colab), acesso ao Call Center e nova senha (opcional). Salvar chama salvarEdicaoUsuario(). -->
     <div class="edit-form">
       <input type="hidden" id="eu_id"/>
       <div class="form-group"><label>Nome</label><input type="text" id="eu_nome"/></div>
