@@ -1,14 +1,12 @@
+// AUTENTICAÇÃO do sistema de Atendimentos: login, login unificado (Atendimentos + Call Center), sessão do navegador e checagem de Admin.
+// Usa a aba "Usuarios" da planilha mestre: A id | B nome | C e-mail | D senha | E perfil | F tipo do avatar | G valor do avatar | H acesso ao Call Center.
+// Chamado pelo navegador (js_login.html, js_boot.html) e por CallCenterBase.gs (ccApiLogin).
 // ══════════════════════════════════════════════════════════════════════
 // AUTENTICAÇÃO — login (registro), login unificado e checagem de perfil Admin.
 // ══════════════════════════════════════════════════════════════════════
 
-// ARQUIVO: Autenticacao.gs
-// O QUE FAZ: login (e-mail/senha), checagem de Admin, login único Atendimentos + Call Center e sessão que sobrevive ao recarregar a página.
-// ONDE É USADO: chamado pelas telas via google.script.run (js_login.html, js_boot.html) e por outros .gs (ehAdmin_).
-
 // ── Login ────────────────────────────────────────────────────────────────────
-// Confere e-mail e senha na aba Usuarios (planilha mestre). Devolve nome, perfil, ID, e-mail e avatar, ou a mensagem de erro.
-// É usada por loginUnificado() logo abaixo.
+// Valida e-mail e senha na aba Usuarios (senha comparada em texto, coluna D). O perfil antigo "Atend" é devolvido como "Colab".
 function login(email, senha) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -26,7 +24,7 @@ function login(email, senha) {
   } catch(e) { return { success: false, message: 'Erro: ' + e.message }; }
 }
 
-// Confere se o usuário (pelo ID) tem perfil Admin. É usada por quase todas as funções que só o Admin pode executar.
+// Retorna true se o usuário (pelo id) tem perfil Admin. Usada para proteger as ações administrativas no servidor.
 function ehAdmin_(userId) {
   var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
@@ -37,6 +35,7 @@ function ehAdmin_(userId) {
 
 // ── Editar / excluir registros do histórico ─────────────────────────────────
 // Admin altera qualquer registro; os demais perfis, apenas os próprios.
+// Busca nome e perfil de um usuário pelo id (usada em registros, ocorrências e edições).
 function usuarioPorId_(userId) {
   var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
@@ -48,6 +47,8 @@ function usuarioPorId_(userId) {
 
 // Login único: valida e-mail/senha no cadastro de usuários do sistema de Atendimentos (aba "Usuarios").
 // O acesso ao Call Center é liberado por usuário (coluna "CallCenter" = Sim/Não) e usa o mesmo nome, perfil e foto.
+// Login único: valida no Atendimentos e, se o usuário tiver acesso, já abre também a sessão do Call Center (ccLoginInterno_).
+// Devolve registro (Atendimentos), cc (Call Center ou null), ccErro e o código de sessão do navegador.
 function loginUnificado(email, senha) {
   email = String(email == null ? '' : email).trim();
   senha = String(senha == null ? '' : senha).trim();
@@ -65,14 +66,14 @@ function loginUnificado(email, senha) {
 // ── Sessão do sistema (guardada no navegador) ───────────────────────────────
 // Depois do login, o navegador recebe um código de sessão (válido por 6 h, renovado a cada retomada).
 // Ao recarregar a página, ele é usado em retomarSessao() para voltar logado, sem pedir a senha de novo.
+// Cria o código de sessão (UUID) guardado no cache do script por 6 h. O navegador o guarda no localStorage.
 function sessaoCriar_(email) {
   var t = Utilities.getUuid();
   CacheService.getScriptCache().put('ss_' + t, String(email), 21600);
   return t;
 }
 
-// Monta os dados do usuário (mesmo formato de login()) a partir do e-mail, SEM conferir senha.
-// Uso exclusivo de retomarSessao().
+// Monta os dados do usuário (nome, perfil, id, avatar) a partir do e-mail, sem precisar da senha.
 function regPorEmail_(email) {
   var em = String(email || '').trim().toLowerCase();
   var data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Usuarios').getDataRange().getValues();
@@ -86,8 +87,7 @@ function regPorEmail_(email) {
   return null;
 }
 
-// Chamada quando a página é recarregada (js_boot.html): troca o código de sessão guardado no navegador pelos dados do usuário,
-// sem pedir senha. Renova a sessão por 6 h e já devolve um novo token do Call Center.
+// Ao recarregar a página, usa o código de sessão para voltar logado sem pedir senha; renova a validade e reabre o Call Center.
 function retomarSessao(tk) {
   try {
     tk = String(tk || '').trim();
@@ -103,7 +103,7 @@ function retomarSessao(tk) {
   } catch(e) { return { success: false }; }
 }
 
-// Apaga o código de sessão do navegador (botão Sair, em js_login.html > logout()).
+// Remove o código de sessão do cache (logout).
 function encerrarSessao(tk) {
   try { CacheService.getScriptCache().remove('ss_' + String(tk || '').trim()); } catch(e) {}
 }
