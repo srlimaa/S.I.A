@@ -1,5 +1,8 @@
 <script>
+// DOWNLOAD (Excel .xlsx e imagens JPG) feito no próprio navegador, sem biblioteca externa: gera ZIP, XLSX e JPG.
+// Usado por Indicadores, Ranque e Reunião. (O Call Center tem uma cópia equivalente dentro de cc_js.html, pois roda em iframe separado.)
 /* ══════════ DOWNLOAD DOS INDICADORES (Excel / Imagens) ══════════ */
+// Abre/fecha o menu de download dos Indicadores.
 function toggleDl(e){
   if(e)e.stopPropagation();
   document.getElementById('dlMenu').classList.toggle('open');
@@ -7,14 +10,19 @@ function toggleDl(e){
 document.addEventListener('click',function(){document.getElementById('dlMenu').classList.remove('open');});
 
 /* ── Botão de download só com o ícone (1 ação = baixa direto · 2 ou mais = abre a escolha) ── */
+// Ícone SVG do botão de download.
 var DL_ICONE='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>';
+// Ações registradas de cada botão de download (por chave).
 var DL_ACOES={};
 // acoes: [{rot:'🖼️ Imagem (.jpg)', desc:'texto menor (opcional)', f:function(){...}}]
+// Gera o botão de download só com o ícone: 1 ação baixa direto; 2 ou mais abre o menu de escolha.
 function dlBtn(key,acoes){
   DL_ACOES[key]=acoes;
   return '<button type="button" class="dl-ico no-img" aria-label="Baixar" title="'+(acoes.length>1?'Baixar':(acoes[0].dica||acoes[0].rot))+'" onclick="dlClique(\''+key+'\',event)">'+DL_ICONE+'</button>';
 }
+// Fecha o menu flutuante.
 function dlFechar(){var m=document.getElementById('dlFlut');if(m)m.remove();}
+// Clique no ícone: executa a ação ou abre o menu flutuante posicionado junto ao botão.
 function dlClique(key,e){
   if(e){e.stopPropagation();}
   var a=DL_ACOES[key];if(!a||!a.length)return;
@@ -34,8 +42,11 @@ document.addEventListener('click',dlFechar);
 window.addEventListener('scroll',dlFechar,true);
 
 
+// Tabela CRC32 (exigida pelo formato ZIP).
 var CRC_T=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+// Calcula o CRC32 de um conjunto de bytes.
 function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+// Auxiliares de bytes (inteiros de 16 e 32 bits em little-endian, junção de blocos).
 function u16(v){return [v&255,(v>>>8)&255];}
 function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
 function juntarBytes(arrs){
@@ -45,6 +56,7 @@ function juntarBytes(arrs){
   return out;
 }
 // ZIP sem compressão (suficiente para .xlsx e para lotes de JPG)
+// Monta um ZIP sem compressão (serve para .xlsx e para lotes de JPG).
 function zipStore(files){
   var enc=new TextEncoder(),partes=[],central=[],offset=0;
   files.forEach(function(f){
@@ -59,16 +71,20 @@ function zipStore(files){
   var fim=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(offset),u16(0)));
   return juntarBytes(partes.concat([cd,fim]));
 }
+// Dispara o download de um arquivo gerado no navegador.
 function baixarBytes(nome,bytes,mime){
   var blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=nome;a.style.display='none';
   document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
 }
+// Escapa texto para XML (usado no XLSX).
 function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Número da coluna para letra do Excel (A, B... AA).
 function colLetra(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
 
 // Monta o arquivo .xlsx (planilha "Indicadores") a partir do modelo da tabela
+// Gera o arquivo .xlsx da tabela de Indicadores.
 function gerarXlsx(m){
   var rows=[],merges=[],cols=m.cols;
   var cab=[{v:m.rotCol||'Data',s:1},{v:'Atividade',s:1}];
@@ -148,11 +164,13 @@ function gerarXlsx(m){
   ]);
 }
 
+// Calcula o modelo com os filtros atuais, avisando se não há dados.
 function modeloParaDownload(){
   var m=modeloIndicadores(filtrosInd());
   if(m.vazio){showFeedback('fbIndDl',m.vazio==='sem-dados'?'Aguarde o carregamento dos indicadores.':'Nenhum dado para baixar com os filtros atuais.',false);return null;}
   return m;
 }
+// Baixa a tabela de Indicadores em Excel.
 function baixarExcel(){
   document.getElementById('dlMenu').classList.remove('open');
   var m=modeloParaDownload();if(!m)return;
@@ -163,17 +181,20 @@ function baixarExcel(){
 }
 
 /* ── Janela "Semana" (soma dos dias escolhidos): Excel e imagem ── */
+// Modelo da janela Semana para download.
 function modeloSemanaDownload(){
   var m=modeloSemana(filtrosInd());
   if(!m){showFeedback('fbIndDl','A janela da semana só existe quando o filtro De/Até abrange mais de uma data.',false);return null;}
   return m;
 }
+// Baixa a janela Semana em Excel.
 function baixarExcelSemana(){
   var m=modeloSemanaDownload();if(!m)return;
   var nome='Indicadores_'+PERIODO+'_'+m.dias[0].arq+'.xlsx';
   try{baixarBytes(nome,gerarXlsx(m),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');showFeedback('fbIndDl','✔ Planilha gerada: '+nome,true);}
   catch(e){showFeedback('fbIndDl','Erro ao gerar a planilha: '+e.message,false);}
 }
+// Baixa a janela Semana em JPG.
 function baixarImagemSemana(){
   var m=modeloSemanaDownload();if(!m)return;
   var nome='Indicadores_'+PERIODO+'_'+m.dias[0].arq+'.jpg';
@@ -182,13 +203,16 @@ function baixarImagemSemana(){
 }
 
 /* ── Imagem (JPG) de cada dia ── */
+// Fonte usada nas imagens geradas.
 var FONTE_IMG='"Segoe UI",Roboto,Arial,sans-serif';
+// Converte data URL em bytes.
 function dataUrlBytes(url){
   var b=atob(url.split(',')[1]),a=new Uint8Array(b.length);
   for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
   return a;
 }
 // Cores da imagem: acompanham o tema escolhido (claro/escuro), lendo as mesmas variáveis de cor da tela
+// Cores das imagens conforme o tema claro/escuro.
 function paletaImg(){
   var cs=getComputedStyle(document.documentElement),v=function(n,f){return (cs.getPropertyValue(n)||'').trim()||f;};
   var dk=document.documentElement.getAttribute('data-theme')==='dark';
@@ -196,6 +220,7 @@ function paletaImg(){
     borda:v('--borda2','#e2e8f0'),cab:'#1e3a5f',cabTxt:'#ffffff',subFundo:dk?'#1b2a44':'#dbeafe',subTxt:dk?'#dbeafe':'#1e293b',
     rodape:dk?'#7a85a3':'#94a3b8'};
 }
+// Desenha em canvas a imagem de um dia (ou mês/semestre) da tabela de Indicadores.
 function desenharDia(m,dia,periodo){
   var P=paletaImg();
   var cols=m.cols.filter(function(c){return dia.sub[c]>0;});
@@ -244,7 +269,9 @@ function desenharDia(m,dia,periodo){
   x.fillText('Gerado em '+ag.toLocaleDateString('pt-BR')+' '+ag.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),W-mg,H-16);
   return cv.toDataURL('image/jpeg',0.93);
 }
+// Data DD/MM/AAAA em AAAA-MM-DD para nome de arquivo.
 function dataArquivo(dBR){var p=dBR.split('/');return p[2]+'-'+p[1]+'-'+p[0];}
+// Baixa um JPG por dia (em .zip quando houver vários).
 function baixarImagens(){
   document.getElementById('dlMenu').classList.remove('open');
   var m=modeloParaDownload();if(!m)return;
@@ -265,21 +292,26 @@ function baixarImagens(){
 
 
 /* ══════════ EXPORTAÇÃO GENÉRICA (Ranque e Reunião): bloco da tela → JPG, tabelas → Excel ══════════ */
+// Propriedades de estilo ignoradas ao copiar um bloco da tela para imagem.
 var JPG_IGN=/(^|-)(block|inline)(-|$)|^inset|^perspective-origin$|^transform-origin$|^animation|^transition|^-webkit-locale$/;
+// Copia os estilos calculados de um elemento para a cópia usada na imagem.
 function estiloInline(o){
   var cs=getComputedStyle(o),t='';
   for(var i=0;i<cs.length;i++){var p=cs[i];if(JPG_IGN.test(p))continue;t+=p+':'+cs.getPropertyValue(p)+';';}
   return t;
 }
+// Cor de fundo efetiva da tela.
 function corFundoTela(){
   var c=getComputedStyle(document.body).backgroundColor;
   return (!c||c==='rgba(0, 0, 0, 0)'||c==='transparent')?'#ffffff':c;
 }
+// Indica se uma cor é escura (para escolher a cor do texto).
 function corEhEscura(c){
   var m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return false;
   return (0.299*m[0]+0.587*m[1]+0.114*m[2])<128;
 }
 // Copia o bloco (com os estilos aplicados) e devolve uma imagem do conteúdo COMPLETO (sem barras de rolagem)
+// Transforma um bloco da tela (cartão, gráfico, tabela) em imagem, usando SVG com foreignObject.
 function domParaImagem(el){
   return new Promise(function(res,rej){
     try{
@@ -325,6 +357,7 @@ function domParaImagem(el){
   });
 }
 // Monta o JPG final: título + subtítulo + bloco + rodapé. Devolve os bytes.
+// Monta o JPG final: título, subtítulo, bloco e rodapé.
 function blocoParaJpg(el,titulo,sub){
   return domParaImagem(el).then(function(b){
     var S=2,mg=28,bg=corFundoTela(),esc=corEhEscura(bg);
@@ -342,10 +375,12 @@ function blocoParaJpg(el,titulo,sub){
     return dataUrlBytes(cv.toDataURL('image/jpeg',0.93));
   });
 }
+// Texto seguro para nome de arquivo.
 function nomeArq(s){
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 }
 // itens: [{arq,el,titulo,sub}] → 1 JPG, ou um .zip com vários
+// Baixa vários blocos em JPG (em .zip se for mais de um).
 function baixarJpgs(itens,prefixo,msgId){
   itens=itens.filter(function(i){return i.el;});
   if(!itens.length){expMsg(msgId,'Nada para baixar.',false);return;}
@@ -359,11 +394,13 @@ function baixarJpgs(itens,prefixo,msgId){
     else{baixarBytes(prefixo+'_imagens.zip',zipStore(arquivos),'application/zip');expMsg(msgId,'✔ '+arquivos.length+' imagens geradas em '+prefixo+'_imagens.zip',true);}
   }).catch(function(e){expMsg(msgId,'Erro ao gerar a imagem: '+((e&&e.message)||e),false);});
 }
+// Mensagem de andamento/erro da exportação.
 function expMsg(id,txt,ok){
   var el=id&&document.getElementById(id);if(!el)return;
   el.textContent=txt;el.style.color=ok?'var(--cinza)':'#dc2626';
   clearTimeout(el._t);if(ok&&txt.indexOf('✔')===0)el._t=setTimeout(function(){el.textContent='';},6000);
 }
+// Texto do filtro de datas para cabeçalhos de imagem e Excel.
 function txtFiltroDatas(sem,de,ate){
   if(sem)return 'Semestre '+PERIODO+' ('+semestreTexto(PERIODO)+')';
   if(de||ate)return 'De '+(de?de.split('-').reverse().join('/'):'início')+' até '+(ate?ate.split('-').reverse().join('/'):'hoje');
@@ -371,6 +408,7 @@ function txtFiltroDatas(sem,de,ate){
 }
 
 // Excel genérico: abas=[{nome,cab:[...],linhas:[[...]],larg:[...],totalUltima:bool}]
+// Gera um .xlsx com várias abas a partir de tabelas simples (Ranque e Reunião).
 function xlsxTabelas(abas){
   var HD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
@@ -433,6 +471,7 @@ function xlsxTabelas(abas){
   sheets.forEach(function(s,i){arq.push({nome:'xl/worksheets/sheet'+(i+1)+'.xml',dados:enc.encode(s)});});
   return zipStore(arq);
 }
+// Gera e baixa o .xlsx de várias abas.
 function baixarXlsxTabelas(nome,abas,msgId){
   try{baixarBytes(nome,xlsxTabelas(abas),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');expMsg(msgId,'✔ Planilha gerada: '+nome,true);}
   catch(e){expMsg(msgId,'Erro ao gerar a planilha: '+e.message,false);}
