@@ -1,5 +1,8 @@
 <script>
+// INDICADORES (cliente): tabela por data (ou mês/semestre), atividade e colaborador, com filtros e a janela Semana.
+// Os números vêm de getIndicadores (cache INDICADORES_CACHE). As funções de agrupamento e datas são reaproveitadas por Ranque e Reunião.
 /* ══════════ INDICADORES ══════════ */
+// Busca os indicadores do período e mostra avisos de leitura das planilhas.
 function carregarIndicadores(){
   document.getElementById('indicadoresContainer').innerHTML='<p class="ind-msg">Carregando indicadores...</p>';
   google.script.run
@@ -15,6 +18,7 @@ function carregarIndicadores(){
     })
     .getIndicadores(PERIODO);
 }
+// Preenche os filtros de mês e colaborador com o que existe nos dados.
 function preencherFiltrosInd(data){
   // Popula multi-select de Meses
   var mesesSet={};
@@ -51,10 +55,12 @@ function preencherFiltrosInd(data){
   // Atividades já estão fixas no HTML; sincroniza label
   syncMsLabel('msAtiv');
 }
+// Converte MM/AAAA em "Mês/AAAA" por extenso.
 function mesesLabel(mmaaaa){
   var mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   var p=mmaaaa.split('/');return mn[parseInt(p[0],10)-1]+'/'+p[1];
 }
+// Botão Limpar.
 function limparFiltrosInd(){
   IND_SEM=false;atualizarBotaoSem('btnSemInd',false);
   document.getElementById('filtroIndDataDe').value='';
@@ -64,15 +70,19 @@ function limparFiltrosInd(){
   setMsAll('msColab',true);
   renderIndicadores();
 }
+// Converte DD/MM/AAAA em Date.
 function parseDateBR(strBR){
   var p=strBR.split('/');
   if(p.length!==3)return null;
   return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
 }
+// Ordem das atividades nas tabelas.
 var ORDEM_ATIV=['Presencial','Ramal','E-mail','Conversa Atribuída','Conversa Fechada','Ocorrência UNILEÃO','Anexo UNILEÃO','Ocorrência UNIVS','Anexo UNIVS','Call Center'];
+// Cor de cada atividade nos gráficos.
 var ATIV_COR={'Presencial':'#16a34a','Ramal':'#2563eb','E-mail':'#ea580c','Conversa Atribuída':'#7c3aed','Conversa Fechada':'#db2777',
   'Ocorrência UNILEÃO':'#0891b2','Anexo UNILEÃO':'#ca8a04','Ocorrência UNIVS':'#475569','Anexo UNIVS':'#65a30d','Call Center':'#8b1e2d'};
 // Datas (DD/MM/AAAA) que passam nos filtros de período e mês, da mais recente para a mais antiga
+// Datas que passam nos filtros De/Até e mês, da mais recente para a mais antiga.
 function datasFiltradas(ind,de,ate,meses){
   var limDe=de?new Date(de+'T00:00:00'):null,limAte=ate?new Date(ate+'T00:00:00'):null;
   return Object.keys(ind).filter(function(d){
@@ -88,12 +98,16 @@ function datasFiltradas(ind,de,ate,meses){
     return new Date(pb[2],pb[1]-1,pb[0])-new Date(pa[2],pa[1]-1,pa[0]);   // mais recente primeiro
   });
 }
+// Controle de filtros: se o usuário mexeu nos meses; e se o modo Semestre está ligado em Indicadores e Reunião.
 var MES_TOQUE={},IND_SEM=false,REU_SEM=false;
+// Quantidade de meses disponíveis no filtro.
 function totalMesesOpcoes(id){return document.getElementById(id).querySelectorAll('input[type=checkbox][value]').length;}
+// Ordena datas DD/MM/AAAA da mais recente para a mais antiga.
 function ordenarDatasDesc(l){
   return l.sort(function(a,b){var pa=a.split('/'),pb=b.split('/');return new Date(pb[2],pb[1]-1,pb[0])-new Date(pa[2],pa[1]-1,pa[0]);});
 }
 // Datas do semestre do período (AAAA.1 = janeiro a junho · AAAA.2 = julho a dezembro)
+// Datas do semestre do período (.1 = janeiro a junho; .2 = julho a dezembro).
 function datasSemestre(ind,periodo){
   var m=String(periodo||'').match(/^(\d{4})\.([12])$/);
   return ordenarDatasDesc(Object.keys(ind).filter(function(d){
@@ -103,17 +117,21 @@ function datasSemestre(ind,periodo){
     return m[2]==='1'?(mes>=1&&mes<=6):(mes>=7&&mes<=12);
   }));
 }
+// Texto do semestre (ex.: julho a dezembro de 2026).
 function semestreTexto(periodo){
   var m=String(periodo||'').match(/^(\d{4})\.([12])$/);
   return m?(m[2]==='1'?'janeiro a junho':'julho a dezembro')+' de '+m[1]:'';
 }
 // dia = uma linha por data · mes = um total por mês selecionado · semestre = um único total
+// Decide se a tabela mostra um total por dia, por mês ou do semestre.
 function modoAgrupamento(sem,mesesSel,totalOpc,toque){
   if(sem)return 'semestre';
   if(mesesSel.length>0&&(mesesSel.length<totalOpc||toque))return 'mes';
   return 'dia';
 }
+// Rótulo curto do mês (ex.: Jul/26).
 function mesCurto(k){var mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],p=k.split('/');return mn[parseInt(p[0],10)-1]+'/'+p[1].slice(2);}
+// Agrupa as datas conforme o modo (dia, mês, semestre ou semana).
 function gruposDeDatas(datas,modo){
   if(modo==='semana'){                 // soma dos dias escolhidos em uma única linha por atividade
     var o=ordenarDatasDesc(datas.slice()),fim=o[0],ini=o[o.length-1],a=function(d){var p=d.split('/');return p[2]+'-'+p[1]+'-'+p[0];};
@@ -127,27 +145,34 @@ function gruposDeDatas(datas,modo){
   }
   return datas.map(function(d){return {rot:d,arq:dataArquivo(d),curto:d.slice(0,5),datas:[d]};});
 }
+// Títulos da primeira coluna conforme o modo.
 function rotuloModo(modo){
   return modo==='mes'?{col:'Mês',titulo:'Mês'}:modo==='semestre'?{col:'Semestre',titulo:'Semestre'}:modo==='semana'?{col:'Semana',titulo:'Semana'}:{col:'Data',titulo:'Data'};
 }
+// Aviso exibido quando o modo é mês ou semestre.
 function textoModo(modo){
   if(modo==='mes')return '📅 Mostrando o total de cada mês selecionado, sem separar por data.';
   if(modo==='semestre')return '📅 Semestre '+PERIODO+' ('+semestreTexto(PERIODO)+') em um único total.';
   return '';
 }
+// Lê os filtros atuais da tela.
 function filtrosInd(){
   return {de:document.getElementById('filtroIndDataDe').value,ate:document.getElementById('filtroIndDataAte').value,
           meses:getMsValues('msMes'),ativs:getMsValues('msAtiv'),colabs:getMsValues('msColab'),
           sem:IND_SEM,totalMeses:totalMesesOpcoes('msMes'),toque:!!MES_TOQUE.msMes};
 }
+// Liga/desliga o destaque do botão Semestre.
 function atualizarBotaoSem(id,on){var b=document.getElementById(id);if(b)b.classList.toggle('on',!!on);}
+// Botão Filtrar.
 function filtrarInd(){IND_SEM=false;atualizarBotaoSem('btnSemInd',false);renderIndicadores();}
+// Botão Semestre (total do semestre inteiro).
 function indSemestre(){
   IND_SEM=!IND_SEM;
   if(IND_SEM){document.getElementById('filtroIndDataDe').value='';document.getElementById('filtroIndDataAte').value='';setMsAll('msMes',true);}
   atualizarBotaoSem('btnSemInd',IND_SEM);renderIndicadores();
 }
 // Calcula os números da tabela de Indicadores (usado na tela, no Excel e nas imagens)
+// Calcula os números da tabela; é usado na tela, no Excel e nas imagens.
 function modeloIndicadores(f,forcarModo){
   var data=INDICADORES_CACHE;
   if(!data||!data.indicadores)return {vazio:'sem-dados'};
@@ -186,6 +211,7 @@ function modeloIndicadores(f,forcarModo){
   return {cols:cols,dias:dias,total:total,modo:modo,rotCol:rot.col,rotTitulo:rot.titulo,nDatas:comDados.length,
           ocultarTotal:(modo!=='dia'&&dias.length===1)};   // um único grupo: o "Total geral" repetiria o total do grupo
 }
+// Monta o HTML da tabela com subtotais e total geral.
 function htmlTabelaIndicadores(m){
   var cols=m.cols;
   var html='<table class="ind-table"><thead><tr><th>'+m.rotCol+'</th><th>Atividade</th>';
@@ -210,6 +236,7 @@ function htmlTabelaIndicadores(m){
   }
   return html+'</tbody></table>';
 }
+// Desenha a tabela e a janela Semana.
 function renderIndicadores(){
   var cont=document.getElementById('indicadoresContainer');
   var f=filtrosInd(),m=modeloIndicadores(f);
@@ -223,12 +250,14 @@ function renderIndicadores(){
 
 /* ── Janela "Semana": aparece quando De/Até abrangem mais de uma data; soma os dias de cada atividade por colaborador ── */
 // Retorna o modelo semanal, ou null quando a janela não se aplica
+// Modelo da janela Semana (soma dos dias entre De e Até); null quando não se aplica.
 function modeloSemana(f){
   if(f.sem||!(f.de||f.ate))return null;                          // só quando o filtro De/Até está em uso (não vale para Semestre)
   if(modoAgrupamento(f.sem,f.meses,f.totalMeses,f.toque)!=='dia')return null;   // com meses selecionados o total já é mensal
   var m=modeloIndicadores(f,'semana');
   return (m.vazio||m.nDatas<2)?null:m;
 }
+// Mostra/oculta a janela Semana e seus botões de download.
 function renderSemana(f){
   var box=document.getElementById('indSemanaBox');if(!box)return;
   var m=modeloSemana(f||filtrosInd());
