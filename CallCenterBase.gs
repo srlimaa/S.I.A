@@ -2,11 +2,17 @@
 // CALL CENTER — planilha, login, utilitários e leitura de dados (funções "cc...").
 // ══════════════════════════════════════════════════════════════════════
 
+// ARQUIVO: CallCenterBase.gs
+// O QUE FAZ: base do sistema de Call Center: abre as planilhas, lê/grava abas, valida usuários, abre a sessão e lê a base de alunos.
+// ONDE É USADO: CallCenterApi.gs (ações da tela), Autenticacao.gs (login único), Indicadores.gs (contagem de registros) e js_callcenter.html (abertura).
+// DICA: todas as funções cc... pertencem ao Call Center; as que terminam com _ são internas (a tela não as chama direto).
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CALL CENTER - ADITAMENTOS (integrado a este projeto)
 // A planilha do Call Center (abas USUARIOS, CONFIG, SEMESTRES, OPCOES, REGISTROS, RESPONSAVEIS) é aberta pelo ID.
 // A tela do Call Center está no arquivo HTML "CallCenter". Os nomes das funções começam com "cc".
 // ═══════════════════════════════════════════════════════════════════════════
+// ID da planilha do Call Center usada enquanto nenhuma outra for configurada (Configurações › Planilhas).
 var CC_PLANILHA_PADRAO = '1L5wclKLy7MZvVhDgR3KUDPla2Q7GI50FifWv0VXN480';
 
 /* ---------- velocidade: memória da execução + cache compartilhado ----------
@@ -14,12 +20,16 @@ var CC_PLANILHA_PADRAO = '1L5wclKLy7MZvVhDgR3KUDPla2Q7GI50FifWv0VXN480';
    (_CC_MEM) em vez de serem abertas/lidas de novo. Entre execuções, o CacheService guarda a base de alunos (compactada). */
 var _CC_MEM = {};
 
+// Guarda em memória, durante a execução, o resultado de f() com a chave k (evita reabrir/reler a mesma planilha várias vezes).
 function ccMem_(k, f) { if (!(k in _CC_MEM)) _CC_MEM[k] = f(); return _CC_MEM[k]; }
 
+// Apaga da memória as cópias cujo nome começa por "prefixo" (usada depois de gravar numa aba).
 function ccMemLimpa_(prefixo) { Object.keys(_CC_MEM).forEach(function(k) { if (k.indexOf(prefixo) === 0) delete _CC_MEM[k]; }); }
 
+// Abre uma planilha pelo ID (uma única vez por execução).
 function ccOpen_(id) { return ccMem_('ss|' + id, function() { return SpreadsheetApp.openById(id); }); }
 
+// Abre a planilha MESTRE do Atendimentos (usuários, períodos, config) uma única vez por execução.
 function ccMestre_() { return ccMem_('mestre', function() { return SpreadsheetApp.openById(SPREADSHEET_ID); }); }
 
 // Depois de gravar em uma aba, descarta a cópia em memória dela
@@ -38,6 +48,7 @@ function ccCachePut_(chave, obj, seg) {
   } catch (e) { return false; }
 }
 
+// Lê do cache compartilhado o objeto guardado por ccCachePut_ (junta as partes, descompacta e converte). null se não houver.
 function ccCacheGet_(chave) {
   try {
     var c = CacheService.getScriptCache(), n = parseInt(c.get(chave + '_n'), 10);
@@ -54,14 +65,17 @@ function ccCacheGet_(chave) {
 // essa versão (chamada leve) e só baixam os dados quando ela mudou.
 function ccVerChave_(sem) { return 'cc_ver_' + String(sem).replace(/[^\w.-]/g, ''); }
 
+// Versão atual dos dados vivos do semestre. Se não existir, cria uma nova.
 function ccVer_(sem) {
   var c = CacheService.getScriptCache(), k = ccVerChave_(sem), v = c.get(k);
   if (!v) { v = Utilities.getUuid().slice(0, 8); c.put(k, v, 21600); }
   return v;
 }
 
+// Troca a versão do semestre. É chamada a cada gravação (registro, exclusão, responsável) para avisar as outras telas abertas.
 function ccBump_(sem) { CacheService.getScriptCache().put(ccVerChave_(sem), Utilities.getUuid().slice(0, 8), 21600); }
 
+// ID da planilha do Call Center em uso (a configurada em Planilhas ou a padrão). Fica em cache para não reler a aba Config.
 function ccPlanilhaId_() {
   return ccMem_('plan', function() {
     var c = CacheService.getScriptCache(), v = c.get('cc_planilha');
@@ -71,10 +85,13 @@ function ccPlanilhaId_() {
   });
 }
 
+// Planilha principal do Call Center, já aberta.
 function ccSs_() { return ccOpen_(ccPlanilhaId_()); }
 
+// Fuso horário do projeto (usado nas datas gravadas).
 function ccTz_() { return Session.getScriptTimeZone(); }
 
+// Colunas de cada aba da planilha do Call Center (a ordem aqui é a ordem das colunas na planilha).
 const CC_HEAD = {
   USUARIOS: ['Email', 'Nome', 'Senha', 'Perfil', 'Foto', 'Tema', 'Semestre'],
   CONFIG: ['Chave', 'Valor'],
@@ -84,12 +101,16 @@ const CC_HEAD = {
   RESPONSAVEIS: ['Semestre', 'CPF', 'Email']
 };
 
+// Os dois status que aparecem na lista de alunos do Call Center.
 const CC_ST = ['SOLICITADO / NÃO ADITOU', 'SOLICITADO / ENVIADO AO BANCO'];
 
+// Nome da aba da planilha "Call Center - Aditamentos" onde está o comparecimento ao banco.
 const CC_ABA = 'Aditamento';      // aba da planilha "Call Center - Aditamentos"
 
+// Coluna (AT, contando de 0) com o texto do comparecimento ao banco, no formato "dd/mm/aaaa até dd/mm/aaaa".
 const CC_COL_BANCO = 45;             // coluna AT (índice 0)
 
+// Cria as abas que faltarem (USUARIOS, CONFIG, SEMESTRES, OPCOES, REGISTROS, RESPONSAVEIS) com cabeçalho e opções iniciais.
 function ccEnsure_() {
   const ss = ccSs_();
   Object.keys(CC_HEAD).forEach(n => {
@@ -114,6 +135,8 @@ function ccEnsure_() {
 
 /* ---------- utilidades de planilha ---------- */
 
+// Lê uma aba inteira e devolve uma lista de objetos {coluna: valor, _row: nº da linha}.
+// O resultado fica em memória durante a execução; as gravações (ccAdd_/ccUpd_/ccDel_) descartam essa cópia.
 function ccTab_(n, ss) {
   const s0 = ss || ccSs_();
   return ccMem_('tab|' + s0.getId() + '|' + n, function() {
@@ -122,40 +145,56 @@ function ccTab_(n, ss) {
   });
 }
 
+// Acrescenta uma linha no fim da aba n (todas as células como texto).
 function ccAdd_(n, o, ss) { const s0 = ss || ccSs_(), sh = s0.getSheetByName(n), r = sh.getLastRow() + 1, g = sh.getRange(r, 1, 1, CC_HEAD[n].length); g.setNumberFormat('@'); g.setValues([CC_HEAD[n].map(k => o[k] === undefined ? '' : String(o[k]))]); ccInval_(s0, n); }
 
+// Altera, na linha informada, só as colunas presentes em o.
 function ccUpd_(n, row, o, ss) { const s0 = ss || ccSs_(), sh = s0.getSheetByName(n); CC_HEAD[n].forEach((k, j) => { if (o[k] !== undefined) { const c = sh.getRange(row, j + 1); c.setNumberFormat('@'); c.setValue(String(o[k])); } }); ccInval_(s0, n); }
 
+// Exclui uma linha da aba n.
 function ccDel_(n, row) { const s0 = ccSs_(); s0.getSheetByName(n).deleteRow(row); ccInval_(s0, n); }
 
+// Extrai o ID de uma planilha a partir do link completo (ou devolve o próprio texto, se já for o ID).
 function ccId_(s) { s = String(s || '').trim(); const m = s.match(/\/d\/([a-zA-Z0-9-_]+)/); return m ? m[1] : s; }
 
+// Texto "limpo" para comparar: sem acento, maiúsculo e com espaços padronizados.
 function ccKey_(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ').trim(); }
 
+// Os 7 status possíveis da coluna de aditamento (usados nos gráficos do Indicador - Geral).
 const CC_STATUS7 = ['ADITOU', 'NÃO SOLICITADO', 'REJEITADO', 'SOLICITADO / CANCELADO', 'SOLICITADO / EM PROCESSAMENTO', 'SOLICITADO / ENVIADO AO BANCO', 'SOLICITADO / NÃO ADITOU'];
 
+// Converte o status lido da planilha para a grafia oficial de CC_STATUS7.
 function ccCanon_(s) { const k = ccKey_(s); return CC_STATUS7.find(x => ccKey_(x) === k) || k; }
 
+// Maiúsculo com espaços padronizados (comparações simples de texto).
 function ccNorm_(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/g, ' / ').trim(); }
 
+// CPF só com dígitos e sempre com 11 posições (completa com zeros à esquerda). É a chave que liga aluno, registro e responsável.
 function ccCpf_(s) { const d = String(s || '').replace(/\D/g, ''); return d ? ('00000000000' + d).slice(-11) : ''; }
 
+// Data em texto dd/mm/aaaa.
 function ccFmtD_(v) { if (v instanceof Date) return Utilities.formatDate(v, ccTz_(), 'dd/MM/yyyy'); return String(v || '').trim(); }
 
+// Percentual em texto (ex.: 0,85 vira 85%).
 function ccFmtP_(v) { if (typeof v === 'number') return (v <= 1 ? Math.round(v * 10000) / 100 : v) + '%'; return String(v || '').trim(); }
 
 /* ---------- senha ---------- */
 
+// Calcula o hash SHA-256 de uma senha com sal (uso do login antigo do Call Center).
 function ccHash_(s, salt) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + s).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join(''); }
 
+// Cria um hash novo (sal + hash) para guardar uma senha.
 function ccHashNew_(s) { const salt = Utilities.getUuid().slice(0, 8); return salt + '$' + ccHash_(s, salt); }
 
+// Confere se a senha corresponde ao hash guardado.
 function ccCheck_(s, stored) { const p = String(stored).split('$'); return p.length === 2 && ccHash_(s, p[0]) === p[1]; }
 
 /* ---------- login / sessão ---------- */
 
+// Dados públicos (nome e logo) do Call Center, mostrados antes do login.
 function ccGetPublic() { ccEnsure_(); const c = ccCfg_(); return { nomeLogin: c.nomeLogin, logo: c.logo }; }
 
+// Login direto no Call Center com e-mail/senha do Atendimentos. Devolve o token da sessão (hoje o login usa loginUnificado).
 function ccApiLogin(email, senha) {
   // login único: o usuário é o do sistema de Atendimentos; precisa ter acesso liberado ao Call Center
   const r = login(email, senha);
@@ -165,14 +204,19 @@ function ccApiLogin(email, senha) {
   return { ok: { token: c.token } };
 }
 
+// Encerra a sessão do Call Center (apaga o token do cache).
 function ccApiLogout(t) { CacheService.getScriptCache().remove('s_' + t); }
 
+// Lê a aba CONFIG (nome do sistema, logo) como um objeto.
 function ccCfg_() { const o = {}; ccTab_('CONFIG').forEach(r => o[r.Chave] = r.Valor); return o; }
 
+// Lê a aba OPCOES: listas de Objetivo, Meio e Resultado dos contatos.
 function ccOpc_() { const o = { Objetivo: [], Meio: [], Resultado: [] }; ccTab_('OPCOES').forEach(r => { if (o[r.Tipo]) o[r.Tipo].push(r.Valor); }); return o; }
 
+// Dados do usuário que vão para a tela (e-mail, nome, perfil, foto, tema, semestre).
 function ccPub_(u) { return { email: u.Email, nome: u.Nome, perfil: u.Perfil, foto: u.Foto, tema: u.Tema || 'Padrão', semestre: ccSemU_(u) }; }
 
+// Semestre do usuário (o último escolhido ou, se não houver, o mais recente cadastrado).
 function ccSemU_(u) { const s = ccTab_('SEMESTRES').map(x => String(x.Semestre)); return s.indexOf(String(u.Semestre)) >= 0 ? String(u.Semestre) : s[s.length - 1]; }
 
 /* ---------- usuários unificados ----------
@@ -189,6 +233,7 @@ function ccFlagAcesso_(flag, temPrefs) {
 // Usuários do sistema de Atendimentos
 function ccAtend_() { return ccMem_('atend', ccAtendLer_); }
 
+// Lê a aba Usuarios da planilha mestre: id, nome, e-mail, perfil, avatar e flag de acesso ao Call Center.
 function ccAtendLer_() {
   var data = ccMestre_().getSheetByName('Usuarios').getDataRange().getValues();
   var out = [];
@@ -209,11 +254,13 @@ function ccFoto_(av) {
   return '';
 }
 
+// E-mails que já têm preferências na aba USUARIOS do Call Center (quem já usava o sistema).
 function ccPrefsEmails_() {
   try { var o = {}; ccTab_('USUARIOS').forEach(function(x) { o[String(x.Email).toLowerCase()] = 1; }); return o; }
   catch (e) { return {}; }
 }
 
+// Mapa e-mail → nome atual do colaborador (para mostrar sempre o nome atualizado).
 function ccNomesPorEmail_() {
   var o = {};
   try { ccAtend_().forEach(function(a) { o[a.email.toLowerCase()] = a.nome; }); } catch (e) {}
@@ -296,6 +343,7 @@ function ccGarantirColunaSem_() {
   }
 }
 
+// Registros de contato do semestre, já no formato da tela (com o nome atual do colaborador).
 function ccRegs_(sem) {
   const nomes = ccNomesPorEmail_();       // nome atual do colaborador (cadastro de usuários do Atendimentos)
   return ccTab_('REGISTROS', ccSsReg_(sem)).filter(r => String(r.Semestre) === String(sem)).map(r => ({
@@ -304,6 +352,7 @@ function ccRegs_(sem) {
   }));
 }
 
+// Lê o "comparecimento ao banco" da planilha Call Center - Aditamentos: devolve {cpf: {ini, fim}}.
 function ccComp_(idc) {
   const sc = SpreadsheetApp.openById(ccId_(idc));
   const sh = sc.getSheetByName(CC_ABA) || sc.getSheets().find(x => /aditamento/i.test(x.getName())) || sc.getSheets()[1];
@@ -323,11 +372,14 @@ function ccComp_(idc) {
 
 /* ---------- API ---------- */
 
+// Confere se todas as abas do Call Center existem.
 function ccTemAbas_() {
   var ss = ccSs_();
   return Object.keys(CC_HEAD).every(function(n) { return !!ss.getSheetByName(n); });
 }
 
+// Abre a sessão do Call Center para um usuário do Atendimentos: confere acesso, cria o token (válido por 6 h) e devolve nome, perfil, logo e semestres.
+// Chamada por loginUnificado e retomarSessao (Autenticacao.gs).
 function ccLoginInterno_(email) {
   if (!ccTemAbas_()) ccEnsure_();
   var u = ccUser_(email);
@@ -420,6 +472,7 @@ function getPlanilhaCC(adminId) {
   } catch(e) { return { success: false, message: e.message }; }
 }
 
+// Só Admin. Valida e grava a planilha do Call Center (e limpa os caches).
 function salvarPlanilhaCC(link, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar a planilha do Call Center.' };
