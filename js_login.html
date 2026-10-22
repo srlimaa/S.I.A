@@ -1,8 +1,11 @@
 <script>
+// LOGIN e escolha do sistema (cliente). Define as variáveis globais de sessão: USUARIO, PERIODO, CC_SESSAO, SISTEMA, ABERTO e caches.
+// A sessão fica no localStorage (sessaoAt) e vale 6 h; sessaoEstado lembra o sistema/período para voltar ao recarregar.
 var USUARIO=null,PERIODO=null,HISTORICO_CACHE=[],INDICADORES_CACHE={};
 var CC_SESSAO=null,SISTEMA=null,ABERTO=null,NOME_LOGADO='',CC_HTML=null;
 
 /* ── Mostrar / ocultar a senha (olho) ── */
+// Olho do campo de senha: mostra/oculta.
 function alternarSenha(){
   var inp=document.getElementById('loginSenha'),b=document.getElementById('loginEye'),ver=inp.type==='password';
   inp.type=ver?'text':'password';
@@ -10,17 +13,20 @@ function alternarSenha(){
   b.title=ver?'Ocultar senha':'Mostrar senha';b.setAttribute('aria-label',ver?'Ocultar senha':'Mostrar senha');
   inp.focus();
 }
+// Volta o campo de senha para oculto (ao entrar e ao sair).
 function ocultarSenha(){            // volta a senha para "bolinhas" (ao entrar e ao sair)
   var inp=document.getElementById('loginSenha'),b=document.getElementById('loginEye');
   inp.type='password';b.classList.remove('on');b.setAttribute('aria-pressed','false');b.title='Mostrar senha';
 }
 /* ── Sessão guardada no navegador (sobrevive ao recarregar a página; vale 6 h) ── */
+// Funções que gravam, leem e limpam a sessão e o estado (sistema/período) no navegador.
 function guardarSessao(t){try{if(t)localStorage.setItem('sessaoAt',t);}catch(e){}}
 function lerSessao(){try{return localStorage.getItem('sessaoAt')||'';}catch(e){return '';}}
 function limparSessao(){try{localStorage.removeItem('sessaoAt');localStorage.removeItem('sessaoEstado');}catch(e){}}
 function salvarEstado(){try{localStorage.setItem('sessaoEstado',JSON.stringify({s:SISTEMA,p:PERIODO}));}catch(e){}}
 function lerEstado(){try{return JSON.parse(localStorage.getItem('sessaoEstado')||'null');}catch(e){return null;}}
 // Aplica o resultado de loginUnificado()/retomarSessao()
+// Aplica o resultado de loginUnificado/retomarSessao: define usuário do Atendimentos e do Call Center e pré-carrega a tela do Call Center.
 function aplicarLogin(r){
   USUARIO=r.registro||null;CC_SESSAO=r.cc||null;PERIODO=null;SISTEMA=null;ABERTO=null;
   NOME_LOGADO=USUARIO?USUARIO.nome:(CC_SESSAO?CC_SESSAO.nome:'');
@@ -29,6 +35,7 @@ function aplicarLogin(r){
   if(CC_SESSAO)ccCarregarHtml(null,true);                  // já deixa a tela do Call Center carregada, para abrir mais rápido
 }
 /* ── Login / Logout ── */
+// Envia e-mail/senha ao servidor (loginUnificado).
 function fazerLogin(){
   var email=document.getElementById('loginEmail').value.trim();
   var senha=document.getElementById('loginSenha').value.trim();
@@ -43,11 +50,13 @@ function fazerLogin(){
     .withFailureHandler(function(){mostrarErroLogin('Erro ao conectar.');})
     .loginUnificado(email,senha);
 }
+// Mostra mensagem de erro na tela de login.
 function mostrarErroLogin(msg){
   var e=document.getElementById('loginErro');
   e.textContent=msg||'Não foi possível entrar.';e.style.display='block';
 }
 /* ── Escolha do sistema (login único) ── */
+// Tela de escolha entre Atendimentos e Call Center (desativa o que o usuário não pode acessar).
 function mostrarSistemas(){
   try{localStorage.removeItem('sessaoEstado');}catch(e){}
   ['appScreen','periodoScreen','ccScreen'].forEach(function(id){document.getElementById(id).style.display='none';});
@@ -64,12 +73,14 @@ function mostrarSistemas(){
   document.getElementById('sisCCNome').textContent=(cc&&CC_SESSAO.nomeSistema)||'Call Center - Aditamentos';
   document.getElementById('sisCCNota').textContent=cc?'Call Center de aditamentos':'Seu usuário não tem acesso ao Call Center. Peça a um Admin para liberar.';
 }
+// Guarda o sistema escolhido e segue para a seleção de período.
 function escolherSistema(s){
   if((s==='registro'&&!USUARIO)||(s==='cc'&&!CC_SESSAO))return;
   SISTEMA=s;
   document.getElementById('sistemaScreen').style.display='none';
   abrirSelecaoPeriodo();
 }
+// Encerra sessões no servidor, limpa o estado local e volta ao login.
 function logout(){
   var tk=lerSessao();if(tk){try{google.script.run.encerrarSessao(tk);}catch(e){}}limparSessao();
   if(CC_SESSAO&&CC_SESSAO.token){try{google.script.run.ccApiLogout(CC_SESSAO.token);}catch(e){}}
