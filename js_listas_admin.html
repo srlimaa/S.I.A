@@ -1,19 +1,25 @@
 <script>
+// LISTAS DO ADMIN (cliente): colaboradores Virtual, assuntos extras (Presencial, Ramal, E-mail) e semestres extras (Presencial, E-mail). Servidor em Listas.gs.
 /* ══════════ COLABORADORES DA OPÇÃO VIRTUAL ══════════ */
+// Lista padrão (a do servidor prevalece quando carregada).
 var COLABS_VIRTUAL_PADRAO=['Amanda','Andreza','Cesar','Israel','Luana','Magno','Miriã','Patrick'];
+// Ordena nomes em português.
 function ordenarNomes(l){return l.slice().sort(function(a,b){return a.localeCompare(b,'pt',{sensitivity:'base'});});}
 var COLABS_VIRTUAL=COLABS_VIRTUAL_PADRAO.slice();
+// Preenche a lista Colaborador do registro Virtual.
 function preencherSelectVirtual(){
   var sel=document.getElementById('v_colaborador'),atual=sel.value;
   sel.innerHTML='<option value="">— Selecione —</option>'+
     COLABS_VIRTUAL.map(function(n){return '<option>'+escHtml(n)+'</option>';}).join('');
   sel.value=atual;
 }
+// Busca a lista no servidor.
 function carregarColabsVirtual(){
   google.script.run.withSuccessHandler(function(l){
     if(Array.isArray(l)){COLABS_VIRTUAL=ordenarNomes(l);preencherSelectVirtual();}
   }).getColaboradoresVirtual();
 }
+// Desenha a lista no painel.
 function vcRender(){
   var box=document.getElementById('vcList');
   box.innerHTML=COLABS_VIRTUAL.length?COLABS_VIRTUAL.map(function(n,i){
@@ -22,6 +28,7 @@ function vcRender(){
   }).join(''):'<p class="vc-vazio">Nenhum colaborador cadastrado.</p>';
   document.getElementById('vcPara').innerHTML=COLABS_VIRTUAL.map(function(n){return '<option>'+escHtml(n)+'</option>';}).join('');
 }
+// Salva a lista no servidor.
 function vcSalvar(lista,msgOk){
   google.script.run
     .withSuccessHandler(function(r){
@@ -32,6 +39,7 @@ function vcSalvar(lista,msgOk){
     .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
     .salvarColaboradoresVirtual(lista,USUARIO.id);
 }
+// Adiciona um colaborador.
 function vcAdicionar(){
   var inp=document.getElementById('vcNovo'),n=inp.value.replace(/\s+/g,' ').trim();
   if(!n)return;
@@ -41,11 +49,13 @@ function vcAdicionar(){
   inp.value='';
   vcSalvar(COLABS_VIRTUAL.concat([n]),'✔ '+n+' adicionado(a)!');
 }
+// Remove um colaborador da lista (não altera registros).
 function vcRemover(i){
   var n=COLABS_VIRTUAL[i];if(n==null)return;
   if(!confirm('Remover "'+n+'" da lista? Registros já salvos não serão alterados.'))return;
   vcSalvar(COLABS_VIRTUAL.filter(function(_,j){return j!==i;}),'✔ '+n+' removido(a) da lista.');
 }
+// Corrige o nome em registros Virtuais já salvos.
 function vcTrocarRegistros(){
   var de=document.getElementById('vcDe').value.trim(),para=document.getElementById('vcPara').value;
   if(!de||!para){showFeedback('fbCfg','Informe o nome antigo e escolha o novo nome.',false);return;}
@@ -62,10 +72,12 @@ function vcTrocarRegistros(){
 preencherSelectVirtual();
 
 /* ══════════ ASSUNTOS ADICIONAIS (Presencial / Ramal / E-mail) ══════════ */
+// Mapa dos selects de assunto e guarda as opções originais de cada um.
 var ASSUNTO_SEL={presencial:'p_assunto',ramal:'r_assunto',email:'e_assunto'};
 var ASSUNTO_NOME={presencial:'Presencial',ramal:'Ramal',email:'E-mail'};
 var ASSUNTO_BASE={},ASSUNTOS_EXTRA=[];
 Object.keys(ASSUNTO_SEL).forEach(function(t){ASSUNTO_BASE[t]=document.getElementById(ASSUNTO_SEL[t]).innerHTML;});
+// Recria cada select com opções originais + extras (criando o grupo se preciso).
 function aplicarAssuntos(){
   Object.keys(ASSUNTO_SEL).forEach(function(t){
     var sel=document.getElementById(ASSUNTO_SEL[t]);if(!sel)return;
@@ -83,11 +95,13 @@ function aplicarAssuntos(){
     sel.value=atual;
   });
 }
+// Busca os assuntos extras.
 function carregarAssuntosExtra(){
   google.script.run.withSuccessHandler(function(l){
     if(Array.isArray(l)){ASSUNTOS_EXTRA=l;aplicarAssuntos();}
   }).getAssuntosExtra();
 }
+// Grupos existentes para sugestão.
 function asGruposExistentes(){
   var vistos={},out=[];
   function add(n){var k=semAcento(n);if(n&&!vistos[k]){vistos[k]=1;out.push(n);}}
@@ -98,11 +112,13 @@ function asGruposExistentes(){
   ASSUNTOS_EXTRA.forEach(function(a){add(a.g);});
   return out;
 }
+// Verifica se o assunto já existe no tipo.
 function asExiste(t,nome){
   var k=semAcento(nome),tmp=document.createElement('select');tmp.innerHTML=ASSUNTO_BASE[t];
   var base=Array.prototype.some.call(tmp.querySelectorAll('option'),function(o){return semAcento(o.text)===k;});
   return base||ASSUNTOS_EXTRA.some(function(a){return a.t===t&&semAcento(a.n)===k;});
 }
+// Desenha o painel de assuntos.
 function asRender(){
   document.getElementById('asGrupos').innerHTML=asGruposExistentes().map(function(g){return '<option value="'+escHtml(g)+'">';}).join('');
   var box=document.getElementById('asLista');
@@ -113,6 +129,7 @@ function asRender(){
       '<button type="button" class="btn-excluir" onclick="asRemover('+i+')">Remover</button></div>';
   }).join('');
 }
+// Salva a lista de assuntos.
 function asSalvar(lista,msgOk){
   google.script.run
     .withSuccessHandler(function(r){
@@ -123,6 +140,7 @@ function asSalvar(lista,msgOk){
     .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
     .salvarAssuntosExtra(lista,USUARIO.id);
 }
+// Adiciona um assunto nos tipos marcados.
 function asAdicionar(){
   var nome=document.getElementById('asNome').value.replace(/\s+/g,' ').trim();
   var grupo=document.getElementById('asGrupo').value.replace(/\s+/g,' ').trim();
@@ -137,6 +155,7 @@ function asAdicionar(){
   var onde=novos.map(function(a){return ASSUNTO_NOME[a.t];}).join(', ');
   asSalvar(ASSUNTOS_EXTRA.concat(novos),'✔ Adicionado em '+onde+(jaTem.length?' (já existia em '+jaTem.join(', ')+')':'')+'.');
 }
+// Remove um assunto extra.
 function asRemover(i){
   var a=ASSUNTOS_EXTRA[i];if(!a)return;
   if(!confirm('Remover "'+a.n+'" de '+ASSUNTO_NOME[a.t]+'? Registros já salvos não serão alterados.'))return;
@@ -144,6 +163,7 @@ function asRemover(i){
 }
 
 /* ══════════ SEMESTRES ADICIONAIS (Presencial / E-mail) ══════════ */
+// Mapa dos selects de semestre e opções originais.
 var SEM_SEL={presencial:'p_semestre',email:'e_semestre'};
 var SEM_NOME={presencial:'Presencial',email:'E-mail'};
 var SEM_BASE={},SEMESTRES_EXTRA=[];
@@ -151,6 +171,7 @@ Object.keys(SEM_SEL).forEach(function(t){
   var sel=document.getElementById(SEM_SEL[t]);
   SEM_BASE[t]=Array.prototype.map.call(sel.options,function(o){return o.value;}).filter(Boolean);
 });
+// Recria cada select de semestre com originais + extras, em ordem.
 function aplicarSemestres(){
   Object.keys(SEM_SEL).forEach(function(t){
     var sel=document.getElementById(SEM_SEL[t]);if(!sel)return;
@@ -162,14 +183,17 @@ function aplicarSemestres(){
     sel.value=atual;
   });
 }
+// Busca os semestres extras.
 function carregarSemestresExtra(){
   google.script.run.withSuccessHandler(function(l){
     if(Array.isArray(l)){SEMESTRES_EXTRA=l;aplicarSemestres();}
   }).getSemestresExtra();
 }
+// Verifica se o semestre já existe.
 function smExiste(t,n){
   return SEM_BASE[t].indexOf(n)!==-1||SEMESTRES_EXTRA.some(function(a){return a.t===t&&a.n===n;});
 }
+// Desenha o painel de semestres.
 function smRender(){
   var box=document.getElementById('smLista');
   if(!SEMESTRES_EXTRA.length){box.innerHTML='<p class="vc-vazio">Nenhum semestre adicional ainda.</p>';return;}
@@ -179,6 +203,7 @@ function smRender(){
       '<button type="button" class="btn-excluir" onclick="smRemover('+o.i+')">Remover</button></div>';
   }).join('');
 }
+// Salva a lista de semestres.
 function smSalvar(lista,msgOk){
   google.script.run
     .withSuccessHandler(function(r){
@@ -189,6 +214,7 @@ function smSalvar(lista,msgOk){
     .withFailureHandler(function(err){showFeedback('fbCfg','Erro: '+((err&&err.message)||'falha ao conectar com o servidor.'),false);})
     .salvarSemestresExtra(lista,USUARIO.id);
 }
+// Adiciona um semestre (formato AAAA.1 ou AAAA.2).
 function smAdicionar(){
   var n=document.getElementById('smNome').value.trim();
   if(!/^\d{4}\.[12]$/.test(n)){showFeedback('fbCfg','Use o formato AAAA.S, com semestre 1 ou 2 (ex.: 2028.1).',false);return;}
@@ -201,6 +227,7 @@ function smAdicionar(){
   smSalvar(SEMESTRES_EXTRA.concat(novos),'✔ Semestre '+n+' adicionado em '+novos.map(function(a){return SEM_NOME[a.t];}).join(', ')+
     (jaTem.length?' (já existia em '+jaTem.join(', ')+')':'')+'.');
 }
+// Remove um semestre extra.
 function smRemover(i){
   var a=SEMESTRES_EXTRA[i];if(!a)return;
   if(!confirm('Remover o semestre '+a.n+' de '+SEM_NOME[a.t]+'? Registros já salvos não serão alterados.'))return;
