@@ -1,3 +1,6 @@
+// REGISTROS DE ATENDIMENTO: gravar (Presencial, Ramal, E-mail, Virtual), editar, excluir e montar o histórico.
+// Cada registro vai para a planilha do período (abrirPlanilhaPeriodo_). As colunas de cada aba estão descritas junto de cada função.
+// Editar e excluir: Admin altera qualquer registro; os demais perfis, só os próprios. Exclusão guarda cópia na aba "Excluidos".
 // ══════════════════════════════════════════════════════════════════════
 // REGISTROS — gravar, editar, excluir e histórico (Presencial, Ramal, E-mail, Virtual).
 // ══════════════════════════════════════════════════════════════════════
@@ -110,6 +113,7 @@ var REG_CONF_ = {
     obrig: ['data'] }
 };
 
+// Procura um registro pelo ID na aba do tipo informado; devolve a aba, o número da linha e os valores.
 function localizarRegistro_(ss, conf, id) {
   var sh = null;
   for (var a = 0; a < conf.abas.length && !sh; a++) sh = ss.getSheetByName(conf.abas[a]);
@@ -121,6 +125,7 @@ function localizarRegistro_(ss, conf, id) {
   return null;
 }
 
+// Admin pode tudo; os demais só se o nome do usuário estiver nas colunas de colaborador do registro (REG_CONF_.colabs).
 function podeMexerRegistro_(usr, conf, valores) {
   if (usr.perfil === 'Admin') return true;
   var meu = normNome_(usr.nome);
@@ -130,6 +135,7 @@ function podeMexerRegistro_(usr, conf, valores) {
   return false;
 }
 
+// Passo comum de editar/excluir: identifica o usuário, abre a planilha, localiza o registro e confere a permissão.
 function prepararRegistro_(periodo, tipo, id, userId) {
   var usr = usuarioPorId_(userId);
   if (!usr) return { erro: 'Usuário não identificado.' };
@@ -142,6 +148,7 @@ function prepararRegistro_(periodo, tipo, id, userId) {
   return { usr: usr, conf: conf, ss: ss, reg: reg };
 }
 
+// Altera os campos de um registro (com trava de concorrência e campos obrigatórios conforme REG_CONF_).
 function editarRegistro(periodo, tipo, id, campos, userId) {
   var lock = LockService.getScriptLock();
   try {
@@ -189,6 +196,7 @@ function excluirRegistro(periodo, tipo, id, userId) {
 }
 
 // ── Histórico ─────────────────────────────────────────────────────────────────
+// Lê as abas Presencial, Ramal, E-mail e Virtual do período e devolve uma lista única de registros para a tela de Histórico.
 function getHistorico(periodo) {
   try {
     var ss = abrirPlanilhaPeriodo_(periodo);
