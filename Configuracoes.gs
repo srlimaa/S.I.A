@@ -2,16 +2,24 @@
 // CONFIGURAÇÕES DO SISTEMA — ícone, nome, fundo do login (aba "Config").
 // ══════════════════════════════════════════════════════════════════════
 
+// ARQUIVO: Configuracoes.gs
+// O QUE FAZ: identidade visual do sistema (logo, nome, subtítulo, fundo do login) e leitura/gravação da aba "Config" da planilha mestre.
+// ONDE É USADO: js_config.html, js_nome_sistema.html, js_fundo_login.html e js_boot.html (via google.script.run).
+
 // ── Configurações do sistema (logo/emoji) e avatares dos usuários ────────────
 // Aba "Config" (planilha mestre): A-Chave | B-Valor   (icone_tipo, icone_valor)
 // Aba "Usuarios": colunas F-AvatarTipo | G-AvatarValor
 // As imagens são guardadas como texto (data URL); limite do Sheets: 50.000 caracteres por célula.
 var AV_EMOJI_MAX = 16;
 
+// Limite de caracteres da imagem (logo) do sistema guardada como texto na planilha.
 var AV_IMG_MAX_SISTEMA = 48000;
 
+// Limite de caracteres da foto de cada usuário (avatar).
 var AV_IMG_MAX_USER = 24000;
 
+// Valida um emoji OU uma imagem (data URL png/jpeg/webp) usada como logo ou avatar.
+// Devolve {ok:true, tipo, valor} ou {ok:false, message}.
 function validarIcone_(tipo, valor, maxImg) {
   if (tipo === 'emoji') {
     valor = String(valor || '').trim();
@@ -31,6 +39,7 @@ function validarIcone_(tipo, valor, maxImg) {
 }
 
 var _CFG_MEMO = null;   // a aba Config (com imagens grandes) é lida uma única vez por execução
+// Lê a aba "Config" (chave → valor). Fica em memória durante a execução: a aba (que guarda imagens grandes) é lida só uma vez.
 function lerConfig_() {
   if (_CFG_MEMO) return _CFG_MEMO;
   var cfg = {};
@@ -47,10 +56,13 @@ function lerConfig_() {
 // Fundo da tela de login: JSON guardado em pedaços (login_fundo_0, _1, ...) por causa do limite de 50.000 caracteres por célula
 var FUNDO_CHUNK = 40000;
 
+// Quantidade máxima de pedaços em que o fundo da tela de login pode ser dividido.
 var FUNDO_MAX_CHUNKS = 6;
 
+// Limite de caracteres da imagem de fundo do login.
 var AV_IMG_MAX_FUNDO = 150000;
 
+// Junta os pedaços (login_fundo_0, _1...) e devolve o objeto do fundo do login, ou null.
 function lerFundoLogin_(cfg) {
   try {
     var n = parseInt(cfg.login_fundo_n, 10) || 0;
@@ -62,10 +74,13 @@ function lerFundoLogin_(cfg) {
   } catch(e) { return null; }
 }
 
+// Nome padrão do sistema, usado quando nenhum nome foi configurado.
 var NOME_PADRAO = 'Sistema de Atendimentos';
 
+// Subtítulo padrão da tela de login.
 var SUBTITULO_PADRAO = 'UNILEÃO — Integração / FIES';
 
+// Devolve logo, nome, subtítulo e fundo do login. É PÚBLICA: roda antes do login (js_boot.html) para montar a tela inicial.
 function getConfigSistema() {
   var padrao = { tipo: 'emoji', valor: '🏛️', fundo: null, nome: NOME_PADRAO, subtitulo: SUBTITULO_PADRAO };
   try {
@@ -97,6 +112,7 @@ function salvarNomeSistema(nome, subtitulo, adminId) {
   } catch(e) { return { success: false, message: e.message }; }
 }
 
+// Valida o fundo do login (padrão, cor, degradê ou imagem) e devolve o objeto limpo.
 function validarFundo_(f) {
   var cor = /^#[0-9a-fA-F]{6}$/;
   if (!f || typeof f !== 'object') return { ok: false, message: 'Configuração inválida.' };
@@ -120,6 +136,7 @@ function validarFundo_(f) {
   return { ok: false, message: 'Tipo de fundo inválido.' };
 }
 
+// Só Admin. Grava o fundo do login na aba Config, dividido em pedaços de FUNDO_CHUNK caracteres.
 function salvarFundoLogin(fundo, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar o fundo do login.' };
@@ -136,6 +153,7 @@ function salvarFundoLogin(fundo, adminId) {
   } catch(e) { return { success: false, message: e.message }; }
 }
 
+// Grava (ou cria) uma chave na aba Config, sempre como texto. Limpa a cópia em memória de lerConfig_().
 function setConfig_(chave, valor) {
   _CFG_MEMO = null;
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -157,6 +175,7 @@ function setConfig_(chave, valor) {
   rng.setValues([[chave, valor]]);
 }
 
+// Só Admin. Salva o logo/emoji do sistema (Configurações › Nome do sistema).
 function salvarConfigSistema(tipo, valor, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar as configurações do sistema.' };
