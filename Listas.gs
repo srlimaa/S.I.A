@@ -1,11 +1,15 @@
+// LISTAS GERENCIADAS PELO ADMIN (aba Config, em JSON): colaboradores da opção Virtual, assuntos extras e semestres extras.
+// Somam-se às opções fixas dos formulários (html_form_*.html); a tela de configuração está em js_listas_admin.html.
 // ══════════════════════════════════════════════════════════════════════
 // LISTAS GERENCIADAS PELO ADMIN — colaboradores Virtual, assuntos extras e semestres extras.
 // ══════════════════════════════════════════════════════════════════════
 
 // ── Colaboradores da opção Virtual (lista gerenciada pelo Admin) ─────────────
 // Guardada na aba "Config" (chave virtual_colabs, JSON). Sem configuração, vale a lista padrão abaixo.
+// Lista padrão de colaboradores Virtual, usada quando não há configuração salva.
 var VIRTUAL_PADRAO = ['Amanda', 'Andreza', 'Cesar', 'Israel', 'Luana', 'Magno', 'Miriã', 'Patrick'];
 
+// Limpa a lista: tira espaços extras, repetidos (sem acento/maiúscula), nomes longos ou com < >; máximo 100.
 function limparNomesVirtual_(lista) {
   var out = [], vistos = {};
   (lista || []).forEach(function(n) {
@@ -19,6 +23,7 @@ function limparNomesVirtual_(lista) {
   return out.slice(0, 100);
 }
 
+// Devolve a lista de colaboradores Virtual (configurada ou padrão).
 function getColaboradoresVirtual() {
   try {
     var cfg = lerConfig_();
@@ -30,6 +35,7 @@ function getColaboradoresVirtual() {
   return VIRTUAL_PADRAO.slice();
 }
 
+// Admin: salva a lista de colaboradores Virtual.
 function salvarColaboradoresVirtual(lista, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar a lista.' };
@@ -70,8 +76,10 @@ function trocarNomeVirtual(antigo, novo, adminId) {
 // ── Assuntos extras (Presencial, Ramal e E-mail) — gerenciados pelo Admin ────
 // Guardados na aba "Config" (chave assuntos_extra, JSON: [{t:'presencial'|'ramal'|'email', g:'Grupo', n:'Nome'}]).
 // Somam-se às opções que já existem no formulário.
+// Tipos de formulário que aceitam assuntos extras.
 var ASSUNTO_TIPOS_ = ['presencial', 'ramal', 'email'];
 
+// Valida a lista de assuntos extras ({t tipo, g grupo, n nome}), sem repetir dentro do mesmo tipo; máximo 300.
 function limparAssuntosExtra_(lista) {
   var out = [], vistos = {};
   (lista || []).forEach(function(a) {
@@ -90,6 +98,7 @@ function limparAssuntosExtra_(lista) {
   return out.slice(0, 300);
 }
 
+// Devolve os assuntos extras salvos.
 function getAssuntosExtra() {
   try {
     var cfg = lerConfig_();
@@ -101,6 +110,7 @@ function getAssuntosExtra() {
   return [];
 }
 
+// Admin: salva os assuntos extras (limite de tamanho do JSON).
 function salvarAssuntosExtra(lista, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar os assuntos.' };
@@ -116,8 +126,10 @@ function salvarAssuntosExtra(lista, adminId) {
 // ── Semestres extras (Presencial e E-mail) — gerenciados pelo Admin ──────────
 // Guardados na aba "Config" (chave semestres_extra, JSON: [{t:'presencial'|'email', n:'2028.1'}]).
 // Formato AAAA.S (S = 1 ou 2), o mesmo usado em todo o sistema.
+// Tipos de formulário que aceitam semestres extras.
 var SEMESTRE_TIPOS_ = ['presencial', 'email'];
 
+// Valida a lista de semestres extras (formato AAAA.1 ou AAAA.2).
 function limparSemestresExtra_(lista) {
   var out = [], vistos = {};
   (lista || []).forEach(function(a) {
@@ -134,6 +146,7 @@ function limparSemestresExtra_(lista) {
   return out.slice(0, 100);
 }
 
+// Devolve os semestres extras salvos.
 function getSemestresExtra() {
   try {
     var cfg = lerConfig_();
@@ -145,6 +158,7 @@ function getSemestresExtra() {
   return [];
 }
 
+// Admin: salva os semestres extras.
 function salvarSemestresExtra(lista, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode alterar os semestres.' };
