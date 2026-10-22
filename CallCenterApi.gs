@@ -123,6 +123,29 @@ const CC_API = {
   setSem: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Semestre: a.sem }); return true; } },
   setTema: { f: (u, a) => { ccUpd_('USUARIOS', u._row, { Tema: a.tema }); return true; } },
   opcAdd: { admin: 1, f: (u, a) => { if (!a.valor) throw new Error('Informe o texto.'); ccAdd_('OPCOES', { Tipo: a.tipo, Valor: a.valor }); return ccOpc_(); } },
+  // Salva a nova ordem das opções de um grupo (Objetivo, Meio ou Resultado). Só reorganiza as linhas desse grupo,
+  // dentro das posições que elas já ocupavam; os outros grupos e opções fora da lista não mudam.
+  opcOrdem: {
+    admin: 1, f: (u, a) => {
+      const tipo = String(a.tipo || ''), novo = (Array.isArray(a.valores) ? a.valores : []).map(x => String(x));
+      if (['Objetivo', 'Meio', 'Resultado'].indexOf(tipo) < 0) throw new Error('Grupo inválido.');
+      const l = LockService.getScriptLock(); l.waitLock(20000);
+      try {
+        const ss = ccSs_(), sh = ss.getSheetByName('OPCOES'), ultima = sh.getLastRow();
+        if (ultima >= 2) {
+          const vals = sh.getRange(2, 1, ultima - 1, 2).getValues();
+          const idx = [], atuais = [];
+          vals.forEach((r, i) => { if (String(r[0]) === tipo) { idx.push(i); atuais.push(String(r[1])); } });
+          const ordem = novo.filter(v => atuais.indexOf(v) >= 0).filter((v, i, arr) => arr.indexOf(v) === i);
+          atuais.forEach(v => { if (ordem.indexOf(v) < 0) ordem.push(v); });   // opção que alguém criou nesse meio tempo vai para o fim
+          idx.forEach((i, k) => { vals[i][1] = ordem[k]; });
+          const g = sh.getRange(2, 1, vals.length, 2); g.setNumberFormat('@'); g.setValues(vals);
+          ccInval_(ss, 'OPCOES');
+        }
+      } finally { l.releaseLock(); }
+      return ccOpc_();
+    }
+  },
   opcDel: { admin: 1, f: (u, a) => { const r = ccTab_('OPCOES').find(x => x.Tipo === a.tipo && x.Valor === a.valor); if (r) ccDel_('OPCOES', r._row); return ccOpc_(); } },
 
   cfgSave: {
