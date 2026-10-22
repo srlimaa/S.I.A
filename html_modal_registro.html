@@ -1,18 +1,12 @@
-<!-- ARQUIVO: html_modal_registro.html -->
-<!-- O QUE É: a janela de detalhes de um registro do Histórico. -->
-<!-- ONDE É USADO: incluído em Index.html. Programa: js_historico.html. -->
-
+<!-- JANELA DE DETALHE do registro (Histórico), com ações de editar e excluir. Lógica em js_historico.html. -->
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
   <div class="modal-box" onclick="event.stopPropagation()">
     <span class="modal-close" onclick="fecharModal()">✕</span>
     <h3 id="modalTitulo"></h3>
     <div class="feedback" id="fbModal" style="margin:0 0 12px;"></div>
-    <!-- Campos do registro (preenchidos por abrirModal() em js_historico.html). -->
     <div class="modal-detalhe" id="modalDetalhe"></div>
-    <!-- Botões Editar e Excluir (só para quem pode mexer no registro). -->
     <div class="modal-acoes" id="modalAcoes"></div>
-    <!-- Formulário de edição do registro (montado por iniciarEdicaoRegistro()). -->
     <div id="modalEdicao" style="display:none;"></div>
   </div>
 </div>
