@@ -1,8 +1,10 @@
 <style>
 /* CSS do CALL CENTER: paleta própria (vinho), tema escuro ([data-theme="dark"]), login, cabeçalho, abas, cartões, filtros, tabela, janelas, indicadores, configurações e atribuição em lote. */
 
-:root{--red:#8b1e2d;--red-light:#c04b5f;--red-dark:#5c1020;--bg:#f0f2f7;--surface:#fff;--surface2:#f7f8fc;--border:#e2e6f0;--text:#1e2535;--text-sec:#5a6480;--text-muted:#9aa3bb;--success:#1e8a4c;--success-bg:#e8f7ef;--warn:#b86e00;--warn-bg:#fff4e0;--info:#1456a0;--info-bg:#e6f0fb;--danger:#c0392b;--danger-bg:#fdecea;--header-h:58px;--radius:10px;--radius-sm:6px;--shadow:0 2px 12px rgba(30,37,53,.10);--shadow-md:0 6px 28px rgba(30,37,53,.16);--t:.18s ease;--font:system-ui,-apple-system,'Segoe UI',sans-serif;--mono:Consolas,'Courier New',monospace}
-[data-theme="dark"]{--bg:#111523;--surface:#1c2035;--surface2:#242840;--border:#2e3352;--text:#e4e8f5;--text-sec:#9aa3bb;--text-muted:#7a85a3;--shadow:0 2px 12px rgba(0,0,0,.35);--shadow-md:0 6px 28px rgba(0,0,0,.5);--success-bg:#0d2e1e;--warn-bg:#2a1e00;--info-bg:#0b1d38;--danger-bg:#2a0d0b}
+/* Variáveis do tema claro. Nova: --num, cor dos números das tabelas dinâmicas (antes usavam o vinho --red). */
+:root{--num:#0b4a9e;--red:#8b1e2d;--red-light:#c04b5f;--red-dark:#5c1020;--bg:#f0f2f7;--surface:#fff;--surface2:#f7f8fc;--border:#e2e6f0;--text:#1e2535;--text-sec:#5a6480;--text-muted:#9aa3bb;--success:#1e8a4c;--success-bg:#e8f7ef;--warn:#b86e00;--warn-bg:#fff4e0;--info:#1456a0;--info-bg:#e6f0fb;--danger:#c0392b;--danger-bg:#fdecea;--header-h:58px;--radius:10px;--radius-sm:6px;--shadow:0 2px 12px rgba(30,37,53,.10);--shadow-md:0 6px 28px rgba(30,37,53,.16);--t:.18s ease;--font:system-ui,-apple-system,'Segoe UI',sans-serif;--mono:Consolas,'Courier New',monospace}
+/* Variáveis do tema escuro (inclui --num em azul claro para leitura no fundo escuro). */
+[data-theme="dark"]{--num:#8fc7ff;--bg:#111523;--surface:#1c2035;--surface2:#242840;--border:#2e3352;--text:#e4e8f5;--text-sec:#9aa3bb;--text-muted:#7a85a3;--shadow:0 2px 12px rgba(0,0,0,.35);--shadow-md:0 6px 28px rgba(0,0,0,.5);--success-bg:#0d2e1e;--warn-bg:#2a1e00;--info-bg:#0b1d38;--danger-bg:#2a0d0b}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;transition:background var(--t),color var(--t)}
 ::-webkit-scrollbar{width:7px;height:7px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
@@ -91,7 +93,8 @@ tbody td{padding:11px 14px;font-size:13px;vertical-align:middle}.td-name{font-we
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}.ch{position:relative;height:270px}
 .dyn-wrap{overflow:auto;max-height:420px;border:1px solid var(--border);border-radius:var(--radius-sm)}
 .dyn-table{width:100%;border-collapse:collapse;font-size:12px}.dyn-table th{background:var(--surface2);border:1px solid var(--border);padding:7px 10px;text-align:left;font-weight:700;color:var(--text-sec);text-transform:none;letter-spacing:0;font-size:12px;position:sticky;top:0}
-.dyn-table td{border:1px solid var(--border);padding:7px 10px}.dyn-table td.num{text-align:right;font-family:var(--mono);font-weight:700;color:var(--red)}.dyn-table tr{cursor:default}.dyn-table tr:hover td{background:var(--bg)}
+/* Tabelas dinâmicas: a célula numérica (td.num) agora usa a cor var(--num). */
+.dyn-table td{border:1px solid var(--border);padding:7px 10px}.dyn-table td.num{text-align:right;font-family:var(--mono);font-weight:700;color:var(--num)}.dyn-table tr{cursor:default}.dyn-table tr:hover td{background:var(--bg)}
 .colab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.colab-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px 18px;box-shadow:var(--shadow)}
 .cc-name{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}.cc-avatar{width:40px;height:40px;font-size:20px;border-radius:50%;background:linear-gradient(135deg,var(--red-dark),var(--red-light));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;overflow:hidden;flex-shrink:0}
 .colab-stat{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}.colab-stat:last-child{border-bottom:0}.cs-lbl{color:var(--text-sec)}.cs-val{font-weight:700;font-family:var(--mono)}
