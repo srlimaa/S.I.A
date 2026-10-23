@@ -535,7 +535,7 @@ function gRes(){var st=msv('rSt'),rs=msv('rRs');
   $('piv').innerHTML=pivot(dr.map(ddmm),dr.map(function(d){return m[d]}),k,'Data')}
 
 /* ---------- Indicador - Colaborador ---------- */
-// Aba Indicador - Colaborador (Admin): cartões e tabelas por colaborador.
+// Aba Indicador - Colaborador (Admin): cartões e tabelas por colaborador. As duas tabelas (Detalhada e Registros por dia) têm filtros próprios de mês, data, Semestre e Limpar.
 function renderCol(){
   if(!D)return;var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort();
   $('v-col').innerHTML='<div class="filters-row">'+fms('cM','Mês')+fdate('cI','Data inicial')+fdate('cF','Data final')+fms('cB','Colaborador')+fms('cRs','Resultado do contato')+fms('cBI','Banco — data de início')+fms('cBF','Banco — data final')+'<button class="btn-clear" id="cX">✕ Limpar</button></div>'+
@@ -543,18 +543,40 @@ function renderCol(){
   '<div class="section-box" id="bx_ia"><div class="dl-head"><div><h3>🧮 Indicador - Atendimentos e Alunos contatados</h3><p class="sh">Atendimentos realizados = cada registro de contato · Alunos contatados = CPFs diferentes por colaborador no dia (CPF repetido no mesmo dia conta uma vez)</p></div>'+dlBtn('bx_ia','Indicador - Atendimentos e Alunos contatados','iaM,iaI,iaF','iaT')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('iaM','Mês')+fdate('iaI','Data inicial')+fdate('iaF','Data final')+'<button class="btn-clear btn-sem" id="iaS" type="button">📅 Semestre</button><button class="btn-clear" id="iaX" type="button">✕ Limpar</button></div>'+
   '<p class="sh no-img" id="iaInfo" style="display:none"></p><div id="iaT"></div></div>'+
+  '<div id="iaWBox"></div>'+
   
   '<div class="grid2">'+box('cc1','📊 Comparativo por Colaborador','Contatos realizados por colaborador',FCOL)+box('cc2','📞 Resultado por colaborador','Distribuição dos resultados registrados',FCOL)+'</div>'+
   '<div class="grid2">'+box('cc3','👥 Alunos por responsável','Divisão da carteira de alunos',FCOL)+box('cc4','📅 Registros por dia','Evolução diária na seleção',FCOL)+'</div>'+
-  '<div class="section-box" id="bx_cT"><div class="dl-head"><div><h3>📋 Tabela Detalhada por Colaborador</h3><p class="sh">Responsabilidades, contatos e resultados</p></div>'+dlBtn('bx_cT','Tabela detalhada por colaborador',FCOL,'cT')+'</div><div id="cT"></div></div>'+
-  '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL,'cP')+'</div><div id="cP"></div></div>';
+  '<div class="section-box" id="bx_cT"><div class="dl-head"><div><h3>📋 Tabela Detalhada por Colaborador</h3><p class="sh">Responsabilidades, contatos e resultados (só o que tem valor)</p></div>'+dlBtn('bx_cT','Tabela detalhada por colaborador',FCOL+',tM,tD,tO','cT')+'</div>'+
+  '<div class="filters-row inner no-img">'+fms('tM','Mês')+fdate('tD','Data')+'<button class="btn-clear btn-sem" id="tS" type="button">📅 Semestre</button>'+fms('tO','Mostrar')+'<button class="btn-clear" id="tX" type="button">✕ Limpar</button></div><div id="cT"></div></div>'+
+  '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL+',pM,pD,pB','cP')+'</div>'+
+  '<div class="filters-row inner no-img">'+fms('pM','Mês')+fdate('pD','Data')+'<button class="btn-clear btn-sem" id="pS" type="button">📅 Semestre</button>'+fms('pB','Colaborador')+'<button class="btn-clear" id="pX" type="button">✕ Limpar</button></div><div id="cP"></div></div>';
   msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
+  var cbMud=function(p){return function(){tfMud(p)}};
+  msMake('tM',mesOpts(meses),cbMud('t'));msMake('pM',mesOpts(meses),cbMud('p'));msMake('pB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);
+  msMake('tO',['Responsável por','Contatos','Contatos não realizados'].concat(OPC.Resultado).map(vt),cAtu);
+  ['t','p'].forEach(function(p){$(p+'D').onchange=cbMud(p);$(p+'S').onclick=function(){tfSem(p)}});
+  $('tX').onclick=function(){TS.t=false;limpar(['tM','tO'],['tD'],cAtu)};$('pX').onclick=function(){TS.p=false;limpar(['pM','pB'],['pD'],cAtu)};
+  TS.t=false;TS.p=false;
   ['cI','cF'].forEach(function(i){$(i).onchange=cAtu});$('cX').onclick=function(){limpar(['cM','cB','cRs','cBI','cBF'],['cI','cF'],cAtu)};
   ['iaI','iaF'].forEach(function(i){$(i).onchange=iaFiltrar});$('iaS').onclick=iaSem;$('iaX').onclick=iaLimpar;
   cAtu();iaRender()}
-// Atualiza a aba Colaborador conforme os filtros (colaborador, resultado, datas do banco); a tabela por data mostra o dia mais recente em cima.
+// Estado do botão Semestre de cada tabela da aba Colaborador (t = Tabela Detalhada, p = Registros por colaborador e dia).
+var TS={t:false,p:false};   // botão "Semestre" das tabelas: ignora os filtros de data da aba e usa o semestre inteiro
+// Quando o filtro próprio de uma tabela muda: desliga o Semestre dela e recalcula.
+function tfMud(p){TS[p]=false;cAtu()}
+// Botão Semestre de uma tabela: liga/desliga; ao ligar, limpa data e mês da tabela e passa a usar o semestre inteiro.
+function tfSem(p){TS[p]=!TS[p];if(TS[p]){$(p+'D').value='';var m=MS[p+'M'];m.sel=[];msMake(p+'M',m.opts,m.cb)}cAtu()}
+// Atualiza a aba Colaborador conforme os filtros da aba (colaborador, resultado, datas do banco).
+// As tabelas com filtro próprio (mês, data única ou Semestre) usam esse filtro no lugar dos filtros de data da aba; sem filtro próprio, acompanham a aba.
+// A Tabela Detalhada mostra só colunas e colaboradores com algum valor (e o filtro "Mostrar" escolhe as colunas); o download passa a listar os filtros usados (dfJ).
 function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]||e},bs=bancoSet(msv('cBI'),msv('cBF'));
-  var R=filtroData(D.regs,msv('cM'),$('cI').value,$('cF').value).filter(function(r){return(!cb.length||cb.indexOf(r.colab)>=0)&&(!crs.length||crs.indexOf(r.resultado)>=0)&&(!bs||bs[r.cpf])});
+  var okR=function(r){return(!cb.length||cb.indexOf(r.colab)>=0)&&(!crs.length||crs.indexOf(r.resultado)>=0)&&(!bs||bs[r.cpf])};
+  var R=filtroData(D.regs,msv('cM'),$('cI').value,$('cF').value).filter(okR);
+  // Tabelas com filtro próprio (mês, data única ou semestre): sem filtro próprio, acompanham os filtros da aba
+  var proprio=function(p){return TS[p]||msv(p+'M').length>0||!!$(p+'D').value};
+  var RJ=function(p){return proprio(p)?filtroData(D.regs,TS[p]?[]:msv(p+'M'),'','',TS[p]?'':$(p+'D').value).filter(okR):R};
+  var dfJ=function(p,extra){var g=proprio(p)?FCOL.split(',').filter(function(i){return ['cM','cI','cF'].indexOf(i)<0}):FCOL.split(',');var b=$('bx_c'+(p==='t'?'T':'P')).querySelector('.dl-btn');if(b)b.dataset.df=g.concat(extra).join(',')};
   var respN=cnt(Object.keys(D.resp).filter(function(c){return D.resp[c]&&(!bs||bs[c])}),function(c){return D.resp[c]});
   var ativos={};Object.keys(D.resp).forEach(function(c){if(D.resp[c])ativos[D.resp[c]]=1});D.regs.forEach(function(r){ativos[r.colab]=1});
   var us=D.usuarios.filter(function(u){return ativos[u.email]&&(!cb.length||cb.indexOf(u.email)>=0)});
@@ -571,11 +593,15 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
   var ru=us.filter(function(u){return respN[u.email]});chart('cc3','pie',ru.map(function(u){return u.nome}),[{l:'Alunos',d:ru.map(function(u){return respN[u.email]})}]);
   var dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).sort(),m={};R.forEach(function(r){var d=r.data.slice(0,10);m[d]=m[d]||{};m[d][nm(r.colab)]=(m[d][nm(r.colab)]||0)+1});
   chart('cc4','bar',dias.map(ddmm),[{l:'Registros',d:dias.map(function(d){return Object.keys(m[d]).reduce(function(s,k){return s+m[d][k]},0)})}]);
-  var rowsT=us.map(function(u){var o={'Responsável por':respN[u.email]||0,'Contatos':R.filter(function(r){return r.colab===u.email}).length,'Contatos não realizados':naoN[u.email]||0};res.forEach(function(rs){o[rs]=R.filter(function(r){return r.colab===u.email&&r.resultado===rs}).length});return o});
-  var cols=['Responsável por','Contatos','Contatos não realizados'].concat(res);
-  $('cT').innerHTML=us.length?'<div class="dyn-wrap"><table class="dyn-table"><thead><tr><th>Colaborador</th>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+us.map(function(u,i){return '<tr><td>'+esc(u.nome)+'</td>'+cols.map(function(c){return '<td class="num">'+rowsT[i][c]+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>':'<p class="muted">Sem dados.</p>';
-  var dr=dias.slice().reverse();   // dia mais recente em cima
-  $('cP').innerHTML=pivot(dr.map(ddmm),dr.map(function(d){return m[d]}),Object.keys(cnt(R,function(r){return nm(r.colab)})),'Data')}
+  var RT=RJ('t'),opT=msv('tO');dfJ('t',['tM','tD','tO']);
+  var rowsT=us.map(function(u){var mine=RT.filter(function(r){return r.colab===u.email});var o={'Responsável por':respN[u.email]||0,'Contatos':mine.length,'Contatos não realizados':naoN[u.email]||0};res.forEach(function(rs){o[rs]=mine.filter(function(r){return r.resultado===rs}).length});return o});
+  var cols=['Responsável por','Contatos','Contatos não realizados'].concat(res).filter(function(c){return(!opT.length||opT.indexOf(c)>=0)&&rowsT.some(function(o){return o[c]>0})});   // só colunas com algum valor
+  var linT=us.map(function(u,i){return {u:u,o:rowsT[i]}}).filter(function(x){return cols.some(function(c){return x.o[c]>0})});            // só colaboradores com algum valor
+  $('cT').innerHTML=linT.length?'<div class="dyn-wrap"><table class="dyn-table"><thead><tr><th>Colaborador</th>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+linT.map(function(x){return '<tr><td>'+esc(x.u.nome)+'</td>'+cols.map(function(c){return '<td class="num">'+(x.o[c]>0?x.o[c]:'')+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>':'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>';
+  var pb=msv('pB'),RP=RJ('p').filter(function(r){return!pb.length||pb.indexOf(r.colab)>=0});dfJ('p',['pM','pD','pB']);
+  var diasP=Object.keys(cnt(RP,function(r){return r.data.slice(0,10)})).sort().reverse(),mP={};   // dia mais recente em cima
+  RP.forEach(function(r){var d=r.data.slice(0,10);mP[d]=mP[d]||{};mP[d][nm(r.colab)]=(mP[d][nm(r.colab)]||0)+1});
+  $('cP').innerHTML=pivot(diasP.map(ddmm),diasP.map(function(d){return mP[d]}),Object.keys(cnt(RP,function(r){return nm(r.colab)})),'Data')}
 
 
 /* ---------- Indicador - Atendimentos e Alunos contatados ---------- */
@@ -610,13 +636,14 @@ function iaModelo(){
   var ga={},gl={};grupos.forEach(function(g){cols.forEach(function(c){ga[c]=(ga[c]||0)+(g.at[c]||0);gl[c]=(gl[c]||0)+(g.al[c]||0)})});
   return {cols:cols,grupos:grupos,modo:modo,rotCol:modo==='dia'?'Data':modo==='mes'?'Mês':'Semestre',
           geral:{at:ga,al:gl,tAt:soma(ga),tAl:soma(gl)},ocultarGeral:(modo!=='dia'&&grupos.length===1)}}
-// Desenha a tabela por data, atividade e colaborador.
+// Desenha a tabela por data, atividade e colaborador e, quando há várias datas, a janela de total do período (iaPeriodo).
 function iaRender(){
   var cont=$('iaT');if(!cont)return;
   var b=$('iaS');if(b)b.classList.toggle('on',IA_SEM);
   var m=iaModelo(),info=$('iaInfo');IA_ULT=m;
   var tx=m.modo==='mes'?'📅 Mostrando o total de cada mês selecionado, sem separar por data.':m.modo==='semestre'?'📅 Semestre '+D.sem+' em um único total.':'';
   info.textContent=tx;info.style.display=tx?'block':'none';
+  var wb=$('iaWBox');if(wb)wb.innerHTML='';
   if(m.vazio){cont.innerHTML='<p class="muted" style="padding:12px">Nenhum registro encontrado para os filtros selecionados.</p>';return}
   var C=m.cols,v=function(o,c){return '<td class="num">'+(o[c]||0)+'</td>'};
   function lin(rot,rotulo,o,t,cls){return '<tr'+(cls?' class="'+cls+'"':'')+(rot?'':'')+'>'+(rot||'')+'<td class="ia-ativ">'+rotulo+'</td>'+C.map(function(c){return v(o,c)}).join('')+'<td class="num">'+(t||0)+'</td></tr>'}
@@ -630,7 +657,20 @@ function iaRender(){
     var G=m.geral;
     h+='<tr class="ia-geral"><td colspan="2">Total Geral de Atendimentos Realizados</td>'+C.map(function(c){return v(G.at,c)}).join('')+'<td class="num">'+G.tAt+'</td></tr>'+
        '<tr class="ia-geral"><td colspan="2">Total Geral de Alunos Contatados</td>'+C.map(function(c){return v(G.al,c)}).join('')+'<td class="num">'+G.tAl+'</td></tr>'}
-  cont.innerHTML=h+'</tbody></table></div>'}
+  cont.innerHTML=h+'</tbody></table></div>';
+  iaPeriodo(m)}
+// Mais de uma data selecionada (ex.: uma semana): janela extra com a SOMA do período, sem separar por data
+// Quando há mais de uma data no filtro (ex.: uma semana), mostra a janela extra "Total do período" com a soma de atendimentos e alunos contatados, sem separar por data.
+function iaPeriodo(m){
+  var wb=$('iaWBox');if(!wb)return;
+  var temFaixa=!!($('iaI').value||$('iaF').value);
+  if(m.modo!=='dia'||!temFaixa||m.grupos.length<2)return;
+  var ini=$('iaI').value||m.grupos[m.grupos.length-1].k,fim=$('iaF').value||m.grupos[0].k,C=m.cols,G=m.geral;
+  var td=function(o,c){return '<td class="num">'+(o[c]||0)+'</td>'};
+  wb.innerHTML='<div class="section-box" id="bx_iaW"><div class="dl-head"><div><h3>📆 Total do período: '+ddmm(ini)+' até '+ddmm(fim)+'</h3><p class="sh">Soma dos '+m.grupos.length+' dias com registro, sem separar por data</p></div>'+dlBtn('bx_iaW','Atendimentos e Alunos contatados - total do periodo','iaM,iaI,iaF','iaW')+'</div>'+
+    '<div id="iaW"><div class="dyn-wrap ia-wrap" style="max-height:none"><table class="dyn-table ia-table"><thead><tr><th>Período</th><th>Atividade</th>'+C.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'<th>Total</th></tr></thead><tbody>'+
+    '<tr><td class="ia-data"><b>'+ddmm(ini)+' até '+ddmm(fim)+'</b></td><td class="ia-ativ">Atendimentos realizados</td>'+C.map(function(c){return td(G.at,c)}).join('')+'<td class="num">'+G.tAt+'</td></tr>'+
+    '<tr><td class="ia-data"><b>'+ddmm(ini)+' até '+ddmm(fim)+'</b></td><td class="ia-ativ">Alunos contatados</td>'+C.map(function(c){return td(G.al,c)}).join('')+'<td class="num">'+G.tAl+'</td></tr></tbody></table></div></div></div>'}
 // Planilha do Excel (uma linha por data/atividade, com a data repetida para facilitar filtros)
 function iaAbaExcel(){
   var m=IA_ULT;if(!m||m.vazio)return null;
