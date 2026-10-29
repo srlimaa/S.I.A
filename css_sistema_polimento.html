@@ -1,5 +1,4 @@
 <style>
-/* CSS de ESCOLHA DO SISTEMA e CALL CENTER (iframe) e POLIMENTO VISUAL final (sombras, cantos, emojis com fundo, ajustes do tema escuro). Carregado por último para prevalecer. */
   /* ESCOLHA DO SISTEMA / CALL CENTER */
   #sistemaScreen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;
     background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);}
@@ -26,9 +25,9 @@
     gap:14px;padding:24px;text-align:center;color:var(--texto);font-size:15px;}
   .cc-msg.erro{color:#dc2626;}
   /* ═══════════ POLIMENTO VISUAL ═══════════ */
-  *{scrollbar-width:thin;scrollbar-color:var(--borda) transparent;}
-  ::-webkit-scrollbar{width:9px;height:9px;}::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:var(--borda);border-radius:99px;border:2px solid transparent;background-clip:content-box;}
+  /* Barra de rolagem igual à do Call Center */
+  ::-webkit-scrollbar{width:7px;height:7px;}::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:99px;}
   body{-webkit-font-smoothing:antialiased;}
   .topbar{background:linear-gradient(135deg,#1b3556 0%,#24497d 100%);box-shadow:0 2px 16px rgba(15,23,42,.28);padding:11px 28px;}
   [data-theme="dark"] .topbar{background:linear-gradient(135deg,#17294a 0%,#1f3d6e 100%);}
