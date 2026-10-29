@@ -1,5 +1,3 @@
-// PERÍODOS LETIVOS: aba "Periodos" da planilha mestre (A período | B ID da planilha | C ocorrências UNILEÃO | D ocorrências UNIVS).
-// Cada período tem a sua própria planilha de registros (Presencial, Ramal, Email, Virtual). Também cria um período novo.
 // ══════════════════════════════════════════════════════════════════════
 // PERÍODOS LETIVOS — aba "Periodos" da planilha mestre e criação de novos períodos.
 // ══════════════════════════════════════════════════════════════════════
@@ -21,7 +19,6 @@ function gravarPeriodo_(sh, periodo, id) {
 
 // ── Períodos letivos ─────────────────────────────────────────────────────────
 // Aba "Periodos" (na planilha mestre): A-Período | B-ID da planilha
-// Abre a aba Periodos (criando-a, com o período inicial, se não existir). Colunas em texto para "2026.2" não virar data.
 function getPeriodosSheet_() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sh = ss.getSheetByName('Periodos');
@@ -34,7 +31,6 @@ function getPeriodosSheet_() {
   return sh;
 }
 
-// Lista os períodos cadastrados (mais recente primeiro) para os seletores da tela.
 function getPeriodos() {
   try {
     var data = getPeriodosSheet_().getDataRange().getValues();
@@ -77,7 +73,6 @@ function prepararPlanilhaPeriodo_(ss) {
   });
 }
 
-// Admin: cadastra um período (AAAA.S) com o ID ou link da planilha, cria nela as abas que faltam e grava em Periodos.
 function criarPeriodo(periodo, planilhaId, adminId) {
   try {
     if (!ehAdmin_(adminId)) return { success: false, message: 'Apenas Admin pode cadastrar períodos.' };
@@ -97,7 +92,9 @@ function criarPeriodo(periodo, planilhaId, adminId) {
     catch(e) { return { success: false, message: 'Não foi possível abrir a planilha. Confira o ID e o acesso da conta que executa o script.' }; }
 
     prepararPlanilhaPeriodo_(ss);
+    try { ccPrepararRegistros_(ss); } catch(e2) {}   // Call Center: cria na mesma planilha as abas CC_REGISTROS e CC_RESPONSAVEIS
     gravarPeriodo_(getPeriodosSheet_(), periodo, planilhaId);
+    try { ccPerSheet_(); } catch(e3) {}             // garante as colunas E e F (Base Geral e Planilha Call Center) na aba Periodos
     return { success: true, periodo: periodo };
   } catch(e) { return { success: false, message: e.message }; }
 }
