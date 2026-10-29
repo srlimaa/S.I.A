@@ -1,5 +1,4 @@
 <style>
-/* CSS de TEMA ESCURO, campo de busca no assunto, ações do registro, RANQUE, OCORRÊNCIAS (lista, responsável, janela do aluno), botões de download e janela "Semana" dos Indicadores. */
   /* TEMA ESCURO / BUSCA NO ASSUNTO / FUNDO DO LOGIN / AÇÕES DO REGISTRO */
   .ind-avisos{display:none;background:#fef9c3;color:#854d0e;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;}
   .tema-fab{position:fixed;top:14px;right:14px;z-index:5;border:1.5px solid rgba(255,255,255,.6);
@@ -52,7 +51,7 @@
   .edit-grid .form-group.full{grid-column:1/-1;}
   @media(max-width:600px){.edit-grid{grid-template-columns:1fr;}}
 
-  [data-theme="dark"]{--bg:#111523;--white:#1c2035;--surface2:#242840;--texto:#e4e8f5;--titulo:#c9d8ff;--cinza:#9aa3bb;
+  [data-theme="dark"]{--scroll:#2e3352;--bg:#111523;--white:#1c2035;--surface2:#242840;--texto:#e4e8f5;--titulo:#c9d8ff;--cinza:#9aa3bb;
     --borda:#3a4066;--borda2:#2e3352;--chip:rgba(255,255,255,.07);--chip-b:rgba(255,255,255,.10);
     --shadow:0 2px 12px rgba(0,0,0,.35);--sombra:0 1px 2px rgba(0,0,0,.35),0 8px 28px rgba(0,0,0,.40);--ring:0 0 0 3px rgba(96,165,250,.30);color-scheme:dark;}
   [data-theme="dark"] .modal-overlay{background:rgba(0,0,0,.72);}
@@ -156,33 +155,4 @@
   .rq-chip.on{border-color:var(--azul2);background:rgba(37,99,235,.10);color:var(--azul2);}
   .rq-chip input{margin:0;accent-color:var(--azul2);}
   .rq-todas{border:0;background:none;color:var(--azul2);font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;}
-  /* Ocorrências: responsável, seleção e etapas pendentes */
-  .oc-barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:13px;color:var(--cinza);}
-  .oc-barra label{display:inline-flex;align-items:center;gap:6px;font-weight:600;}
-  .oc-barra select,.oc-barra input[type=number]{padding:7px 10px;border:1.5px solid var(--borda);border-radius:8px;font-size:13px;background:var(--white);color:var(--texto);outline:none;}
-  .oc-barra input[type=number]{width:70px;}
-  .oc-barra .btn-outline{padding:7px 12px;font-size:13px;}
-  .oc-sel{width:36px;text-align:center;}
-  .oc-sel input{width:16px;height:16px;accent-color:var(--azul2);cursor:pointer;}
-  .oc-tabela tr.oc-meu td{background:rgba(22,163,74,.09);}
-  .oc-tabela tr.oc-outro td{background:rgba(234,88,12,.07);}
-  .oc-tag{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin:0 4px 2px 0;white-space:nowrap;}
-  .oc-tag.pend{background:rgba(234,88,12,.14);color:#c2410c;}
-  .oc-tag.ok{background:rgba(22,163,74,.15);color:#15803d;}
-  .oc-chip small{font-weight:500;opacity:.8;}
-  [data-theme="dark"] .oc-tag.pend{color:#fdba74;}
-  [data-theme="dark"] .oc-tag.ok{color:#86efac;}
-  /* Janela "Semana" dos Indicadores */
-  #indSemanaBox{margin-top:26px;}
-  .ind-sem-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 10px;}
-  .ind-sem-head h3{font-size:17px;color:var(--titulo);margin-bottom:2px;}
-  .ind-sem-head .cfg-hint{margin:0;}
-  #indSemanaBox .ind-wrap{max-height:none;min-height:0;}
-  /* Botão de download só com o ícone */
-  .dl-ico{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;background:var(--white);
-    color:var(--cinza);border:1.5px solid var(--borda);border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .15s;}
-  .dl-ico:hover{border-color:var(--azul2);color:var(--azul2);background:rgba(37,99,235,.08);transform:translateY(-1px);}
-  .exp-h4 .dl-ico{width:30px;height:30px;border-radius:8px;}
-  .dl-flut{position:fixed;z-index:600;top:0;left:0;}
-  [data-theme="dark"] .dl-ico:hover{color:#8fb8ff;border-color:#60a5fa;background:rgba(96,165,250,.14);}
 </style>
