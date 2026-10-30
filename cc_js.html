@@ -65,6 +65,8 @@ function abaAtiva(t){TAB=t;Array.prototype.forEach.call($('nav').children,functi
   ['cc','ger','col'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol()}}
 function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync()}
 function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
+// "Contato" = Sim só se o último registro for da data da solicitação do aditamento (coluna BD da Base Geral) em diante
+function contatou(a){var u=D.last[a.cpf];return !!u&&(!a.solic||u.data>=a.solic)}
 function indexar(){D.rmap={};D.last={};D.regs.forEach(function(r){(D.rmap[r.cpf]=D.rmap[r.cpf]||[]).push(r);var l=D.last[r.cpf];if(!l||r.data>=l.data)D.last[r.cpf]=r});D.umap={};D.ufoto={};D.usuarios.concat(D.extras||[]).forEach(function(u){D.umap[u.email]=u.nome;D.ufoto[u.email]=u.foto})}
 
 /* ---------- atualização em tempo real ----------
@@ -186,7 +188,7 @@ function filtrados(){
     if(bs&&!bs[a.cpf])return false;return true}));}
 function linhas(){
   var L=filtrados();
-  $('tb').innerHTML=L.map(function(a){var feito=(D.rmap[a.cpf]||[]).length>0,env=a.status===CC[1],ul=D.last[a.cpf];
+  $('tb').innerHTML=L.map(function(a){var feito=contatou(a),env=a.status===CC[1],ul=D.last[a.cpf];
     var vc=env&&a.banco&&a.banco.fim&&vencida(a.banco.fim);
     var banco=env?(a.banco?'<div class="banco-dates"><div><span class="d-label">Início </span>'+esc(a.banco.ini)+'</div>'+(a.banco.fim?'<div class="'+(vc?'d-venc':'')+'"'+(vc?' title="Data final vencida"':'')+'><span class="d-label">Fim </span>'+esc(a.banco.fim)+'</div>':'')+'</div>':'<span class="muted">Sem informação</span>'):'<span class="muted">—</span>';
     var res=ul?'<span class="res-tag">'+esc(ul.resultado)+'</span><div class="td-sub">'+ddmm(ul.data)+' '+esc(ul.data.slice(11,16))+'</div>':'<span class="muted">—</span>';
@@ -447,6 +449,9 @@ function renderCol(){
   if(!D)return;var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort();
   $('v-col').innerHTML='<div class="filters-row">'+fms('cM','Mês')+fdate('cI','Data inicial')+fdate('cF','Data final')+fms('cB','Colaborador')+fms('cRs','Resultado do contato')+fms('cBI','Banco — data de início')+fms('cBF','Banco — data final')+'<button class="btn-clear" id="cX">✕ Limpar</button></div>'+
   '<div class="section-box" id="bx_cK"><div class="dl-head"><div><h3>👥 Cartões por Colaborador</h3><p class="sh">Responsável por, contatos realizados e contatos não realizados</p></div>'+dlBtn('bx_cK','Cartões por colaborador',FCOL)+'</div><div class="colab-grid" id="cK"></div></div>'+
+  '<div class="section-box" id="bx_ad"><div class="dl-head"><div><h3>✅ Alunos que aditaram com responsável</h3><p class="sh">Alunos com status ADITOU na Base Geral que ainda têm responsável · clique no aluno para ver os registros</p></div>'+dlBtn('bx_ad','Alunos que aditaram com responsavel','aM,aD,aC,aR,aQ','adT')+'</div>'+
+  '<div class="filters-row inner no-img">'+fms('aM','Mês')+fdate('aD','Data do último contato')+'<button class="btn-clear btn-sem" id="aS" type="button">📅 Semestre</button>'+fms('aC','Curso')+fms('aR','Responsável')+'<div class="filter-group" style="min-width:200px"><label>Aluno (nome ou CPF)</label><input type="text" id="aQ" placeholder="🔍 Buscar..."></div><button class="btn-clear" id="aX" type="button">✕ Limpar</button></div>'+
+  '<p class="sh no-img" id="adInfo"></p><div id="adT"></div></div>'+
   '<div class="section-box" id="bx_ia"><div class="dl-head"><div><h3>🧮 Indicador - Alunos Contatados</h3><p class="sh">Contatos realizados = cada registro de contato · Alunos contatados = CPFs diferentes por colaborador no dia (CPF repetido no mesmo dia conta uma vez)</p></div>'+dlBtn('bx_ia','Indicador - Alunos Contatados','iaM,iaI,iaF','iaT')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('iaM','Mês')+fdate('iaI','Data inicial')+fdate('iaF','Data final')+'<button class="btn-clear btn-sem" id="iaS" type="button">📅 Semestre</button><button class="btn-clear" id="iaX" type="button">✕ Limpar</button></div>'+
   '<p class="sh no-img" id="iaInfo" style="display:none"></p><div id="iaT"></div></div>'+
@@ -459,6 +464,11 @@ function renderCol(){
   '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL+',pM,pD,pB','cP')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('pM','Mês')+fdate('pD','Data')+'<button class="btn-clear btn-sem" id="pS" type="button">📅 Semestre</button>'+fms('pB','Colaborador')+'<button class="btn-clear" id="pX" type="button">✕ Limpar</button></div><div id="cP"></div></div>';
   msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
+  msMake('aM',mesOpts(meses),function(){AD_SEM=false;adRender()});
+  msMake('aC',Object.keys(cnt(D.adit||[],function(a){return a.curso})).sort().map(vt),adRender);
+  msMake('aR',Object.keys(cnt((D.adit||[]).filter(function(a){return D.resp[a.cpf]}),function(a){return D.resp[a.cpf]})).map(function(e){return {v:e,t:D.umap[e]||e}}),adRender);
+  $('aD').onchange=function(){AD_SEM=false;adRender()};$('aQ').oninput=adRender;$('aS').onclick=adSem;
+  $('aX').onclick=function(){AD_SEM=false;$('aQ').value='';limpar(['aM','aC','aR'],['aD'],adRender)};AD_SEM=false;
   var cbMud=function(p){return function(){tfMud(p)}};
   msMake('tM',mesOpts(meses),cbMud('t'));msMake('pM',mesOpts(meses),cbMud('p'));msMake('pB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);
   msMake('tO',['Responsável por','Contatos','Contatos não realizados'].concat(OPC.Resultado).map(vt),cAtu);
@@ -483,8 +493,9 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
   var ativos={};Object.keys(D.resp).forEach(function(c){if(D.resp[c]&&aset[c])ativos[D.resp[c]]=1});D.regs.forEach(function(r){ativos[r.colab]=1});
   var us=D.usuarios.filter(function(u){return ativos[u.email]&&(!cb.length||cb.indexOf(u.email)>=0)});
   var res=OPC.Resultado;
-  var naoN={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];            // responsável definido e nenhum contato registrado ainda
-    if(!e||(bs&&!bs[c])||!aset[c]||(D.rmap[c]||[]).length)return;naoN[e]=(naoN[e]||0)+1});
+  var aby={};D.alunos.forEach(function(a){aby[a.cpf]=a});
+  var naoN={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];            // responsável definido e contato ainda não realizado
+    if(!e||(bs&&!bs[c])||!aby[c]||contatou(aby[c]))return;naoN[e]=(naoN[e]||0)+1});
   $('cK').innerHTML=us.map(function(u,i){var mine=R.filter(function(r){return r.colab===u.email}),rc=cnt(mine,function(r){return r.resultado});
     return '<div class="colab-card" id="cd_'+i+'">'+dlBtn('cd_'+i,'Cartão '+u.nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div><div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+(respN[u.email]||0)+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div><div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+(naoN[u.email]||0)+'</span></div>'+
     res.filter(function(x){return rc[x]>0}).map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+(rc[x]||0)+'</span></div>'}).join('')+'</div>'}).join('')||'<p class="muted">Sem usuários na seleção.</p>';
@@ -502,7 +513,34 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
   var pb=msv('pB'),RP=RJ('p').filter(function(r){return!pb.length||pb.indexOf(r.colab)>=0});dfJ('p',['pM','pD','pB']);
   var diasP=Object.keys(cnt(RP,function(r){return r.data.slice(0,10)})).sort().reverse(),mP={};   // dia mais recente em cima
   RP.forEach(function(r){var d=r.data.slice(0,10);mP[d]=mP[d]||{};mP[d][nm(r.colab)]=(mP[d][nm(r.colab)]||0)+1});
-  $('cP').innerHTML=pivot(diasP.map(ddmm),diasP.map(function(d){return mP[d]}),Object.keys(cnt(RP,function(r){return nm(r.colab)})),'Data')}
+  $('cP').innerHTML=pivot(diasP.map(ddmm),diasP.map(function(d){return mP[d]}),Object.keys(cnt(RP,function(r){return nm(r.colab)})),'Data');
+  adRender()}
+/* ---------- Alunos que aditaram (status ADITOU na Base Geral) e ainda têm responsável ---------- */
+var AD_SEM=false;
+function adSem(){AD_SEM=!AD_SEM;if(AD_SEM){$('aD').value='';var m=MS.aM;m.sel=[];msMake('aM',m.opts,m.cb)}adRender()}
+function adRender(){
+  var cont=$('adT');if(!cont)return;
+  var b=$('aS');if(b)b.classList.toggle('on',AD_SEM);
+  var mes=AD_SEM?[]:msv('aM'),dia=AD_SEM?'':$('aD').value,cs=msv('aC'),rs=msv('aR'),q=nrm($('aQ').value.trim()),qd=q.replace(/\D/g,'');
+  var L=(D.adit||[]).filter(function(a){
+    var e=D.resp[a.cpf];if(!e)return false;                                   // só quem ainda tem responsável
+    if(cs.length&&cs.indexOf(a.curso)<0)return false;
+    if(rs.length&&rs.indexOf(e)<0)return false;
+    if(q&&nrm(a.nome).indexOf(q)<0&&!(qd&&a.cpf.indexOf(qd)>=0))return false;
+    if(mes.length||dia){var u=D.last[a.cpf];if(!u)return false;var d=u.data.slice(0,10);
+      if(mes.length&&mes.indexOf(d.slice(0,7))<0)return false;if(dia&&d!==dia)return false}
+    return true}).sort(function(x,y){return x.nome.localeCompare(y.nome,'pt',{sensitivity:'base'})});
+  var info=$('adInfo');if(info){info.textContent=AD_SEM?'📅 Semestre '+D.sem+' inteiro (sem filtro de data).':'';info.style.display=AD_SEM?'block':'none'}
+  if(!L.length){cont.innerHTML='<p class="muted" style="padding:12px">Nenhum aluno com status ADITOU e responsável para os filtros selecionados.</p>';return}
+  cont.innerHTML='<div class="dyn-wrap" style="max-height:520px"><table class="dyn-table ad-table"><thead><tr><th>Aluno</th><th>CPF</th><th>Curso</th><th>Turno</th><th>Solicitação</th><th>Último contato</th><th>Resultado</th><th>Registros</th><th>Responsável</th></tr></thead><tbody>'+
+    L.map(function(a){var u=D.last[a.cpf],n=(D.rmap[a.cpf]||[]).length,e=D.resp[a.cpf];
+      return '<tr class="ad-row" data-c="'+esc(a.cpf)+'" style="cursor:pointer"><td>'+esc(a.nome)+'</td><td>'+esc(a.cpfFmt)+'</td><td>'+esc(a.curso)+'</td><td>'+esc(a.turno)+'</td><td>'+(a.solic?ddmm(a.solic)+(a.solic.length>10?' '+a.solic.slice(11):''):'')+'</td><td>'+(u?ddmm(u.data)+' '+u.data.slice(11,16):'')+'</td><td>'+(u?esc(u.resultado):'')+'</td><td class="num">'+(n||'')+'</td><td>'+esc(D.umap[e]||e)+'</td></tr>'}).join('')+'</tbody></table></div>';
+  Array.prototype.forEach.call(cont.querySelectorAll('.ad-row'),function(tr){tr.onclick=function(){adAbrir(tr.dataset.c)}})}
+function adAbrir(cpf){
+  var a=(D.adit||[]).filter(function(x){return x.cpf===cpf})[0];if(!a)return;
+  var L=(D.rmap[cpf]||[]).slice().sort(function(x,y){return y.data<x.data?-1:1}),e=D.resp[cpf];
+  ov('<div class="popup-header"><button class="popup-close">✕</button><div class="ph-super">Aluno que aditou</div><h2>'+esc(a.nome)+'</h2><div class="ph-sub"><span>🪪 CPF '+esc(a.cpfFmt)+'</span><span>🎓 '+esc(a.curso)+'</span><span>👤 '+esc(D.umap[e]||e||'—')+'</span>'+(a.solic?'<span>📅 Solicitação '+ddmm(a.solic)+'</span>':'')+'</div></div><div class="popup-body"><div class="popup-section"><div class="section-title">🕓 Registros de contato ('+L.length+')</div>'+
+    (L.length?L.map(function(r){return '<div class="history-item" style="cursor:default"><div><div class="history-date">'+ddmm(r.data)+' '+esc(r.data.slice(11))+' · '+esc(r.colabNome)+'</div><div class="history-meta"><span class="history-tag">'+esc(r.objetivo)+'</span><span class="history-tag">'+esc(r.meio)+'</span><span class="history-tag">'+esc(r.resultado)+'</span></div>'+(r.obs?'<div style="font-size:12px;margin-top:6px;white-space:pre-wrap;color:var(--text-sec)">'+esc(r.obs)+'</div>':'')+'</div></div>'}).join(''):'<p class="muted">Nenhum contato registrado para este aluno.</p>')+'</div></div>')}
 
 
 /* ---------- Indicador - Alunos Contatados ---------- */
