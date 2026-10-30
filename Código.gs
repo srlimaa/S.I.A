@@ -26,7 +26,7 @@ var PERIODO_INICIAL = '2026.2';
 // Versão 87 - 2026-10-20 - Atendimentos: removido da aba Reunião o alerta sobre linhas de ocorrências e anexos (continua em Indicadores).
 // Versão exibida no rodapé das Configurações (js_boot.html chama getVersao). Também compõe a chave de cache da tela do Call Center (ccGetHtml).
 // Obs.: o histórico acima termina na versão 87, mas o valor atual é 90; vale registrar as versões 88 a 90 no histórico.
-var VERSAO_SISTEMA = '90';
+var VERSAO_SISTEMA = '98';
 
 // Ponto de entrada do web app: devolve a página Index.html (template), permitindo exibição dentro de iframe (ALLOWALL).
 function doGet(e) {
