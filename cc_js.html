@@ -535,7 +535,8 @@ function adRender(){
   cont.innerHTML='<div class="dyn-wrap" style="max-height:520px"><table class="dyn-table ad-table"><thead><tr><th>Aluno</th><th>CPF</th><th>Curso</th><th>Turno</th><th>Solicitação</th><th>Último contato</th><th>Resultado</th><th>Registros</th><th>Responsável</th></tr></thead><tbody>'+
     L.map(function(a){var u=D.last[a.cpf],n=(D.rmap[a.cpf]||[]).length,e=D.resp[a.cpf];
       return '<tr class="ad-row" data-c="'+esc(a.cpf)+'" style="cursor:pointer"><td>'+esc(a.nome)+'</td><td>'+esc(a.cpfFmt)+'</td><td>'+esc(a.curso)+'</td><td>'+esc(a.turno)+'</td><td>'+(a.solic?ddmm(a.solic)+(a.solic.length>10?' '+a.solic.slice(11):''):'')+'</td><td>'+(u?ddmm(u.data)+' '+u.data.slice(11,16):'')+'</td><td>'+(u?esc(u.resultado):'')+'</td><td class="num">'+(n||'')+'</td><td>'+esc(D.umap[e]||e)+'</td></tr>'}).join('')+
-    '<tr class="ad-total" style="font-weight:700"><td style="background:var(--surface2)">Total confirmados</td><td style="background:var(--surface2)">'+L.length+' aluno(s)</td><td style="background:var(--surface2)"></td><td style="background:var(--surface2)"></td><td style="background:var(--surface2)"></td><td style="background:var(--surface2)"></td><td style="background:var(--surface2)"></td><td class="num" style="background:var(--surface2)">'+L.reduce(function(t,a){return t+(D.rmap[a.cpf]||[]).length},0)+'</td><td style="background:var(--surface2)"></td></tr></tbody></table></div>';
+    '</tbody></table></div>'+
+    '<div class="ad-totbar" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-weight:700"><span>Total confirmados</span><span><span style="font-size:20px;font-family:var(--mono);color:var(--num)">'+L.length+'</span> aluno(s) · <span style="font-family:var(--mono);color:var(--num)">'+L.reduce(function(t,a){return t+(D.rmap[a.cpf]||[]).length},0)+'</span> registro(s)</span></div>';
   Array.prototype.forEach.call(cont.querySelectorAll('.ad-row'),function(tr){tr.onclick=function(){adAbrir(tr.dataset.c)}})}
 function adAbrir(cpf){
   var a=(D.adit||[]).filter(function(x){return x.cpf===cpf})[0];if(!a)return;
@@ -969,8 +970,9 @@ function fecharDlMenu(){var m=$('dlMenu');if(m)m.remove()}
 function abrirDlMenu(b){
   fecharDlMenu();var m=document.createElement('div');m.id='dlMenu';m.className='dl-menu';
   m.innerHTML='<button type="button" data-k="img">🖼️ Imagem (.jpg)</button><button type="button" data-k="xls">📊 Excel (.xlsx)</button>';
-  document.body.appendChild(m);var r=b.getBoundingClientRect();
-  m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,r.right-m.offsetWidth)+'px';
+  document.body.appendChild(m);m.style.position='fixed';m.style.right='auto';m.style.bottom='auto';var r=b.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=(r.bottom+4+h>window.innerHeight&&r.top-h-4>0?r.top-h-4:r.bottom+4)+'px';
   m.onclick=function(e){e.stopPropagation();var k=e.target.getAttribute('data-k');if(!k)return;fecharDlMenu();if(k==='img')dlImagem(b);else dlExcel(b)}}
 document.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('.dl-btn'):null;
