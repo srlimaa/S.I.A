@@ -79,13 +79,14 @@ const CC_HEAD = {
   CONFIG: ['Chave', 'Valor'],
   OPCOES: ['Tipo', 'Valor'],
   REGISTROS: ['Id', 'Semestre', 'CPF', 'Aluno', 'DataHora', 'Objetivo', 'Meio', 'Resultado', 'Observacao', 'ColabEmail', 'ColabNome', 'Status', 'EditadoEm'],
-  RESPONSAVEIS: ['Semestre', 'CPF', 'Email']
+  RESPONSAVEIS: ['Semestre', 'CPF', 'Email'],
+  STATUS: ['Semestre', 'CPF', 'Status', 'DesdeEm', 'MudouEm']   // histórico de status na Base Geral (data em que passou para ADITOU)
 };
 
 // Nome real de cada aba (prefixo CC_ para não se misturar com as abas do Atendimentos)
-const CC_ABAS = { USUARIOS: 'CC_USUARIOS', CONFIG: 'CC_CONFIG', OPCOES: 'CC_OPCOES', REGISTROS: 'CC_REGISTROS', RESPONSAVEIS: 'CC_RESPONSAVEIS' };
+const CC_ABAS = { USUARIOS: 'CC_USUARIOS', CONFIG: 'CC_CONFIG', OPCOES: 'CC_OPCOES', REGISTROS: 'CC_REGISTROS', RESPONSAVEIS: 'CC_RESPONSAVEIS', STATUS: 'CC_STATUS' };
 const CC_MESTRE = ['USUARIOS', 'CONFIG', 'OPCOES'];          // abas da planilha mestre
-const CC_PERIODO = ['REGISTROS', 'RESPONSAVEIS'];            // abas da planilha de cada período
+const CC_PERIODO = ['REGISTROS', 'RESPONSAVEIS', 'STATUS'];            // abas da planilha de cada período
 
 function ccAbaNome_(n) { return CC_ABAS[n] || n; }
 
@@ -493,4 +494,61 @@ function lerRegistrosCallCenter_(periodo, ctx) {
     ctx.ind[d]['Call Center'][c] = (ctx.ind[d]['Call Center'][c] || 0) + 1;
   }
   if (semData > 0) ctx.avisos.push(semData + ' registro(s) do Call Center ignorado(s) por não terem data válida na coluna E.');
+}
+
+
+/* ---------- Data de mudança de status (Base Geral) ----------
+   A Base Geral só guarda o status atual. Por isso, a cada leitura nova da base (cache de 10 min, "Recarregar base"
+   ou o gatilho opcional ccVerificarStatusAgora) comparamos com a última foto salva na aba CC_STATUS:
+   se o aluno estava em SOLICITADO / NÃO ADITOU ou SOLICITADO / ENVIADO AO BANCO e agora está ADITOU, grava a data/hora (MudouEm).
+   Alunos que já estavam ADITOU quando o monitoramento começou ficam sem data (não há como saber). */
+function ccStatusAtualizar_(sem, b) {
+  const marca = 'cs_ok_' + String(sem).replace(/[^\w.-]/g, '') + '_' + b.ts, cache = CacheService.getScriptCache();
+  if (cache.get(marca)) return;                                       // esta leitura da base já foi comparada
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return;
+  try {
+    const ss = ccSsReg_(sem), sh = ccAba_('STATUS', ss), tz = ccTz_();
+    const agora = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+    const ult = sh.getLastRow(), vals = ult > 1 ? sh.getRange(2, 1, ult - 1, 5).getValues() : [], idx = {};
+    vals.forEach((r, i) => { if (String(r[0]) === String(sem)) idx[String(r[1])] = i; });
+    const novos = [], mud = [];
+    (b.alunos || []).concat(b.adit || []).forEach(a => {
+      const cur = a.status, i = idx[a.cpf];
+      if (i === undefined) { idx[a.cpf] = -1; novos.push([String(sem), a.cpf, cur, agora, '']); return; }
+      if (i < 0) return;                                              // duplicado na própria base
+      const r = vals[i], ant = String(r[2]);
+      if (ant === cur) return;
+      r[2] = cur;
+      if (cur === 'ADITOU' && CC_ST.indexOf(ant) >= 0) r[4] = agora;  // virou ADITOU: guarda a data da mudança
+      else if (cur !== 'ADITOU') r[4] = '';                           // saiu de ADITOU: limpa
+      mud.push(i);
+    });
+    if (mud.length) {
+      sh.getRange(2, 1, vals.length, 5).setNumberFormat('@').setValues(vals.map(r => r.map(x => x instanceof Date ? Utilities.formatDate(x, tz, 'yyyy-MM-dd HH:mm') : String(x == null ? '' : x))));
+    }
+    if (novos.length) {
+      const r0 = sh.getLastRow() + 1, fim = r0 + novos.length - 1;
+      if (fim > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), fim - sh.getMaxRows());
+      sh.getRange(r0, 1, novos.length, 5).setNumberFormat('@').setValues(novos);
+    }
+    if (mud.length || novos.length) ccInval_(ss, 'STATUS');
+    cache.put(marca, '1', 21600);
+  } finally { lock.releaseLock(); }
+}
+
+// cpf → "aaaa-mm-dd hh:mm" da mudança para ADITOU (só os que têm data)
+function ccStatusMapa_(sem) {
+  const m = {};
+  ccTab_('STATUS', ccSsReg_(sem)).forEach(r => { if (String(r.Semestre) === String(sem) && r.MudouEm) m[r.CPF] = String(r.MudouEm); });
+  return m;
+}
+
+// OPCIONAL: crie um gatilho por tempo (ex.: a cada hora) para esta função. Assim a data da mudança fica precisa mesmo
+// que ninguém abra o Call Center. Também serve para rodar manualmente uma vez e começar o monitoramento.
+function ccVerificarStatusAgora() {
+  ccSems_().forEach(r => {
+    if (!r.IdBase) return;
+    try { ccStatusAtualizar_(r.Semestre, ccBase_(r, r.Semestre, true)); } catch (e) { Logger.log('Status ' + r.Semestre + ': ' + e.message); }
+  });
 }
