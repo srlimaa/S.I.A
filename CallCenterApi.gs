@@ -14,13 +14,23 @@ const CC_API = {
       const resp = {};
       const regs = ccRegs_(sem), info = ccUsuariosInfo_(regs.map(r => r.colab));
       ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === String(sem)).forEach(x => resp[x.CPF] = x.Email);
-      let mud = {};
-      try { ccStatusAtualizar_(sem, b); mud = ccStatusMapa_(sem); } catch (e) { Logger.log('Status: ' + e.message); }   // data em que o aluno passou para ADITOU
       return {
-        sem: sem, diag: b.diag, alunos: b.alunos, adit: (b.adit || []).filter(a => resp[a.cpf]).map(a => Object.assign({}, a, { mud: mud[a.cpf] || '' })), light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
+        sem: sem, diag: b.diag, alunos: b.alunos, adit: (b.adit || []).filter(a => resp[a.cpf]), light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
         respDt: u.Perfil === 'Admin' ? ccRespDt_(sem) : {}, outros: u.Perfil === 'Admin' ? (b.outros || []).filter(o => resp[o[0]]) : [],
         usuarios: info.usuarios, extras: info.extras, v: ccVer_(sem), bts: b.ts
       };
+    }
+  },
+
+  // Monitor de status (data em que o aluno passou para ADITOU). Roda em segundo plano, DEPOIS de a tela abrir,
+  // para não atrasar o carregamento. Devolve cpf → data da mudança.
+  statusAtu: {
+    admin: 1, f: (u, a) => {
+      const sem = String(a.sem || ccSemU_(u));
+      const r = ccSems_().find(x => String(x.Semestre) === sem);
+      if (!r || !r.IdBase) return {};
+      try { ccStatusAtualizar_(sem, ccBase_(r, sem, false)); } catch (e) { Logger.log('Status: ' + e.message); }
+      return ccStatusMapa_(sem);
     }
   },
 
