@@ -1,13 +1,8 @@
-<!-- TELA DO CALL CENTER (Aditamentos). Não é aberta direto: o servidor a gera (ccGetHtml) e o sistema principal a coloca num iframe (js_callcenter.html). -->
-<!-- O login é o mesmo do Atendimentos; a tela de login interna só aparece se o iframe for usado sozinho. -->
-<!-- Abas: Call Center (todos); Indicador Geral e Indicador Colaborador (só Admin). Estilos em cc_css e código em cc_js. -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <base target="_top">
 <script>
-// Ponte: substitui google.script.run dentro do iframe por mensagens (postMessage) ao sistema pai.
-// O mapa traduz api > ccApi, apiLogout > ccApiLogout, apiLogin > ccApiLogin e getPublic > ccGetPublic.
 /* Ponte com o sistema principal: este arquivo roda dentro de um iframe e as chamadas ao servidor passam pelo sistema pai */
 (function(){
   var pend={},n=0,MAP={api:'ccApi',apiLogout:'ccApiLogout',apiLogin:'ccApiLogin',getPublic:'ccGetPublic'};
@@ -30,14 +25,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>B&amp;F - Call Center Aditamentos</title>
-<script async src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<!-- Estilos do Call Center (arquivo cc_css). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 <?!= include('cc_css') ?>
 </style>
 </head>
 <body>
-<!-- Login interno (uso isolado do iframe). -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-brand"><div class="logo-circle" id="lLogo">CC</div><h2 id="lNome">Call Center FIES</h2><p>Controle de Aditamentos</p></div>
@@ -47,7 +40,6 @@
     <button class="btn-login" id="lBtn">Entrar</button>
   </div>
 </div>
-<!-- Aplicação: cabeçalho (usuário, atualizar, recarregar base [Admin], configurações, sair), abas e painéis das três visões. -->
 <div id="app">
   <header class="header">
     <div class="header-brand"><div class="header-logo" id="hLogo">CC</div><div><div class="header-name" id="hNome"></div><div class="header-sub" id="hSem"></div></div></div>
@@ -55,8 +47,6 @@
     <div class="header-user">
       <div><div class="header-uname" id="hUser">—</div><div class="header-role" id="hRole">—</div></div>
       <div class="header-avatar" id="hAv" title="Configurações"></div>
-      <button class="icon-btn" id="bSync" title="Atualizar agora">🔄</button>
-      <button class="icon-btn" id="bBase" title="Recarregar a base de alunos da planilha (Admin)" style="display:none">🗄️</button>
       <button class="icon-btn" id="bCfg" title="Configurações">⚙️</button>
       <button class="icon-btn danger" id="bSair" title="Sair">🚪</button>
     </div>
@@ -66,13 +56,12 @@
     <div class="tab-pane active" id="v-cc"></div>
     <div class="tab-pane" id="v-ger"></div>
     <div class="tab-pane" id="v-col"></div>
+    <div class="tab-pane" id="v-reu"></div>
   </main>
 </div>
-<!-- Área de janelas (popups) criadas por script e aviso (toast). -->
 <div id="mroot"></div>
 <div class="toast" id="toast"></div>
 <script>
-// Código do Call Center (arquivo cc_js).
 <?!= include('cc_js') ?>
 </script>
 </body>
