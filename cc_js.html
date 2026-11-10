@@ -64,7 +64,11 @@ window.__ccInit=function(m){T=m.token;iniciar(m.pre)};
 function cabecalho(){$('hNome').textContent=CFG.nomeSistema||'Call Center FIES';$('hUser').textContent=ME.nome;$('hRole').textContent=ADMIN?'Administrador':'Colaborador';$('hAv').innerHTML=avatar(ME.foto,ME.nome);$('hSem').textContent='Semestre: '+ME.semestre;logoHtml($('hLogo'),CFG.logo,'CC')}
 function abaAtiva(t){TAB=t;Array.prototype.forEach.call($('nav').children,function(b){b.className='tab-btn'+(b.dataset.t===t?' active':'')});
   ['cc','ger','col','reu'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol();if(t==='reu'&&ADMIN)renderReu()}}
-function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync()}
+function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync();if(ADMIN)statusSegundoPlano()}
+// Datas de mudança de status (ADITOU): buscadas em segundo plano para não atrasar a abertura da tela
+function statusSegundoPlano(){var sem=D.sem;google.script.run.withSuccessHandler(function(r){
+  var m=r&&r.ok;if(!m||typeof m!=='object'||!D||D.sem!==sem)return;(D.adit||[]).forEach(function(a){a.mud=m[a.cpf]||''});
+  if(TAB==='col'&&$('adT'))adRender();else if(TAB==='reu'&&$('raC'))reuTudo()}).withFailureHandler(function(){}).api(T,'statusAtu',{sem:sem})}
 function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
 // "Contato" = Sim só se o último registro for da data da solicitação do aditamento (coluna BD da Base Geral) em diante
 function contatou(a){var u=D.last[a.cpf];return !!u&&(!a.solic||u.data>=a.solic)}
@@ -402,11 +406,35 @@ function abrirAluno(cpf){
   reset();lista()}
 
 /* ---------- gráficos ---------- */
-function chart(id,type,labels,sets,stack){if(typeof Chart==='undefined'){if((chart._n=(chart._n||0)+1)<80)setTimeout(function(){chart(id,type,labels,sets,stack)},250);return}chart._n=0;if(CH[id])CH[id].destroy();var el=$(id);if(!el)return;
+function clar(h,a){var n=parseInt(h.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return 'rgb('+Math.round(r+(255-r)*a)+','+Math.round(g+(255-g)*a)+','+Math.round(b+(255-b)*a)+')'}
+// Plugin dos gráficos "animados": sombra (efeito saltado) e o número em cada barra/fatia
+var FX_PLUGIN={id:'fxSombra',
+  beforeDatasetDraw:function(c){var x=c.ctx;x.save();x.shadowColor='rgba(0,0,0,.38)';x.shadowBlur=16;x.shadowOffsetX=0;x.shadowOffsetY=7},
+  afterDatasetDraw:function(c){c.ctx.restore()},
+  afterDatasetsDraw:function(c){var x=c.ctx,pie=c.config.type==='doughnut',cor=getComputedStyle(document.body).color;
+    c.data.datasets.forEach(function(d,i){var m=c.getDatasetMeta(i);if(m.hidden)return;m.data.forEach(function(el,k){var v=d.data[k];if(!v)return;
+      x.save();x.font='800 13px '+(getComputedStyle(document.body).fontFamily||'sans-serif');x.textAlign='center';
+      if(pie){x.fillStyle='#fff';x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=4;x.textBaseline='middle';var p=el.tooltipPosition();x.fillText(v,p.x,p.y)}
+      else if(c.config.options.scales.x&&!c.config.options.scales.x.stacked){x.fillStyle=cor;x.textBaseline='bottom';x.fillText(v,el.x,el.y-6)}
+      x.restore()})})}};
+function chart(id,type,labels,sets,stack,fx){if(typeof Chart==='undefined'){if((chart._n=(chart._n||0)+1)<80)setTimeout(function(){chart(id,type,labels,sets,stack,fx)},250);return}chart._n=0;if(CH[id])CH[id].destroy();var el=$(id);if(!el)return;
   var pie=type==='pie',one=sets.length===1;
   var ds=sets.map(function(s,i){var col=(pie||(one&&type==='bar'&&labels.length<=12))?labels.map(function(_,k){return PAL[k%PAL.length]}):PAL[i%PAL.length];return {label:s.l,data:s.d,backgroundColor:col,borderColor:pie?'transparent':PAL[i%PAL.length],borderRadius:pie?0:4}});
   var txt=getComputedStyle(document.body).color,grid='rgba(128,138,160,.2)';
-  CH[id]=new Chart(el,{type:pie?'doughnut':type,data:{labels:labels,datasets:ds},options:{maintainAspectRatio:false,cutout:pie?'55%':undefined,plugins:{legend:{display:pie||sets.length>1,position:pie?'right':'top',labels:{color:txt,boxWidth:12}}},scales:pie?{}:{x:{stacked:!!stack,ticks:{color:txt},grid:{display:false}},y:{stacked:!!stack,beginAtZero:true,ticks:{color:txt,precision:0},grid:{color:grid}}}}})}
+  var op={maintainAspectRatio:false,cutout:pie?'55%':undefined,plugins:{legend:{display:pie||sets.length>1,position:pie?'right':'top',labels:{color:txt,boxWidth:12}}},scales:pie?{}:{x:{stacked:!!stack,ticks:{color:txt},grid:{display:false}},y:{stacked:!!stack,beginAtZero:true,ticks:{color:txt,precision:0},grid:{color:grid}}}};
+  var pl=[];
+  if(fx){
+    var porPonto=pie||(one&&type==='bar'&&labels.length<=12);
+    ds.forEach(function(d,i){d.backgroundColor=function(c){var ch=c.chart,a=ch.chartArea,col=PAL[(porPonto?c.dataIndex:i)%PAL.length];if(!a)return col;
+      var g=pie?ch.ctx.createRadialGradient((a.left+a.right)/2,(a.top+a.bottom)/2,8,(a.left+a.right)/2,(a.top+a.bottom)/2,Math.min(a.right-a.left,a.bottom-a.top)/2):ch.ctx.createLinearGradient(0,a.top,0,a.bottom);
+      g.addColorStop(0,pie?col:clar(col,.45));g.addColorStop(1,pie?clar(col,.35):col);return g};
+      if(pie){d.borderWidth=0;d.offset=7;d.hoverOffset=18;d.spacing=3}else{d.borderRadius=12;d.borderSkipped=false;d.barPercentage=.72;d.categoryPercentage=.85;d.hoverBorderWidth=2;d.hoverBorderColor='#fff'}});
+    op.cutout=pie?'52%':undefined;op.layout={padding:{top:22,right:10}};
+    op.animation={duration:1500,easing:pie?'easeOutBack':'easeOutElastic',delay:function(c){return c.type==='data'&&c.mode==='default'?c.dataIndex*80:0}};
+    if(pie){op.animation.animateRotate=true;op.animation.animateScale=true}
+    op.plugins.tooltip={backgroundColor:'rgba(20,24,40,.92)',padding:12,cornerRadius:10,titleFont:{weight:'800'},bodyFont:{weight:'700'},displayColors:true,boxPadding:4};
+    pl=[FX_PLUGIN]}
+  CH[id]=new Chart(el,{type:pie?'doughnut':type,data:{labels:labels,datasets:ds},options:op,plugins:pl})}
 function box(id,t,sub,f){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+t+'</h3>'+(sub?'<p class="sh">'+sub+'</p>':'')+'</div>'+dlBtn('bx_'+id,t.replace(/^\S+\s/,''),f)+'</div><div class="ch"><canvas id="'+id+'"></canvas></div></div>'}
 function filtroData(R,m,i,f,e){return R.filter(function(r){var d=r.data.slice(0,10);return(!m.length||m.indexOf(d.slice(0,7))>=0)&&(!i||d>=i)&&(!f||d<=f)&&(!e||d===e)})}
 function pivot(rows,data,cols,first){if(!rows.length)return '<p class="muted" style="padding:12px">Sem dados.</p>';var tot={};
@@ -1014,9 +1042,12 @@ function rwire(p,meses,cb,exMs){
 function rok(p,d){if(RS[p])return true;var m=msv(p+'M'),i=$(p+'I').value,f=$(p+'F').value;if(!m.length&&!i&&!f)return true;if(!d)return false;
   return(!m.length||m.indexOf(d.slice(0,7))>=0)&&(!i||d>=i)&&(!f||d<=f)}
 function rBtn(p){var b=$(p+'S');if(b)b.classList.toggle('on',!!RS[p])}
-function rCard(cls,ic,v,l){return '<div class="kpi-card"><div class="kpi-icon '+cls+'">'+ic+'</div><div><div class="kpi-val" style="color:var(--num)">'+v+'</div><div class="kpi-lbl">'+l+'</div></div></div>'}
+var RK={total:0,nao:1,enviado:2,registros:3};
+function rCard(k,ic,v,l){if(v===0||v==='0')return '';   // cartão sem dados não aparece
+  if(typeof k==='string')k=RK[k]||0;return '<div class="kpi-card mk'+(k%7)+'"><div class="kpi-icon">'+ic+'</div><div><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div></div>'}
+function rSet(id,h){$(id).innerHTML=h||'<p class="muted" style="padding:6px 2px">Sem dados para os filtros selecionados.</p>'}
 function rTab(cab,linhas,max){return '<div class="dyn-wrap" style="max-height:'+(max||420)+'px"><table class="dyn-table"><thead><tr>'+cab.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
-  linhas.map(function(l){return '<tr>'+l.map(function(c){return typeof c==='number'?'<td class="num">'+c+'</td>':'<td>'+esc(c)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>'}
+  linhas.map(function(l){return '<tr'+(l[0]==='Total'?' class="rt-tot"':'')+'>'+l.map(function(c,i){return typeof c==='number'?'<td class="num"><span class="nb'+(c===0?' z':'')+(i===l.length-1&&l.length>2?' t':'')+'">'+c+'</span></td>':'<td>'+esc(c)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>'}
 function rDt(s){return s?ddmm(s)+(s.length>10?' '+s.slice(11,16):''):''}
 function rSec(id,tit,sub,filt,dl){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+tit+'</h3><p class="sh">'+sub+'</p></div>'+dl+'</div><div class="filters-row inner no-img">'+filt+'</div>'}
 function reuMeses(){var s={};D.regs.forEach(function(r){s[r.data.slice(0,7)]=1});Object.keys(D.respDt||{}).forEach(function(c){s[D.respDt[c].slice(0,7)]=1});(D.adit||[]).forEach(function(a){if(a.mud)s[a.mud.slice(0,7)]=1});return Object.keys(s).sort()}
@@ -1028,7 +1059,7 @@ function reuBase(){   // números "de foto" (não dependem de data)
   var outros=(D.outros||[]).filter(function(o){return D.resp[o[0]]});
   return {aset:aset,com:com,atuais:atuais,adit:adit,outros:outros,sem:Math.max(0,com.length-atuais.length-adit.length-outros.length)}}
 function renderReu(){
-  if(!D)return;var me=reuMeses(),B=reuBase();
+  if(!D)return;$('v-reu').classList.add('reu');var me=reuMeses(),B=reuBase();
   var stOut=Object.keys(cnt(B.outros,function(o){return o[3]})).sort();
   $('v-reu').innerHTML=
   rSec('ra','📋 Totais gerais','Só números (sem divisão por colaborador). Contatos e resultados seguem as datas; os totais de alunos mostram a situação de agora.',rfil('ra',fms('raR','Resultado do contato')),dlBtn('bx_ra','Reunião - Totais gerais','raM,raI,raF,raR','raT'))+'<div class="kpi-row" id="raC"></div><div class="kpi-row" id="raC2" style="margin-top:14px"></div><div id="raT" class="no-img" style="display:none"></div></div>'+
@@ -1049,8 +1080,8 @@ function reuA(){var B=reuBase(),rs=msv('raR');rBtn('ra');
   var rc=cnt(R,function(r){return r.resultado}),res=resOpts().map(function(o){return o.v}).filter(function(x){return!rs.length||rs.indexOf(x)>=0});
   var base=[['Alunos no Call Center (Não aditou + Enviado ao banco)',D.alunos.length],['Alunos com responsáveis (qualquer status)',B.com.length],['Alunos com responsáveis atualmente (continuam no Call Center)',B.atuais.length],['Alunos que confirmaram (ADITOU) com responsáveis',B.adit.length],['Contatos realizados',R.length]];
   var ic=['total','nao','enviado','registros','total'],ics=['🎓','👥','⏳','✅','📞'];
-  $('raC').innerHTML=base.map(function(x,i){return rCard(ic[i],ics[i],x[1],esc(x[0]))}).join('');
-  $('raC2').innerHTML=res.map(function(x){return rCard('total','🏷️',rc[x]||0,esc(x))}).join('');
+  rSet('raC',base.map(function(x,i){return rCard(ic[i],ics[i],x[1],esc(x[0]))}).join(''));
+  $('raC2').innerHTML=res.map(function(x,i){return rCard(i+4,'🏷️',rc[x]||0,esc(x))}).join('');
   var lin=base.map(function(x){return [x[0],x[1]]}).concat(res.map(function(x){return ['Registros: '+x,rc[x]||0]}));
   $('raT').innerHTML=rTab(['Indicador','Total'],lin)}
 function reuB(){rBtn('rb');var B=reuBase(),dt=D.respDt||{},dia={},sem=0;
@@ -1060,39 +1091,41 @@ function reuB(){rBtn('rb');var B=reuBase(),dt=D.respDt||{},dia={},sem=0;
   ds.forEach(function(d){acc+=dia[d];lin.push([ddmm(d),dia[d],acc])});lin.reverse();           // dia mais recente em cima
   if(semV)lin.push(['Sem data (já tinham responsável antes do registro de datas)',semV,semV]);
   var todos=Object.keys(dt),prim=todos.map(function(c){return dt[c].slice(0,10)}).sort()[0],nprim=prim?todos.filter(function(c){return dt[c].slice(0,10)===prim}).length:0;
-  $('rbC').innerHTML=rCard('total','🏁',prim?ddmm(prim):'—',prim?'Primeira inserção de responsáveis ('+nprim+' aluno(s) nesse dia)':'Primeira inserção (ainda sem datas registradas)')+rCard('nao','➕',todos.length+sem,'Alunos que já receberam responsável (desde o início)')+rCard('enviado','👥',B.com.length,'Com responsáveis hoje');
+  rSet('rbC',rCard('total','🏁',prim?ddmm(prim):'—',prim?'Primeira inserção de responsáveis ('+nprim+' aluno(s) nesse dia)':'Primeira inserção (ainda sem datas registradas)')+rCard('nao','➕',todos.length+sem,'Alunos que já receberam responsável (desde o início)')+rCard('enviado','👥',B.com.length,'Com responsáveis hoje'));
   var lab=ds.map(ddmm),vals=ds.map(function(d){return dia[d]});if(semV){lab.unshift('Sem data');vals.unshift(semV)}
-  chart('rbG','bar',lab,[{l:'Alunos que receberam responsável',d:vals}]);
+  chart('rbG','bar',lab,[{l:'Alunos que receberam responsável',d:vals}],false,true);
   $('rbT').innerHTML=lin.length?rTab(['Data','Alunos inseridos','Acumulado'],lin):'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
 function reuC(){rBtn('rc');var B=reuBase(),L=B.adit.filter(function(a){return rok('rc',a.mud?a.mud.slice(0,10):'')}),dia={};
   var nreg=function(a){return(D.rmap[a.cpf]||[]).length};
   L.forEach(function(a){var d=a.mud?a.mud.slice(0,10):'';dia[d]=dia[d]||{a:0,r:0};dia[d].a++;dia[d].r+=nreg(a)});
-  $('rcC').innerHTML=rCard('enviado','✅',L.length,'Alunos que aditaram (ADITOU) com responsáveis')+rCard('registros','🧾',L.reduce(function(t,a){return t+nreg(a)},0),'Registros de contato feitos nesses alunos');
+  rSet('rcC',rCard('enviado','✅',L.length,'Alunos que aditaram (ADITOU) com responsáveis')+rCard('registros','🧾',L.reduce(function(t,a){return t+nreg(a)},0),'Registros de contato feitos nesses alunos'));
   var ds=Object.keys(dia).filter(Boolean).sort(),lin=ds.slice().reverse().map(function(d){return [ddmm(d),dia[d].a,dia[d].r]});
   if(dia['']&&rok('rc',''))lin.push(['Sem data de mudança',dia[''].a,dia[''].r]);
-  chart('rcG','bar',ds.map(ddmm).concat(dia['']?['Sem data']:[]),[{l:'Alunos',d:ds.map(function(d){return dia[d].a}).concat(dia['']?[dia[''].a]:[])},{l:'Registros',d:ds.map(function(d){return dia[d].r}).concat(dia['']?[dia[''].r]:[])}]);
+  chart('rcG','bar',ds.map(ddmm).concat(dia['']?['Sem data']:[]),[{l:'Alunos',d:ds.map(function(d){return dia[d].a}).concat(dia['']?[dia[''].a]:[])},{l:'Registros',d:ds.map(function(d){return dia[d].r}).concat(dia['']?[dia[''].r]:[])}],false,true);
   $('rcT').innerHTML=lin.length?rTab(['Data da mudança de status','Alunos','Registros'],lin):'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
 function reuD(){var B=reuBase(),us=msv('rdU'),st=msv('rdV');
   var L=D.alunos.filter(function(a){var e=D.resp[a.cpf];return e&&(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(a.status)>=0)});
   var por=cnt(L,function(a){return D.resp[a.cpf]}),es=Object.keys(por).sort(function(x,y){return por[y]-por[x]}),ps=cnt(L,function(a){return a.status});
-  $('rdC').innerHTML=rCard('enviado','⏳',L.length,'Restam com responsáveis (no Call Center agora)')+CC.map(function(s){return rCard('total','📌',ps[s]||0,esc(s))}).join('');
-  chart('rdG','bar',es.map(function(e){return D.umap[e]||e}),[{l:'Alunos',d:es.map(function(e){return por[e]})}]);
-  chart('rdP','pie',CC.filter(function(s){return ps[s]}),[{l:'Alunos',d:CC.filter(function(s){return ps[s]}).map(function(s){return ps[s]})}]);
+  rSet('rdC',rCard('enviado','⏳',L.length,'Restam com responsáveis (no Call Center agora)')+CC.map(function(s,i){return rCard(i?4:1,'📌',ps[s]||0,esc(s))}).join(''));
+  chart('rdG','bar',es.map(function(e){return D.umap[e]||e}),[{l:'Alunos',d:es.map(function(e){return por[e]})}],false,true);
+  chart('rdP','pie',CC.filter(function(s){return ps[s]}),[{l:'Alunos',d:CC.filter(function(s){return ps[s]}).map(function(s){return ps[s]})}],false,true);
   var lin=es.map(function(e){var m=L.filter(function(a){return D.resp[a.cpf]===e});return [D.umap[e]||e,m.filter(function(a){return a.status===CC[0]}).length,m.filter(function(a){return a.status===CC[1]}).length,m.length]});
   if(lin.length)lin.push(['Total',L.filter(function(a){return a.status===CC[0]}).length,L.filter(function(a){return a.status===CC[1]}).length,L.length]);
   $('rdTb').innerHTML=lin.length?rTab(['Responsável',CC[0],CC[1],'Total'],lin):'<p class="muted" style="padding:12px">Nenhum aluno para os filtros selecionados.</p>'}
 function reuE(){var B=reuBase(),us=msv('reU'),st=msv('reV');
   var L=B.outros.filter(function(o){var e=D.resp[o[0]];return(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(o[3])>=0)}).sort(function(x,y){return x[3].localeCompare(y[3])||x[1].localeCompare(y[1],'pt',{sensitivity:'base'})});
   var ps=cnt(L,function(o){return o[3]});
-  $('reC').innerHTML=rCard('nao','⚠️',L.length,'Com responsáveis em outros status')+Object.keys(ps).sort().map(function(s){return rCard('total','📌',ps[s],esc(s))}).join('')+(B.sem&&!us.length&&!st.length?rCard('registros','❓',B.sem,'Com responsáveis, mas sem correspondência na Base Geral'):'');
+  rSet('reC',rCard('nao','⚠️',L.length,'Com responsáveis em outros status')+Object.keys(ps).sort().map(function(s,i){return rCard(i+4,'📌',ps[s],esc(s))}).join('')+(B.sem&&!us.length&&!st.length?rCard('registros','❓',B.sem,'Com responsáveis, mas sem correspondência na Base Geral'):''));
   $('reTd').innerHTML=L.length?rTab(['Aluno','CPF','Curso','Status','Responsável','Registros'],L.map(function(o){var e=D.resp[o[0]];return [o[1],o[0],o[2],o[3],D.umap[e]||e,(D.rmap[o[0]]||[]).length]})):'<p class="muted" style="padding:12px">Nenhum aluno com responsável em outro status.</p>'}
 function reuF(){rBtn('rf');var rs=msv('rfR');
   var R=D.regs.filter(function(r){return rok('rf',r.data.slice(0,10))&&(!rs.length||rs.indexOf(r.resultado)>=0)});
   var c=cnt(R,function(r){return r.resultado}),k=Object.keys(c);
-  chart('rfG1','pie',k,[{l:'Total',d:k.map(function(x){return c[x]})}]);
+  chart('rfG1','pie',k,[{l:'Total',d:k.map(function(x){return c[x]})}],false,true);
   var dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).sort(),m={};R.forEach(function(r){var d=r.data.slice(0,10);m[d]=m[d]||{};m[d][r.resultado]=(m[d][r.resultado]||0)+1});
-  chart('rfG2','bar',dias.map(ddmm),[{l:'Contatos',d:dias.map(function(d){return Object.keys(m[d]).reduce(function(s,x){return s+m[d][x]},0)})}]);
-  var dr=dias.slice().reverse();$('rfT').innerHTML=dr.length?'<div class="dyn-wrap" style="max-height:420px">'+pivot(dr.map(ddmm),dr.map(function(d){return m[d]}),k,'Data')+'</div>':'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
+  chart('rfG2','bar',dias.map(ddmm),[{l:'Contatos',d:dias.map(function(d){return Object.keys(m[d]).reduce(function(s,x){return s+m[d][x]},0)})}],false,true);
+  var dr=dias.slice().reverse(),kk=k.filter(function(x){return c[x]>0});   // só resultados que têm número em alguma data
+  var barra='<div class="ad-totbar rf-tot"><span>Total de contatos</span><span class="rf-chips">'+kk.map(function(x){return '<span class="rf-chip">'+esc(x)+' <span class="nb">'+c[x]+'</span></span>'}).join('')+'<span class="rf-chip rf-all">Total <span class="nb t">'+R.length+'</span></span></span></div>';
+  $('rfT').innerHTML=dr.length?'<div class="dyn-wrap" style="max-height:420px">'+pivot(dr.map(ddmm),dr.map(function(d){return m[d]}),kk,'Data').replace(/<td class="num">(\d+)<\/td>/g,'<td class="num"><span class="nb">$1</span></td>')+'</div>'+barra:'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
 
 parent.postMessage({ccb:1,t:'pronto'},'*');
 </script>
