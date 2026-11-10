@@ -24,17 +24,18 @@ function mesOpts(ms){var anos={};ms.forEach(function(m){anos[m.slice(0,4)]=1});v
 function msv(id){return MS[id]?MS[id].sel:[]}
 function closeMs(ex){Array.prototype.forEach.call(document.querySelectorAll('.msp.on'),function(p){if(!ex||p.parentNode.id!==ex)p.classList.remove('on')})}
 document.addEventListener('click',function(){closeMs()});
-function msMake(id,opts,cb){
+function msMake(id,opts,cb,blank){   // blank=true: começa em branco (sem filtro) e "Selecionar todos" marca todas as opções
   var el=$(id),prev=MS[id]?MS[id].sel:[],vals=opts.map(function(o){return o.v});
-  var sel=prev.filter(function(v){return vals.indexOf(v)>=0});MS[id]={sel:sel,opts:opts,cb:cb};
+  if(blank===undefined)blank=!!(MS[id]&&MS[id].blank);
+  var sel=prev.filter(function(v){return vals.indexOf(v)>=0});MS[id]={sel:sel,opts:opts,cb:cb,blank:blank};
   el.className='ms';el.innerHTML='<button type="button" class="msb"></button><div class="msp"></div>';
   var b=el.firstChild,p=el.lastChild;
-  p.innerHTML='<label class="mi"><input type="checkbox" data-all="1"><b>Todos</b></label>'+opts.map(function(o,i){return '<label class="mi"><input type="checkbox" data-i="'+i+'"'+(sel.indexOf(o.v)>=0?' checked':'')+'>'+esc(o.t)+'</label>'}).join('');
+  p.innerHTML='<label class="mi"><input type="checkbox" data-all="1"><b>'+(blank?'Selecionar todos':'Todos')+'</b></label>'+opts.map(function(o,i){return '<label class="mi"><input type="checkbox" data-i="'+i+'"'+(sel.indexOf(o.v)>=0?' checked':'')+'>'+esc(o.t)+'</label>'}).join('');
   var all=p.querySelector('[data-all]');
-  function upd(){var s=MS[id].sel;all.checked=!s.length;var t=opts.filter(function(o){return s.indexOf(o.v)>=0}).map(function(o){return o.t});b.textContent=(!s.length?'Todos':t.length<=2?t.join(', '):t.length+' selecionados')+' ▾'}
+  function upd(){var s=MS[id].sel;all.checked=blank?(s.length>0&&s.length===opts.length):!s.length;var t=opts.filter(function(o){return s.indexOf(o.v)>=0}).map(function(o){return o.t});b.textContent=(!s.length?(blank?'Selecione...':'Todos'):blank&&s.length===opts.length?'Todos':t.length<=2?t.join(', '):t.length+' selecionados')+' ▾'}
   b.onclick=function(e){e.stopPropagation();closeMs(id);p.classList.toggle('on')};
   p.onclick=function(e){e.stopPropagation()};
-  p.onchange=function(e){var t=e.target;if(t.getAttribute('data-all')){Array.prototype.forEach.call(p.querySelectorAll('input[data-i]'),function(c){c.checked=false});MS[id].sel=[]}
+  p.onchange=function(e){var t=e.target;if(t.getAttribute('data-all')){var on=blank&&t.checked;Array.prototype.forEach.call(p.querySelectorAll('input[data-i]'),function(c){c.checked=on});MS[id].sel=on?vals.slice():[]}
     else MS[id].sel=Array.prototype.filter.call(p.querySelectorAll('input[data-i]'),function(c){return c.checked}).map(function(c){return opts[+c.getAttribute('data-i')].v});
     upd();cb()};
   upd()}
@@ -51,7 +52,7 @@ $('bSair').onclick=function(){sair()};
 function iniciar(pre){(pre&&pre.boot?Promise.resolve(pre.boot):call('boot')).then(function(b){
   ME=b.user;CFG=b.cfg;SEMS=b.sems;OPC=b.opc;ADMIN=ME.perfil==='Admin';tema(ME.tema);
   $('login-screen').style.display='none';$('app').style.display='flex';cabecalho();
-  var tabs=[['cc','📞 Call Center']];if(ADMIN){tabs.push(['ger','📊 Indicador — Geral']);tabs.push(['col','👤 Indicador — Colaborador'])}
+  var tabs=[['cc','📞 Call Center']];if(ADMIN){tabs.push(['ger','📊 Indicador — Geral']);tabs.push(['col','👤 Indicador — Colaborador']);tabs.push(['reu','🤝 Reunião'])}
   $('nav').innerHTML=tabs.map(function(t){return '<button class="tab-btn" data-t="'+t[0]+'">'+t[1]+'</button>'}).join('');
   $('nav').style.display=ADMIN?'flex':'none';
   Array.prototype.forEach.call($('nav').children,function(b){b.onclick=function(){abaAtiva(b.dataset.t)}});
@@ -62,7 +63,7 @@ function iniciar(pre){(pre&&pre.boot?Promise.resolve(pre.boot):call('boot')).the
 window.__ccInit=function(m){T=m.token;iniciar(m.pre)};
 function cabecalho(){$('hNome').textContent=CFG.nomeSistema||'Call Center FIES';$('hUser').textContent=ME.nome;$('hRole').textContent=ADMIN?'Administrador':'Colaborador';$('hAv').innerHTML=avatar(ME.foto,ME.nome);$('hSem').textContent='Semestre: '+ME.semestre;logoHtml($('hLogo'),CFG.logo,'CC')}
 function abaAtiva(t){TAB=t;Array.prototype.forEach.call($('nav').children,function(b){b.className='tab-btn'+(b.dataset.t===t?' active':'')});
-  ['cc','ger','col'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol()}}
+  ['cc','ger','col','reu'].forEach(function(v){$('v-'+v).className='tab-pane'+(v===t?' active':'')});if(D){if(t==='ger')renderGer();if(t==='col')renderCol();if(t==='reu'&&ADMIN)renderReu()}}
 function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSync()}
 function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
 // "Contato" = Sim só se o último registro for da data da solicitação do aditamento (coluna BD da Base Geral) em diante
@@ -83,7 +84,7 @@ function filtrosVivos(forca){
   mk('fRs',[{v:'-',t:'Sem contato'}].concat(resOpts()),linhas);
   mk('fB',Object.keys(cnt(D.regs,function(r){return r.colab})).map(function(e){return {v:e,t:D.umap[e]||e}}),linhas)}
 function mesesVivos(){return mesOpts(Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort())}
-function selaSync(){SYNC.sig=JSON.stringify([D.regs,D.resp])}      // depois de uma gravação própria: não conta como novidade de outra pessoa
+function selaSync(){SYNC.sig=JSON.stringify([D.regs,D.resp,D.respDt])}      // depois de uma gravação própria: não conta como novidade de outra pessoa
 function iniciarSync(){
   SYNC.ver=D.v||null;selaSync();SYNC.ult=Date.now();clearInterval(SYNC.t);
   SYNC.t=setInterval(function(){if(!document.hidden)sincronizar()},20000)}
@@ -116,10 +117,11 @@ function sincronizar(manual){
     if(manual)toast(mudou?'Dados atualizados.':'Tudo já está atualizado.')})
   .withFailureHandler(fim).api(T,'sync',{sem:ME.semestre,v:forca?'':SYNC.ver})}
 function aplicarVivo(o){
-  var sig=JSON.stringify([o.regs,o.resp]);if(sig===SYNC.sig)return false;
-  SYNC.sig=sig;D.regs=o.regs;D.resp=o.resp;D.v=o.v;indexar();
+  var sig=JSON.stringify([o.regs,o.resp,o.respDt]);if(sig===SYNC.sig)return false;
+  SYNC.sig=sig;D.regs=o.regs;D.resp=o.resp;if(o.respDt)D.respDt=o.respDt;D.v=o.v;indexar();
   if(TAB==='cc'&&$('tb')){filtrosVivos();kpisCC();linhas()}
   else if(TAB==='ger'&&$('gc1')){var mo=mesesVivos();msSync('dM',mo,gDia);msSync('rMs',mo,gRes);gBase();gDia();gRes()}
+  else if(TAB==='reu'&&$('raC')){reuTudo()}
   else if(TAB==='col'&&$('cK')){var mc=mesesVivos();msSync('cM',mc,cAtu);msSync('iaM',mc,iaFiltrar);msSync('cRs',resOpts(),cAtu);cAtu();iaRender()}
   return true}
 
@@ -465,7 +467,7 @@ function renderCol(){
   '<div class="filters-row inner no-img">'+fms('tM','Mês')+fdate('tD','Data')+'<button class="btn-clear btn-sem" id="tS" type="button">📅 Semestre</button>'+fms('tO','Mostrar')+'<button class="btn-clear" id="tX" type="button">✕ Limpar</button></div><div id="cT"></div></div>'+
   '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL+',pM,pD,pB','cP')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('pM','Mês')+fdate('pD','Data')+'<button class="btn-clear btn-sem" id="pS" type="button">📅 Semestre</button>'+fms('pB','Colaborador')+'<button class="btn-clear" id="pX" type="button">✕ Limpar</button></div><div id="cP"></div></div>';
-  msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cU',resOpts(),cAtu);CP_ON=false;$('cP1').onclick=function(){CP_ON=!CP_ON;cAtu()};$('cPX').onclick=function(){CP_ON=false;limpar(['cU'],[],cAtu)};msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
+  msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cU',resOpts(),cAtu,true);CP_ON=false;$('cP1').onclick=function(){CP_ON=!CP_ON;cAtu()};$('cPX').onclick=function(){CP_ON=false;limpar(['cU'],[],cAtu)};msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
   msMake('aM',mesOpts(meses),function(){AD_SEM=false;adRender()});
   msMake('aC',Object.keys(cnt(D.adit||[],function(a){return a.curso})).sort().map(vt),adRender);
   msMake('aR',Object.keys(cnt((D.adit||[]).filter(function(a){return D.resp[a.cpf]}),function(a){return D.resp[a.cpf]})).map(function(e){return {v:e,t:D.umap[e]||e}}),adRender);
@@ -997,6 +999,100 @@ document.addEventListener('click',function(e){
   if(!b){fecharDlMenu();return}
   if(b.dataset.dx){var aberto=$('dlMenu');fecharDlMenu();if(!aberto)abrirDlMenu(b)}else dlImagem(b)});
 window.addEventListener('scroll',fecharDlMenu,true);
+
+/* ---------- Aba Reunião (só Admin): totais da carteira, responsáveis, confirmados e conferências ---------- */
+var RS={};   // botão "Semestre" de cada indicador (ignora os filtros de data daquele indicador)
+function rfil(p,extra){return fms(p+'M','Mês')+fdate(p+'I','Data inicial')+fdate(p+'F','Data final')+'<button class="btn-clear btn-sem" id="'+p+'S" type="button" title="Semestre inteiro (ignora os filtros de data)">📅 Semestre</button>'+(extra||'')+'<button class="btn-clear" id="'+p+'X" type="button">✕ Limpar</button>'}
+function rwire(p,meses,cb,exMs){
+  RS[p]=false;exMs=exMs||[];
+  msMake(p+'M',mesOpts(meses),function(){RS[p]=false;cb()});
+  exMs.forEach(function(e){msMake(e[0],e[1],cb)});
+  [p+'I',p+'F'].forEach(function(i){$(i).onchange=function(){RS[p]=false;cb()}});
+  $(p+'S').onclick=function(){RS[p]=!RS[p];if(RS[p]){$(p+'I').value='';$(p+'F').value='';var m=MS[p+'M'];m.sel=[];msMake(p+'M',m.opts,m.cb)}cb()};
+  $(p+'X').onclick=function(){RS[p]=false;limpar([p+'M'].concat(exMs.map(function(e){return e[0]})),[p+'I',p+'F'],cb)}}
+// d = "aaaa-mm-dd" (ou vazio). Sem nenhum filtro de data tudo passa; com filtro, quem não tem data fica de fora.
+function rok(p,d){if(RS[p])return true;var m=msv(p+'M'),i=$(p+'I').value,f=$(p+'F').value;if(!m.length&&!i&&!f)return true;if(!d)return false;
+  return(!m.length||m.indexOf(d.slice(0,7))>=0)&&(!i||d>=i)&&(!f||d<=f)}
+function rBtn(p){var b=$(p+'S');if(b)b.classList.toggle('on',!!RS[p])}
+function rCard(cls,ic,v,l){return '<div class="kpi-card"><div class="kpi-icon '+cls+'">'+ic+'</div><div><div class="kpi-val" style="color:var(--num)">'+v+'</div><div class="kpi-lbl">'+l+'</div></div></div>'}
+function rTab(cab,linhas,max){return '<div class="dyn-wrap" style="max-height:'+(max||420)+'px"><table class="dyn-table"><thead><tr>'+cab.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
+  linhas.map(function(l){return '<tr>'+l.map(function(c){return typeof c==='number'?'<td class="num">'+c+'</td>':'<td>'+esc(c)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>'}
+function rDt(s){return s?ddmm(s)+(s.length>10?' '+s.slice(11,16):''):''}
+function rSec(id,tit,sub,filt,dl){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+tit+'</h3><p class="sh">'+sub+'</p></div>'+dl+'</div><div class="filters-row inner no-img">'+filt+'</div>'}
+function reuMeses(){var s={};D.regs.forEach(function(r){s[r.data.slice(0,7)]=1});Object.keys(D.respDt||{}).forEach(function(c){s[D.respDt[c].slice(0,7)]=1});(D.adit||[]).forEach(function(a){if(a.mud)s[a.mud.slice(0,7)]=1});return Object.keys(s).sort()}
+function reuBase(){   // números "de foto" (não dependem de data)
+  var aset={};D.alunos.forEach(function(a){aset[a.cpf]=1});
+  var com=Object.keys(D.resp).filter(function(c){return D.resp[c]});
+  var atuais=com.filter(function(c){return aset[c]});
+  var adit=(D.adit||[]).filter(function(a){return D.resp[a.cpf]});
+  var outros=(D.outros||[]).filter(function(o){return D.resp[o[0]]});
+  return {aset:aset,com:com,atuais:atuais,adit:adit,outros:outros,sem:Math.max(0,com.length-atuais.length-adit.length-outros.length)}}
+function renderReu(){
+  if(!D)return;var me=reuMeses(),B=reuBase();
+  var stOut=Object.keys(cnt(B.outros,function(o){return o[3]})).sort();
+  $('v-reu').innerHTML=
+  rSec('ra','📋 Totais gerais','Só números (sem divisão por colaborador). Contatos e resultados seguem as datas; os totais de alunos mostram a situação de agora.',rfil('ra',fms('raR','Resultado do contato')),dlBtn('bx_ra','Reunião - Totais gerais','raM,raI,raF,raR','raT'))+'<div class="kpi-row" id="raC"></div><div class="kpi-row" id="raC2" style="margin-top:14px"></div><div id="raT" class="no-img" style="display:none"></div></div>'+
+  rSec('rb','🗓️ Responsáveis inseridos (início do Call Center)','Quantos alunos receberam responsável em cada dia (a 1ª vez que foi inserido) e o acumulado, para comparar o começo com hoje.',rfil('rb'),dlBtn('bx_rb','Reunião - Responsáveis inseridos','rbM,rbI,rbF','rbT'))+'<div class="kpi-row" id="rbC" style="margin-bottom:14px"></div><div class="ch"><canvas id="rbG"></canvas></div><div id="rbT" style="margin-top:12px"></div></div>'+
+  rSec('rc','✅ Aditaram com responsáveis','Alunos que mudaram para ADITOU e têm responsável, com o total de registros feitos neles. Datas = dia em que o status mudou.',rfil('rc'),dlBtn('bx_rc','Reunião - Aditaram com responsáveis','rcM,rcI,rcF','rcT'))+'<div class="kpi-row" id="rcC" style="margin-bottom:14px"></div><div class="ch"><canvas id="rcG"></canvas></div><div id="rcT" style="margin-top:12px"></div></div>'+
+  rSec('rd','⏳ Restam com responsáveis (agora)','Alunos com responsável que continuam no Call Center (Solicitado / Não aditou ou Enviado ao banco).',fms('rdU','Responsável')+fms('rdV','Status')+'<button class="btn-clear" id="rdX" type="button">✕ Limpar</button>',dlBtn('bx_rd','Reunião - Restam com responsáveis','rdU,rdV','rdTb'))+'<div class="kpi-row" id="rdC" style="margin-bottom:14px"></div><div class="grid2"><div class="ch"><canvas id="rdG"></canvas></div><div class="ch"><canvas id="rdP"></canvas></div></div><div id="rdTb" style="margin-top:12px"></div></div>'+
+  rSec('re','⚠️ Responsáveis em outros status','Alunos com responsável cujo status na Base Geral não é Solicitado / Não aditou, Enviado ao banco nem ADITOU (ex.: Rejeitado, Cancelado). Serve para não perder a conta.',fms('reU','Responsável')+fms('reV','Status')+'<button class="btn-clear" id="reX" type="button">✕ Limpar</button>',dlBtn('bx_re','Reunião - Responsáveis em outros status','reU,reV','reTd'))+'<div class="kpi-row" id="reC" style="margin-bottom:14px"></div><div id="reTd"></div></div>'+
+  rSec('rf','📊 Contatos por resultado e por dia','Gráficos dos contatos realizados (sem separar por colaborador).',rfil('rf',fms('rfR','Resultado do contato')),dlBtn('bx_rf','Reunião - Contatos por resultado e dia','rfM,rfI,rfF,rfR','rfT'))+'<div class="grid2"><div class="ch"><canvas id="rfG1"></canvas></div><div class="ch"><canvas id="rfG2"></canvas></div></div><div id="rfT" style="margin-top:12px"></div></div>';
+  var ro=resOpts(),us=function(es){return es.map(function(e){return {v:e,t:D.umap[e]||e}})};
+  rwire('ra',me,reuA,[['raR',ro]]);rwire('rb',me,reuB);rwire('rc',me,reuC);rwire('rf',me,reuF,[['rfR',ro]]);
+  var resp=Object.keys(cnt(B.com,function(c){return D.resp[c]}));
+  msMake('rdU',us(resp),reuD);msMake('rdV',CC.map(vt),reuD);$('rdX').onclick=function(){limpar(['rdU','rdV'],[],reuD)};
+  msMake('reU',us(resp),reuE);msMake('reV',stOut.map(vt),reuE);$('reX').onclick=function(){limpar(['reU','reV'],[],reuE)};
+  reuTudo()}
+function reuTudo(){reuA();reuB();reuC();reuD();reuE();reuF()}
+function reuA(){var B=reuBase(),rs=msv('raR');rBtn('ra');
+  var R=D.regs.filter(function(r){return rok('ra',r.data.slice(0,10))&&(!rs.length||rs.indexOf(r.resultado)>=0)});
+  var rc=cnt(R,function(r){return r.resultado}),res=resOpts().map(function(o){return o.v}).filter(function(x){return!rs.length||rs.indexOf(x)>=0});
+  var base=[['Alunos no Call Center (Não aditou + Enviado ao banco)',D.alunos.length],['Alunos com responsáveis (qualquer status)',B.com.length],['Alunos com responsáveis atualmente (continuam no Call Center)',B.atuais.length],['Alunos que confirmaram (ADITOU) com responsáveis',B.adit.length],['Contatos realizados',R.length]];
+  var ic=['total','nao','enviado','registros','total'],ics=['🎓','👥','⏳','✅','📞'];
+  $('raC').innerHTML=base.map(function(x,i){return rCard(ic[i],ics[i],x[1],esc(x[0]))}).join('');
+  $('raC2').innerHTML=res.map(function(x){return rCard('total','🏷️',rc[x]||0,esc(x))}).join('');
+  var lin=base.map(function(x){return [x[0],x[1]]}).concat(res.map(function(x){return ['Registros: '+x,rc[x]||0]}));
+  $('raT').innerHTML=rTab(['Indicador','Total'],lin)}
+function reuB(){rBtn('rb');var B=reuBase(),dt=D.respDt||{},dia={},sem=0;
+  Object.keys(dt).forEach(function(c){var d=dt[c].slice(0,10);if(rok('rb',d))dia[d]=(dia[d]||0)+1});
+  B.com.forEach(function(c){if(!dt[c])sem++});                        // já tinham responsável antes de a data passar a ser gravada
+  var semV=rok('rb','')?sem:0,ds=Object.keys(dia).sort(),acc=semV,lin=[];
+  ds.forEach(function(d){acc+=dia[d];lin.push([ddmm(d),dia[d],acc])});lin.reverse();           // dia mais recente em cima
+  if(semV)lin.push(['Sem data (já tinham responsável antes do registro de datas)',semV,semV]);
+  var todos=Object.keys(dt),prim=todos.map(function(c){return dt[c].slice(0,10)}).sort()[0],nprim=prim?todos.filter(function(c){return dt[c].slice(0,10)===prim}).length:0;
+  $('rbC').innerHTML=rCard('total','🏁',prim?ddmm(prim):'—',prim?'Primeira inserção de responsáveis ('+nprim+' aluno(s) nesse dia)':'Primeira inserção (ainda sem datas registradas)')+rCard('nao','➕',todos.length+sem,'Alunos que já receberam responsável (desde o início)')+rCard('enviado','👥',B.com.length,'Com responsáveis hoje');
+  var lab=ds.map(ddmm),vals=ds.map(function(d){return dia[d]});if(semV){lab.unshift('Sem data');vals.unshift(semV)}
+  chart('rbG','bar',lab,[{l:'Alunos que receberam responsável',d:vals}]);
+  $('rbT').innerHTML=lin.length?rTab(['Data','Alunos inseridos','Acumulado'],lin):'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
+function reuC(){rBtn('rc');var B=reuBase(),L=B.adit.filter(function(a){return rok('rc',a.mud?a.mud.slice(0,10):'')}),dia={};
+  var nreg=function(a){return(D.rmap[a.cpf]||[]).length};
+  L.forEach(function(a){var d=a.mud?a.mud.slice(0,10):'';dia[d]=dia[d]||{a:0,r:0};dia[d].a++;dia[d].r+=nreg(a)});
+  $('rcC').innerHTML=rCard('enviado','✅',L.length,'Alunos que aditaram (ADITOU) com responsáveis')+rCard('registros','🧾',L.reduce(function(t,a){return t+nreg(a)},0),'Registros de contato feitos nesses alunos');
+  var ds=Object.keys(dia).filter(Boolean).sort(),lin=ds.slice().reverse().map(function(d){return [ddmm(d),dia[d].a,dia[d].r]});
+  if(dia['']&&rok('rc',''))lin.push(['Sem data de mudança',dia[''].a,dia[''].r]);
+  chart('rcG','bar',ds.map(ddmm).concat(dia['']?['Sem data']:[]),[{l:'Alunos',d:ds.map(function(d){return dia[d].a}).concat(dia['']?[dia[''].a]:[])},{l:'Registros',d:ds.map(function(d){return dia[d].r}).concat(dia['']?[dia[''].r]:[])}]);
+  $('rcT').innerHTML=lin.length?rTab(['Data da mudança de status','Alunos','Registros'],lin):'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
+function reuD(){var B=reuBase(),us=msv('rdU'),st=msv('rdV');
+  var L=D.alunos.filter(function(a){var e=D.resp[a.cpf];return e&&(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(a.status)>=0)});
+  var por=cnt(L,function(a){return D.resp[a.cpf]}),es=Object.keys(por).sort(function(x,y){return por[y]-por[x]}),ps=cnt(L,function(a){return a.status});
+  $('rdC').innerHTML=rCard('enviado','⏳',L.length,'Restam com responsáveis (no Call Center agora)')+CC.map(function(s){return rCard('total','📌',ps[s]||0,esc(s))}).join('');
+  chart('rdG','bar',es.map(function(e){return D.umap[e]||e}),[{l:'Alunos',d:es.map(function(e){return por[e]})}]);
+  chart('rdP','pie',CC.filter(function(s){return ps[s]}),[{l:'Alunos',d:CC.filter(function(s){return ps[s]}).map(function(s){return ps[s]})}]);
+  var lin=es.map(function(e){var m=L.filter(function(a){return D.resp[a.cpf]===e});return [D.umap[e]||e,m.filter(function(a){return a.status===CC[0]}).length,m.filter(function(a){return a.status===CC[1]}).length,m.length]});
+  if(lin.length)lin.push(['Total',L.filter(function(a){return a.status===CC[0]}).length,L.filter(function(a){return a.status===CC[1]}).length,L.length]);
+  $('rdTb').innerHTML=lin.length?rTab(['Responsável',CC[0],CC[1],'Total'],lin):'<p class="muted" style="padding:12px">Nenhum aluno para os filtros selecionados.</p>'}
+function reuE(){var B=reuBase(),us=msv('reU'),st=msv('reV');
+  var L=B.outros.filter(function(o){var e=D.resp[o[0]];return(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(o[3])>=0)}).sort(function(x,y){return x[3].localeCompare(y[3])||x[1].localeCompare(y[1],'pt',{sensitivity:'base'})});
+  var ps=cnt(L,function(o){return o[3]});
+  $('reC').innerHTML=rCard('nao','⚠️',L.length,'Com responsáveis em outros status')+Object.keys(ps).sort().map(function(s){return rCard('total','📌',ps[s],esc(s))}).join('')+(B.sem&&!us.length&&!st.length?rCard('registros','❓',B.sem,'Com responsáveis, mas sem correspondência na Base Geral'):'');
+  $('reTd').innerHTML=L.length?rTab(['Aluno','CPF','Curso','Status','Responsável','Registros'],L.map(function(o){var e=D.resp[o[0]];return [o[1],o[0],o[2],o[3],D.umap[e]||e,(D.rmap[o[0]]||[]).length]})):'<p class="muted" style="padding:12px">Nenhum aluno com responsável em outro status.</p>'}
+function reuF(){rBtn('rf');var rs=msv('rfR');
+  var R=D.regs.filter(function(r){return rok('rf',r.data.slice(0,10))&&(!rs.length||rs.indexOf(r.resultado)>=0)});
+  var c=cnt(R,function(r){return r.resultado}),k=Object.keys(c);
+  chart('rfG1','pie',k,[{l:'Total',d:k.map(function(x){return c[x]})}]);
+  var dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).sort(),m={};R.forEach(function(r){var d=r.data.slice(0,10);m[d]=m[d]||{};m[d][r.resultado]=(m[d][r.resultado]||0)+1});
+  chart('rfG2','bar',dias.map(ddmm),[{l:'Contatos',d:dias.map(function(d){return Object.keys(m[d]).reduce(function(s,x){return s+m[d][x]},0)})}]);
+  var dr=dias.slice().reverse();$('rfT').innerHTML=dr.length?'<div class="dyn-wrap" style="max-height:420px">'+pivot(dr.map(ddmm),dr.map(function(d){return m[d]}),k,'Data')+'</div>':'<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>'}
 
 parent.postMessage({ccb:1,t:'pronto'},'*');
 </script>
