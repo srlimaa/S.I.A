@@ -18,6 +18,7 @@ const CC_API = {
       try { ccStatusAtualizar_(sem, b); mud = ccStatusMapa_(sem); } catch (e) { Logger.log('Status: ' + e.message); }   // data em que o aluno passou para ADITOU
       return {
         sem: sem, diag: b.diag, alunos: b.alunos, adit: (b.adit || []).filter(a => resp[a.cpf]).map(a => Object.assign({}, a, { mud: mud[a.cpf] || '' })), light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
+        respDt: u.Perfil === 'Admin' ? ccRespDt_(sem) : {}, outros: u.Perfil === 'Admin' ? (b.outros || []).filter(o => resp[o[0]]) : [],
         usuarios: info.usuarios, extras: info.extras, v: ccVer_(sem), bts: b.ts
       };
     }
@@ -33,7 +34,7 @@ const CC_API = {
       if (a.v && String(a.v) === v) return { v: v };
       const resp = {};
       ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === sem).forEach(x => resp[x.CPF] = x.Email);
-      return { v: v, regs: ccRegs_(sem), resp: resp };
+      return { v: v, regs: ccRegs_(sem), resp: resp, respDt: u.Perfil === 'Admin' ? ccRespDt_(sem) : {} };
     }
   },
 
@@ -43,7 +44,9 @@ const CC_API = {
       try {
         const ssR = ccSsReg_(a.sem);
         const x = ccTab_('RESPONSAVEIS', ssR).find(r => String(r.Semestre) === String(a.sem) && r.CPF === a.cpf);
-        if (x) ccUpd_('RESPONSAVEIS', x._row, { Email: a.email }, ssR); else ccAdd_('RESPONSAVEIS', { Semestre: a.sem, CPF: a.cpf, Email: a.email }, ssR);
+        const agora = Utilities.formatDate(new Date(), ccTz_(), 'yyyy-MM-dd HH:mm');
+        if (x) { const o = { Email: a.email }; if (a.email && !x.Email && !x.CriadoEm) o.CriadoEm = agora; ccUpd_('RESPONSAVEIS', x._row, o, ssR); }
+        else ccAdd_('RESPONSAVEIS', { Semestre: a.sem, CPF: a.cpf, Email: a.email, CriadoEm: a.email ? agora : '' }, ssR);
         ccBump_(a.sem);
       } finally { l.releaseLock(); }
       return true;
@@ -63,16 +66,22 @@ const CC_API = {
       const alvo = {}; cpfs.forEach(c => alvo[c] = 1);
       const l = LockService.getScriptLock(); l.waitLock(30000);
       try {
-        const ssR = ccSsReg_(sem), sh = ssR.getSheetByName(ccAbaNome_('RESPONSAVEIS'));
+        const ssR = ccSsReg_(sem), sh = ccAba_('RESPONSAVEIS', ssR);
+        const agora = Utilities.formatDate(new Date(), ccTz_(), 'yyyy-MM-dd HH:mm');
         const ultima = sh.getLastRow(), achados = {};
         if (ultima >= 2) {                                           // atualiza as linhas existentes de uma só vez
-          const vals = sh.getRange(2, 1, ultima - 1, 3).getValues();  // Semestre, CPF, Email
-          vals.forEach(r => { if (String(r[0]) === sem && alvo[String(r[1])]) { r[2] = email; achados[String(r[1])] = 1; } });
-          const col = sh.getRange(2, 3, ultima - 1, 1); col.setNumberFormat('@'); col.setValues(vals.map(r => [r[2]]));
+          const vals = sh.getRange(2, 1, ultima - 1, 4).getValues();  // Semestre, CPF, Email, CriadoEm
+          vals.forEach(r => {
+            if (String(r[0]) === sem && alvo[String(r[1])]) {
+              const ant = String(r[2]).trim(); r[2] = email; achados[String(r[1])] = 1;
+              if (email && !ant && !String(r[3] == null ? '' : r[3]).trim()) r[3] = agora;   // 1ª vez com responsável: guarda a data
+            }
+          });
+          const col = sh.getRange(2, 3, ultima - 1, 2); col.setNumberFormat('@'); col.setValues(vals.map(r => [r[2], String(r[3] == null ? '' : r[3])]));
         }
         if (email) {                                                 // quem ainda não tinha linha ganha uma nova
-          const novos = cpfs.filter(c => !achados[c]).map(c => [sem, c, email]);
-          if (novos.length) { const g2 = sh.getRange(sh.getLastRow() + 1, 1, novos.length, 3); g2.setNumberFormat('@'); g2.setValues(novos); }
+          const novos = cpfs.filter(c => !achados[c]).map(c => [sem, c, email, agora]);
+          if (novos.length) { const g2 = sh.getRange(sh.getLastRow() + 1, 1, novos.length, 4); g2.setNumberFormat('@'); g2.setValues(novos); }
         }
         ccInval_(ssR, 'RESPONSAVEIS'); ccBump_(sem);
       } finally { l.releaseLock(); }
