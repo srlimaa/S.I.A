@@ -79,7 +79,7 @@ const CC_HEAD = {
   CONFIG: ['Chave', 'Valor'],
   OPCOES: ['Tipo', 'Valor'],
   REGISTROS: ['Id', 'Semestre', 'CPF', 'Aluno', 'DataHora', 'Objetivo', 'Meio', 'Resultado', 'Observacao', 'ColabEmail', 'ColabNome', 'Status', 'EditadoEm'],
-  RESPONSAVEIS: ['Semestre', 'CPF', 'Email'],
+  RESPONSAVEIS: ['Semestre', 'CPF', 'Email', 'CriadoEm'],   // CriadoEm = quando o aluno ganhou responsável pela 1ª vez
   STATUS: ['Semestre', 'CPF', 'Status', 'DesdeEm', 'MudouEm']   // histórico de status na Base Geral (data em que passou para ADITOU)
 };
 
@@ -168,7 +168,44 @@ function ccAba_(n, s0) {
     sh = s0.getSheetByName(ccAbaNome_(n));
   }
   if (!sh) throw new Error('Aba "' + ccAbaNome_(n) + '" não encontrada na planilha.');
+  if (n === 'RESPONSAVEIS') ccGarantirCriadoEm_(sh);
   return sh;
+}
+
+// Planilhas antigas tinham só 3 colunas em CC_RESPONSAVEIS: acrescenta a coluna D "CriadoEm" (uma vez por execução)
+const CC_COL_OK = {};
+function ccGarantirCriadoEm_(sh) {
+  const k = sh.getParent().getId();
+  if (CC_COL_OK[k]) return;
+  if (sh.getMaxColumns() < 4) sh.insertColumnsAfter(sh.getMaxColumns(), 4 - sh.getMaxColumns());
+  const c = sh.getRange(1, 4);
+  if (c.getValue() !== 'CriadoEm') { c.setValue('CriadoEm').setFontWeight('bold'); sh.getRange(2, 4, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('@'); }
+  CC_COL_OK[k] = 1;
+}
+
+// cpf → "aaaa-mm-dd hh:mm" da 1ª vez em que o aluno ganhou responsável (só linhas com data; inclui quem depois ficou sem responsável)
+function ccRespDt_(sem) {
+  const m = {};
+  ccTab_('RESPONSAVEIS', ccSsReg_(sem)).forEach(r => { if (String(r.Semestre) === String(sem) && r.CriadoEm) m[r.CPF] = String(r.CriadoEm); });
+  return m;
+}
+
+// OPCIONAL (rodar 1 vez à mão): carimba com uma data os responsáveis que já existiam antes desta atualização (sem data).
+// Troque DATA_INICIO pela data em que o call center realmente começou (aaaa-mm-dd). Vazio = hoje.
+function ccCarimbarResponsaveis() {
+  const DATA_INICIO = '';
+  const dt = (DATA_INICIO || Utilities.formatDate(new Date(), ccTz_(), 'yyyy-MM-dd')) + ' 00:00';
+  let n = 0;
+  ccSems_().forEach(r => {
+    if (!r.IdBase) return;
+    const ss = ccSsReg_(r.Semestre), sh = ccAba_('RESPONSAVEIS', ss), ult = sh.getLastRow();
+    if (ult < 2) return;
+    const v = sh.getRange(2, 1, ult - 1, 4).getValues();
+    v.forEach(x => { if (String(x[2]).trim() && !String(x[3]).trim()) { x[3] = dt; n++; } });
+    const c = sh.getRange(2, 4, ult - 1, 1); c.setNumberFormat('@'); c.setValues(v.map(x => [String(x[3] == null ? '' : x[3])]));
+    ccInval_(ss, 'RESPONSAVEIS'); ccBump_(r.Semestre);
+  });
+  Logger.log(n + ' responsável(is) carimbado(s) com ' + dt);
 }
 
 function ccTab_(n, ss) {
@@ -436,14 +473,14 @@ function ccDataSol_(v) {
 // Leitura pesada da base de alunos do semestre (aba BASE GERAL + comparecimento ao banco).
 // O resultado fica em cache por 10 min (ou até um Admin pedir "Recarregar base").
 function ccBase_(r, sem, fresh) {
-  const chave = 'cb2_' + String(sem).replace(/[^\w.-]/g, '') + '_' + ccId_(r.IdBase).slice(-8) + ccId_(r.IdCallCenter).slice(-8);
+  const chave = 'cb3_' + String(sem).replace(/[^\w.-]/g, '') + '_' + ccId_(r.IdBase).slice(-8) + ccId_(r.IdCallCenter).slice(-8);
   if (!fresh) { const c = ccCacheGet_(chave); if (c && c.alunos) return c; }
   const sb = ccOpen_(ccId_(r.IdBase));
   const bsh = sb.getSheetByName('BASE GERAL') || sb.getSheets()[0];
   const base = bsh.getDataRange().getValues();
   const h0 = 1; // cabeçalhos na linha 2; dados a partir da linha 3
   const comp = r.IdCallCenter ? ccComp_(r.IdCallCenter) : {};
-  const alunos = [], light = [], adit = [], st0 = {};
+  const alunos = [], light = [], adit = [], outros = [], st0 = {};
   let tot = 0;
   for (let i = h0 + 1; i < base.length; i++) {
     const v = base[i], nome = String(v[3]).trim();
@@ -457,6 +494,8 @@ function ccBase_(r, sem, fresh) {
     const solic = ccDataSol_(v[55]);                                   // coluna BD: data da solicitação do aditamento
     if (st === 'ADITOU' && ccCpf_(v[2]))                                // alunos que já aditaram (o Call Center mostra só os que têm responsável)
       adit.push({ cpf: ccCpf_(v[2]), cpfFmt: String(v[2]).trim(), nome: nome, curso: String(v[4]).trim(), turno: String(v[5]).trim(), status: st, solic: solic });
+    if (st !== 'ADITOU' && CC_ST.indexOf(st) < 0 && ccCpf_(v[2]))     // outros status (Reunião: responsáveis que estão fora do Call Center e não aditaram)
+      outros.push([ccCpf_(v[2]), nome, String(v[4]).trim(), st]);
     if (CC_ST.indexOf(st) < 0) continue;
     const cpf = ccCpf_(v[2]);
     const al = {
@@ -468,7 +507,7 @@ function ccBase_(r, sem, fresh) {
     if (st === CC_ST[1] && comp[cpf]) al.banco = comp[cpf];
     alunos.push(al);
   }
-  const out = { alunos: alunos, light: light, adit: adit, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, ts: Date.now() };
+  const out = { alunos: alunos, light: light, adit: adit, outros: outros, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, ts: Date.now() };
   ccCachePut_(chave, out, 600);
   return out;
 }
