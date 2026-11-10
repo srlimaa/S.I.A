@@ -481,6 +481,9 @@ function ccBase_(r, sem, fresh) {
   const h0 = 1; // cabeçalhos na linha 2; dados a partir da linha 3
   const comp = r.IdCallCenter ? ccComp_(r.IdCallCenter) : {};
   const alunos = [], light = [], adit = [], outros = [], st0 = {};
+  // "Outros status" só interessa para quem tem responsável: guardar só esses mantém o cache pequeno e a abertura rápida
+  const comResp = {};
+  try { ccTab_('RESPONSAVEIS', ccSsReg_(sem)).forEach(x => { if (String(x.Semestre) === String(sem) && String(x.Email || '').trim()) comResp[x.CPF] = 1; }); } catch (e) { }
   let tot = 0;
   for (let i = h0 + 1; i < base.length; i++) {
     const v = base[i], nome = String(v[3]).trim();
@@ -494,7 +497,7 @@ function ccBase_(r, sem, fresh) {
     const solic = ccDataSol_(v[55]);                                   // coluna BD: data da solicitação do aditamento
     if (st === 'ADITOU' && ccCpf_(v[2]))                                // alunos que já aditaram (o Call Center mostra só os que têm responsável)
       adit.push({ cpf: ccCpf_(v[2]), cpfFmt: String(v[2]).trim(), nome: nome, curso: String(v[4]).trim(), turno: String(v[5]).trim(), status: st, solic: solic });
-    if (st !== 'ADITOU' && CC_ST.indexOf(st) < 0 && ccCpf_(v[2]))     // outros status (Reunião: responsáveis que estão fora do Call Center e não aditaram)
+    if (st !== 'ADITOU' && CC_ST.indexOf(st) < 0 && comResp[ccCpf_(v[2])])   // outros status (Reunião: responsáveis fora do Call Center que não aditaram)
       outros.push([ccCpf_(v[2]), nome, String(v[4]).trim(), st]);
     if (CC_ST.indexOf(st) < 0) continue;
     const cpf = ccCpf_(v[2]);
@@ -545,7 +548,7 @@ function ccStatusAtualizar_(sem, b) {
   const marca = 'cs_ok_' + String(sem).replace(/[^\w.-]/g, '') + '_' + b.ts, cache = CacheService.getScriptCache();
   if (cache.get(marca)) return;                                       // esta leitura da base já foi comparada
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(15000)) return;
+  if (!lock.tryLock(5000)) return;
   try {
     const ss = ccSsReg_(sem), sh = ccAba_('STATUS', ss), tz = ccTz_();
     const agora = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
