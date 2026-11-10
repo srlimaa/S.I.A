@@ -448,9 +448,11 @@ function gRes(){var st=msv('rSt'),rs=msv('rRs');
 function renderCol(){
   if(!D)return;var meses=Object.keys(cnt(D.regs,function(r){return r.data.slice(0,7)})).sort();
   $('v-col').innerHTML='<div class="filters-row">'+fms('cM','Mês')+fdate('cI','Data inicial')+fdate('cF','Data final')+fms('cB','Colaborador')+fms('cRs','Resultado do contato')+fms('cBI','Banco — data de início')+fms('cBF','Banco — data final')+'<button class="btn-clear" id="cX">✕ Limpar</button></div>'+
-  '<div class="section-box" id="bx_cK"><div class="dl-head"><div><h3>👥 Cartões por Colaborador</h3><p class="sh">Responsável por, contatos realizados e contatos não realizados</p></div>'+dlBtn('bx_cK','Cartões por colaborador',FCOL)+'</div><div class="colab-grid" id="cK"></div></div>'+
-  '<div class="section-box" id="bx_ad"><div class="dl-head"><div><h3>✅ Confirmado aditamento</h3><p class="sh">Alunos com status ADITOU na Base Geral que ainda têm responsável · clique no aluno para ver os registros</p></div>'+dlBtn('bx_ad','Confirmado aditamento','aM,aD,aC,aR,aQ','adT')+'</div>'+
-  '<div class="filters-row inner no-img">'+fms('aM','Mês')+fdate('aD','Data do último contato')+'<button class="btn-clear btn-sem" id="aS" type="button">📅 Semestre</button>'+fms('aC','Curso')+fms('aR','Responsável')+'<div class="filter-group" style="min-width:200px"><label>Aluno (nome ou CPF)</label><input type="text" id="aQ" placeholder="🔍 Buscar..."></div><button class="btn-clear" id="aX" type="button">✕ Limpar</button></div>'+
+  '<div class="section-box" id="bx_cK"><div class="dl-head"><div><h3>👥 Cartões por Colaborador</h3><p class="sh">Responsável por, contatos realizados e contatos não realizados</p></div>'+dlBtn('bx_cK','Cartões por colaborador',FCOL)+'</div>'+
+  '<div class="filters-row inner no-img"><button class="btn-clear btn-sem" id="cP1" type="button" title="Considera só os alunos que o colaborador tem como responsável agora (ainda pendentes na aba Call Center)">📌 Somente pendentes (responsável atual)</button>'+fms('cU','Último registro')+'<button class="btn-clear" id="cPX" type="button">✕ Limpar</button></div>'+
+  '<p class="sh" id="cKi" style="display:none;margin:0 0 8px"></p><div class="colab-grid" id="cK"></div></div>'+
+  '<div class="section-box" id="bx_ad"><div class="dl-head"><div><h3>✅ Confirmado aditamento</h3><p class="sh">Alunos com status ADITOU na Base Geral que ainda têm responsável · "Mudou p/ ADITOU" = data em que o sistema viu o status mudar · clique no aluno para ver os registros</p></div>'+dlBtn('bx_ad','Confirmado aditamento','aM,aD,aW,aC,aR,aQ','adT')+'</div>'+
+  '<div class="filters-row inner no-img">'+fms('aM','Mês')+fdate('aD','Data do último contato')+fdate('aW','Data de mudança de status')+'<button class="btn-clear btn-sem" id="aS" type="button">📅 Semestre</button>'+fms('aC','Curso')+fms('aR','Responsável')+'<div class="filter-group" style="min-width:200px"><label>Aluno (nome ou CPF)</label><input type="text" id="aQ" placeholder="🔍 Buscar..."></div><button class="btn-clear" id="aX" type="button">✕ Limpar</button></div>'+
   '<p class="sh no-img" id="adInfo"></p><div id="adT"></div></div>'+
   '<div class="section-box" id="bx_ia"><div class="dl-head"><div><h3>🧮 Indicador - Alunos Contatados</h3><p class="sh">Contatos realizados = cada registro de contato · Alunos contatados = CPFs diferentes por colaborador no dia (CPF repetido no mesmo dia conta uma vez)</p></div>'+dlBtn('bx_ia','Indicador - Alunos Contatados','iaM,iaI,iaF','iaT')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('iaM','Mês')+fdate('iaI','Data inicial')+fdate('iaF','Data final')+'<button class="btn-clear btn-sem" id="iaS" type="button">📅 Semestre</button><button class="btn-clear" id="iaX" type="button">✕ Limpar</button></div>'+
@@ -463,21 +465,22 @@ function renderCol(){
   '<div class="filters-row inner no-img">'+fms('tM','Mês')+fdate('tD','Data')+'<button class="btn-clear btn-sem" id="tS" type="button">📅 Semestre</button>'+fms('tO','Mostrar')+'<button class="btn-clear" id="tX" type="button">✕ Limpar</button></div><div id="cT"></div></div>'+
   '<div class="section-box" id="bx_cP"><div class="dl-head"><div><h3>🗓️ Registros por colaborador e dia</h3></div>'+dlBtn('bx_cP','Registros por colaborador e dia',FCOL+',pM,pD,pB','cP')+'</div>'+
   '<div class="filters-row inner no-img">'+fms('pM','Mês')+fdate('pD','Data')+'<button class="btn-clear btn-sem" id="pS" type="button">📅 Semestre</button>'+fms('pB','Colaborador')+'<button class="btn-clear" id="pX" type="button">✕ Limpar</button></div><div id="cP"></div></div>';
-  msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
+  msMake('cM',mesOpts(meses),cAtu);msMake('cRs',resOpts(),cAtu);msMake('iaM',mesOpts(meses),iaFiltrar);msMake('cU',resOpts(),cAtu);CP_ON=false;$('cP1').onclick=function(){CP_ON=!CP_ON;cAtu()};$('cPX').onclick=function(){CP_ON=false;limpar(['cU'],[],cAtu)};msMake('cB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);msMake('cBI',bancoOpts('ini'),cAtu);msMake('cBF',bancoOpts('fim'),cAtu);
   msMake('aM',mesOpts(meses),function(){AD_SEM=false;adRender()});
   msMake('aC',Object.keys(cnt(D.adit||[],function(a){return a.curso})).sort().map(vt),adRender);
   msMake('aR',Object.keys(cnt((D.adit||[]).filter(function(a){return D.resp[a.cpf]}),function(a){return D.resp[a.cpf]})).map(function(e){return {v:e,t:D.umap[e]||e}}),adRender);
-  $('aD').onchange=function(){AD_SEM=false;adRender()};$('aQ').oninput=adRender;$('aS').onclick=adSem;
-  $('aX').onclick=function(){AD_SEM=false;$('aQ').value='';limpar(['aM','aC','aR'],['aD'],adRender)};AD_SEM=false;
+  $('aD').onchange=function(){AD_SEM=false;adRender()};$('aW').onchange=function(){AD_SEM=false;adRender()};$('aQ').oninput=adRender;$('aS').onclick=adSem;
+  $('aX').onclick=function(){AD_SEM=false;$('aQ').value='';limpar(['aM','aC','aR'],['aD','aW'],adRender)};AD_SEM=false;
   var cbMud=function(p){return function(){tfMud(p)}};
   msMake('tM',mesOpts(meses),cbMud('t'));msMake('pM',mesOpts(meses),cbMud('p'));msMake('pB',D.usuarios.map(function(u){return {v:u.email,t:u.nome}}),cAtu);
   msMake('tO',['Responsável por','Contatos','Contatos não realizados'].concat(OPC.Resultado).map(vt),cAtu);
   ['t','p'].forEach(function(p){$(p+'D').onchange=cbMud(p);$(p+'S').onclick=function(){tfSem(p)}});
   $('tX').onclick=function(){TS.t=false;limpar(['tM','tO'],['tD'],cAtu)};$('pX').onclick=function(){TS.p=false;limpar(['pM','pB'],['pD'],cAtu)};
   TS.t=false;TS.p=false;
-  ['cI','cF'].forEach(function(i){$(i).onchange=cAtu});$('cX').onclick=function(){limpar(['cM','cB','cRs','cBI','cBF'],['cI','cF'],cAtu)};
+  ['cI','cF'].forEach(function(i){$(i).onchange=cAtu});$('cX').onclick=function(){CP_ON=false;limpar(['cM','cB','cRs','cBI','cBF','cU'],['cI','cF'],cAtu)};
   ['iaI','iaF'].forEach(function(i){$(i).onchange=iaFiltrar});$('iaS').onclick=iaSem;$('iaX').onclick=iaLimpar;
   cAtu();iaRender()}
+var CP_ON=false;   // cartões: só os alunos pendentes de que o colaborador é responsável agora
 var TS={t:false,p:false};   // botão "Semestre" das tabelas: ignora os filtros de data da aba e usa o semestre inteiro
 function tfMud(p){TS[p]=false;cAtu()}
 function tfSem(p){TS[p]=!TS[p];if(TS[p]){$(p+'D').value='';var m=MS[p+'M'];m.sel=[];msMake(p+'M',m.opts,m.cb)}cAtu()}
@@ -496,8 +499,22 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
   var aby={};D.alunos.forEach(function(a){aby[a.cpf]=a});
   var naoN={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];            // responsável definido e contato ainda não realizado
     if(!e||(bs&&!bs[c])||!aby[c]||contatou(aby[c]))return;naoN[e]=(naoN[e]||0)+1});
-  $('cK').innerHTML=us.map(function(u,i){var mine=R.filter(function(r){return r.colab===u.email}),rc=cnt(mine,function(r){return r.resultado});
-    return '<div class="colab-card" id="cd_'+i+'">'+dlBtn('cd_'+i,'Cartão '+u.nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div><div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+(respN[u.email]||0)+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div><div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+(naoN[u.email]||0)+'</span></div>'+
+  // Cartões: filtros "somente pendentes" (alunos de que o colaborador é responsável agora) e "último registro"
+  var ult=msv('cU'),modo=CP_ON||ult.length>0,btnP=$('cP1');if(btnP)btnP.classList.toggle('on',CP_ON);
+  var dI=$('cI').value,dF=$('cF').value,mM=msv('cM');
+  var okRes=function(r){return!crs.length||crs.indexOf(r.resultado)>=0};
+  var pend={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];if(!e||!aset[c]||(bs&&!bs[c]))return;
+    if(ult.length){var l=D.last[c];if(!l||ult.indexOf(l.resultado)<0)return}
+    (pend[e]=pend[e]||[]).push(c)});
+  var ki=$('cKi');if(ki){ki.style.display=modo?'block':'none';ki.textContent=modo?'🔎 Mostrando só os alunos pendentes de cada colaborador'+(ult.length?' cujo último registro é: '+ult.join(', ')+' (contados pelo último registro de cada aluno)':' (todos os registros feitos nesses alunos)')+'.':''}
+  var usK=modo?us.filter(function(u){return(pend[u.email]||[]).length}):us;
+  $('cK').innerHTML=usK.map(function(u,i){var rc,mine,rn,nn;
+    if(modo){var ps=pend[u.email]||[];rn=ps.length;nn=ps.filter(function(c){return aby[c]&&!contatou(aby[c])}).length;
+      if(ult.length)mine=ps.map(function(c){return D.last[c]}).filter(function(l){return l&&filtroData([l],mM,dI,dF).length&&okRes(l)});
+      else{var pz={};ps.forEach(function(c){pz[c]=1});mine=filtroData(D.regs,mM,dI,dF).filter(function(r){return pz[r.cpf]&&okRes(r)})}}
+    else{mine=R.filter(function(r){return r.colab===u.email});rn=respN[u.email]||0;nn=naoN[u.email]||0}
+    rc=cnt(mine,function(r){return r.resultado});
+    return '<div class="colab-card" id="cd_'+i+'">'+dlBtn('cd_'+i,'Cartão '+u.nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div><div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+rn+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div><div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+nn+'</span></div>'+
     res.filter(function(x){return rc[x]>0}).map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+(rc[x]||0)+'</span></div>'}).join('')+'</div>'}).join('')||'<p class="muted">Sem usuários na seleção.</p>';
   var ks=us.map(function(u){return u.nome});
   chart('cc1','bar',ks,[{l:'Contatos',d:us.map(function(u){return R.filter(function(r){return r.colab===u.email}).length})}]);
@@ -517,11 +534,11 @@ function cAtu(){var cb=msv('cB'),crs=msv('cRs'),nm=function(e){return D.umap[e]|
   adRender()}
 /* ---------- Alunos que aditaram (status ADITOU na Base Geral) e ainda têm responsável ---------- */
 var AD_SEM=false;
-function adSem(){AD_SEM=!AD_SEM;if(AD_SEM){$('aD').value='';var m=MS.aM;m.sel=[];msMake('aM',m.opts,m.cb)}adRender()}
+function adSem(){AD_SEM=!AD_SEM;if(AD_SEM){$('aD').value='';$('aW').value='';var m=MS.aM;m.sel=[];msMake('aM',m.opts,m.cb)}adRender()}
 function adRender(){
   var cont=$('adT');if(!cont)return;
   var b=$('aS');if(b)b.classList.toggle('on',AD_SEM);
-  var mes=AD_SEM?[]:msv('aM'),dia=AD_SEM?'':$('aD').value,cs=msv('aC'),rs=msv('aR'),q=nrm($('aQ').value.trim()),qd=q.replace(/\D/g,'');
+  var mes=AD_SEM?[]:msv('aM'),dia=AD_SEM?'':$('aD').value,diaW=AD_SEM?'':$('aW').value,cs=msv('aC'),rs=msv('aR'),q=nrm($('aQ').value.trim()),qd=q.replace(/\D/g,'');
   var L=(D.adit||[]).filter(function(a){
     var e=D.resp[a.cpf];if(!e)return false;                                   // só quem ainda tem responsável
     if(cs.length&&cs.indexOf(a.curso)<0)return false;
@@ -529,19 +546,20 @@ function adRender(){
     if(q&&nrm(a.nome).indexOf(q)<0&&!(qd&&a.cpf.indexOf(qd)>=0))return false;
     if(mes.length||dia){var u=D.last[a.cpf];if(!u)return false;var d=u.data.slice(0,10);
       if(mes.length&&mes.indexOf(d.slice(0,7))<0)return false;if(dia&&d!==dia)return false}
+    if(diaW&&(!a.mud||a.mud.slice(0,10)!==diaW))return false;                 // data em que o status mudou para ADITOU
     return true}).sort(function(x,y){return x.nome.localeCompare(y.nome,'pt',{sensitivity:'base'})});
   var info=$('adInfo');if(info){info.textContent=AD_SEM?'📅 Semestre '+D.sem+' inteiro (sem filtro de data).':'';info.style.display=AD_SEM?'block':'none'}
   if(!L.length){cont.innerHTML='<p class="muted" style="padding:12px">Nenhum aluno com status ADITOU e responsável para os filtros selecionados.</p>';return}
-  cont.innerHTML='<div class="dyn-wrap" style="max-height:520px"><table class="dyn-table ad-table"><thead><tr><th>Aluno</th><th>CPF</th><th>Curso</th><th>Turno</th><th>Solicitação</th><th>Último contato</th><th>Resultado</th><th>Registros</th><th>Responsável</th></tr></thead><tbody>'+
+  cont.innerHTML='<div class="dyn-wrap" style="max-height:520px"><table class="dyn-table ad-table"><thead><tr><th>Aluno</th><th>CPF</th><th>Curso</th><th>Turno</th><th>Solicitação</th><th>Último contato</th><th>Mudou p/ ADITOU</th><th>Resultado</th><th>Registros</th><th>Responsável</th></tr></thead><tbody>'+
     L.map(function(a){var u=D.last[a.cpf],n=(D.rmap[a.cpf]||[]).length,e=D.resp[a.cpf];
-      return '<tr class="ad-row" data-c="'+esc(a.cpf)+'" style="cursor:pointer"><td>'+esc(a.nome)+'</td><td>'+esc(a.cpfFmt)+'</td><td>'+esc(a.curso)+'</td><td>'+esc(a.turno)+'</td><td>'+(a.solic?ddmm(a.solic)+(a.solic.length>10?' '+a.solic.slice(11):''):'')+'</td><td>'+(u?ddmm(u.data)+' '+u.data.slice(11,16):'')+'</td><td>'+(u?esc(u.resultado):'')+'</td><td class="num">'+(n||'')+'</td><td>'+esc(D.umap[e]||e)+'</td></tr>'}).join('')+
+      return '<tr class="ad-row" data-c="'+esc(a.cpf)+'" style="cursor:pointer"><td>'+esc(a.nome)+'</td><td>'+esc(a.cpfFmt)+'</td><td>'+esc(a.curso)+'</td><td>'+esc(a.turno)+'</td><td>'+(a.solic?ddmm(a.solic)+(a.solic.length>10?' '+a.solic.slice(11):''):'')+'</td><td>'+(u?ddmm(u.data)+' '+u.data.slice(11,16):'')+'</td><td>'+(a.mud?ddmm(a.mud)+' '+a.mud.slice(11,16):'<span class="muted" title="Sem data: já estava ADITOU antes do monitoramento começar">—</span>')+'</td><td>'+(u?esc(u.resultado):'')+'</td><td class="num">'+(n||'')+'</td><td>'+esc(D.umap[e]||e)+'</td></tr>'}).join('')+
     '</tbody></table></div>'+
     '<div class="ad-totbar" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-weight:700"><span>Total confirmados</span><span><span style="font-size:20px;font-family:var(--mono);color:var(--num)">'+L.length+'</span> aluno(s) · <span style="font-family:var(--mono);color:var(--num)">'+L.reduce(function(t,a){return t+(D.rmap[a.cpf]||[]).length},0)+'</span> registro(s)</span></div>';
   Array.prototype.forEach.call(cont.querySelectorAll('.ad-row'),function(tr){tr.onclick=function(){adAbrir(tr.dataset.c)}})}
 function adAbrir(cpf){
   var a=(D.adit||[]).filter(function(x){return x.cpf===cpf})[0];if(!a)return;
   var L=(D.rmap[cpf]||[]).slice().sort(function(x,y){return y.data<x.data?-1:1}),e=D.resp[cpf];
-  var o=ov('<div class="popup-header"><button class="popup-close">✕</button><div class="ph-super">Confirmado aditamento</div><h2>'+esc(a.nome)+'</h2><div class="ph-sub"><span>🪪 CPF '+esc(a.cpfFmt)+'</span><span>🎓 '+esc(a.curso)+'</span><span>👤 '+esc(D.umap[e]||e||'—')+'</span>'+(a.solic?'<span>📅 Solicitação '+ddmm(a.solic)+'</span>':'')+'</div></div><div class="popup-body"><div class="popup-section"><div class="section-title">🕓 Registros de contato ('+L.length+')</div>'+
+  var o=ov('<div class="popup-header"><button class="popup-close">✕</button><div class="ph-super">Confirmado aditamento</div><h2>'+esc(a.nome)+'</h2><div class="ph-sub"><span>🪪 CPF '+esc(a.cpfFmt)+'</span><span>🎓 '+esc(a.curso)+'</span><span>👤 '+esc(D.umap[e]||e||'—')+'</span>'+(a.solic?'<span>📅 Solicitação '+ddmm(a.solic)+'</span>':'')+(a.mud?'<span>✅ Mudou para ADITOU em '+ddmm(a.mud)+' '+esc(a.mud.slice(11,16))+'</span>':'')+'</div></div><div class="popup-body"><div class="popup-section"><div class="section-title">🕓 Registros de contato ('+L.length+')</div>'+
     (L.length?L.map(function(r){return '<div class="history-item" data-i="'+esc(r.id)+'" title="Clique para ler a observação"><div><div class="history-date">'+ddmm(r.data)+' '+esc(r.data.slice(11))+' · '+esc(r.colabNome)+'</div><div class="history-meta"><span class="history-tag">'+esc(r.objetivo)+'</span><span class="history-tag">'+esc(r.meio)+'</span><span class="history-tag">'+esc(r.resultado)+'</span></div>'+(r.obs?'<div class="obs-cell" style="margin-top:6px">💬 '+esc(r.obs)+'</div>':'<div class="muted" style="margin-top:6px;font-size:11px">Sem observação</div>')+'</div></div>'}).join(''):'<p class="muted">Nenhum contato registrado para este aluno.</p>')+'</div></div>');
   Array.prototype.forEach.call(o.querySelectorAll('.history-item[data-i]'),function(el){el.onclick=function(){var r=L.filter(function(x){return x.id===el.dataset.i})[0];if(!r)return;
     ov('<button class="popup-close" style="position:static;margin:0 0 10px auto;display:flex;color:var(--text-sec);background:var(--bg);border:1px solid var(--border)">✕</button><div class="section-title">📋 Observação do Registro</div><p style="font-size:13px;line-height:1.6;white-space:pre-wrap">'+(esc(r.obs)||'<span class="muted">Sem observação.</span>')+'</p><div class="muted" style="margin-top:12px;font-size:11px">'+esc(r.objetivo)+' · '+esc(r.meio)+' · <b>'+esc(r.resultado)+'</b><br>'+ddmm(r.data)+' '+esc(r.data.slice(11))+' · '+esc(r.colabNome)+(r.editado?' · editado em '+esc(r.editado):'')+'</div>','obs-popup')}})}
