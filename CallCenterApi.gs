@@ -14,8 +14,10 @@ const CC_API = {
       const resp = {};
       const regs = ccRegs_(sem), info = ccUsuariosInfo_(regs.map(r => r.colab));
       ccTab_('RESPONSAVEIS', ccSsReg_(sem)).filter(x => String(x.Semestre) === String(sem)).forEach(x => resp[x.CPF] = x.Email);
+      let mud = {};
+      try { ccStatusAtualizar_(sem, b); mud = ccStatusMapa_(sem); } catch (e) { Logger.log('Status: ' + e.message); }   // data em que o aluno passou para ADITOU
       return {
-        sem: sem, diag: b.diag, alunos: b.alunos, adit: (b.adit || []).filter(a => resp[a.cpf]), light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
+        sem: sem, diag: b.diag, alunos: b.alunos, adit: (b.adit || []).filter(a => resp[a.cpf]).map(a => Object.assign({}, a, { mud: mud[a.cpf] || '' })), light: u.Perfil === 'Admin' ? b.light : [], regs: regs, resp: resp,
         usuarios: info.usuarios, extras: info.extras, v: ccVer_(sem), bts: b.ts
       };
     }
