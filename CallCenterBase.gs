@@ -472,15 +472,17 @@ function ccDataSol_(v) {
 
 // Leitura pesada da base de alunos do semestre (aba BASE GERAL + comparecimento ao banco).
 // O resultado fica em cache por 10 min (ou até um Admin pedir "Recarregar base").
+function ccBaseChave_(r, sem) { return 'cb5_' + String(sem).replace(/[^\w.-]/g, '') + '_' + ccId_(r.IdBase).slice(-8) + ccId_(r.IdCallCenter).slice(-8); }
+
 function ccBase_(r, sem, fresh) {
-  const chave = 'cb3_' + String(sem).replace(/[^\w.-]/g, '') + '_' + ccId_(r.IdBase).slice(-8) + ccId_(r.IdCallCenter).slice(-8);
+  const chave = ccBaseChave_(r, sem);
   if (!fresh) { const c = ccCacheGet_(chave); if (c && c.alunos) return c; }
   const sb = ccOpen_(ccId_(r.IdBase));
   const bsh = sb.getSheetByName('BASE GERAL') || sb.getSheets()[0];
   const base = bsh.getDataRange().getValues();
   const h0 = 1; // cabeçalhos na linha 2; dados a partir da linha 3
   const comp = r.IdCallCenter ? ccComp_(r.IdCallCenter) : {};
-  const alunos = [], light = [], adit = [], outros = [], st0 = {};
+  const alunos = [], light = [], adit = [], outros = [], st0 = {}, listas = {};
   // "Outros status" só interessa para quem tem responsável: guardar só esses mantém o cache pequeno e a abertura rápida
   const comResp = {};
   try { ccTab_('RESPONSAVEIS', ccSsReg_(sem)).forEach(x => { if (String(x.Semestre) === String(sem) && String(x.Email || '').trim()) comResp[x.CPF] = 1; }); } catch (e) { }
@@ -493,8 +495,11 @@ function ccBase_(r, sem, fresh) {
     tot++;
     // Regra do Indicador - Geral: coluna AB = Matriculado e coluna AL contendo a palavra FIES
     const mat = /^MATRICULAD[OA]\b/.test(ccKey_(v[27])), fies = ccKey_(v[37]).indexOf('FIES') >= 0;
-    if (mat && fies) light.push([st, String(v[4]).trim(), String(v[5]).trim()]);
     const solic = ccDataSol_(v[55]);                                   // coluna BD: data da solicitação do aditamento
+    if (mat && fies) {                                                  // mesma regra do Resumo Geral de Status
+      light.push([st, String(v[4]).trim(), String(v[5]).trim(), ccCpf_(v[2]), solic]);
+      (listas[st] = listas[st] || []).push([ccCpf_(v[2]), String(v[2]).trim(), nome, String(v[4]).trim(), String(v[5]).trim(), solic]);   // lista de alunos por status (clique nos cartões)
+    }
     if (st === 'ADITOU' && ccCpf_(v[2]))                                // alunos que já aditaram (o Call Center mostra só os que têm responsável)
       adit.push({ cpf: ccCpf_(v[2]), cpfFmt: String(v[2]).trim(), nome: nome, curso: String(v[4]).trim(), turno: String(v[5]).trim(), status: st, solic: solic });
     if (st !== 'ADITOU' && CC_ST.indexOf(st) < 0 && comResp[ccCpf_(v[2])])   // outros status (Reunião: responsáveis fora do Call Center que não aditaram)
@@ -512,6 +517,8 @@ function ccBase_(r, sem, fresh) {
   }
   const out = { alunos: alunos, light: light, adit: adit, outros: outros, diag: { aba: bsh.getName(), linhas: base.length, cab: h0 + 1, status: st0, total: tot, indicador: light.length }, ts: Date.now() };
   ccCachePut_(chave, out, 600);
+  Object.keys(listas).forEach(k => ccCachePut_(chave + 'L' + CC_STATUS7.indexOf(k), listas[k], 600));   // uma chave de cache por status (mantém cada parte pequena)
+  out.listas = listas;
   return out;
 }
 
@@ -522,7 +529,7 @@ function lerRegistrosCallCenter_(periodo, ctx) {
   var ultima = sh.getLastRow();
   if (ultima < 2) return;
   var vals = sh.getRange(2, 1, ultima - 1, 11).getValues();          // A..K
-  var alvo = String(periodo || '').trim(), tz = ccTz_(), semData = 0, nomes = ccNomesPorEmail_();
+  var alvo = String(periodo || '').trim(), tz = ccTz_(), semData = 0, nomes = ccNomesPorEmail_(), vistos = {};
   for (var i = 0; i < vals.length; i++) {
     var r = vals[i];
     if (formatPeriodo_(r[1]) !== alvo) continue;                      // só o período selecionado
@@ -533,6 +540,8 @@ function lerRegistrosCallCenter_(periodo, ctx) {
     var c = nomeCanonico_(nome, ctx.canon);
     ctx.addColab(c);
     ctx.ensure(d, 'Call Center');
+    const cpfN = String(r[2]).replace(/\D/g, '');                          // 1 contato por CPF a cada dia (por colaborador)
+    if (cpfN) { const chv = d + '|' + c + '|' + cpfN; if (vistos[chv]) continue; vistos[chv] = 1; }
     ctx.ind[d]['Call Center'][c] = (ctx.ind[d]['Call Center'][c] || 0) + 1;
   }
   if (semData > 0) ctx.avisos.push(semData + ' registro(s) do Call Center ignorado(s) por não terem data válida na coluna E.');
