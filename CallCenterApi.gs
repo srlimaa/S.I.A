@@ -22,6 +22,21 @@ const CC_API = {
     }
   },
 
+  // Lista de alunos de um status do Resumo Geral (Matriculado + FIES). Vem do cache da base; se não estiver lá, relê a base.
+  listaStatus: {
+    admin: 1, f: (u, a) => {
+      const sem = String(a.sem || ccSemU_(u));
+      const r = ccSems_().find(x => String(x.Semestre) === sem);
+      if (!r || !r.IdBase) return [];
+      const st = ccCanon_(a.status), idx = CC_STATUS7.indexOf(st);
+      if (idx < 0) return [];
+      const c = ccCacheGet_(ccBaseChave_(r, sem) + 'L' + idx);
+      if (c) return c;
+      const b = ccBase_(r, sem, true);
+      return (b.listas || {})[st] || [];
+    }
+  },
+
   // Monitor de status (data em que o aluno passou para ADITOU). Roda em segundo plano, DEPOIS de a tela abrir,
   // para não atrasar o carregamento. Devolve cpf → data da mudança.
   statusAtu: {
