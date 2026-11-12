@@ -518,45 +518,46 @@ function gStatus(){var L=D.light.filter(function(x){return respOkM(x[3])&&stData
     STATUS7.map(function(k){return '<div class="ind-kpi clk'+(ST_SEL===k?' on':'')+'" data-st="'+esc(k)+'" role="button" tabindex="0" title="Ver os alunos deste status"><div class="ik-val">'+(cs[k]||0)+'</div><div class="ik-lbl">'+esc(k)+'</div></div>'}).join('');
   Array.prototype.forEach.call($('gK').querySelectorAll('.clk'),function(el){var f=function(){ST_SEL=ST_SEL===el.dataset.st?'':el.dataset.st;AD_SEM=false;
       ['aM','aC','aR'].forEach(function(id){var m=MS[id];m.sel=[];msMake(id,m.opts,m.cb)});['aD','aW'].forEach(function(id){$(id).value=''});$('aQ').value='';
-      gStatus();adRender()};
+      gStatus();cAtu();adRender()};
     el.onclick=f;el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}}})}
+function ctL(cpf,solic){var u=D.last[cpf];return !!u&&(!solic||u.data>=solic)}      // contato realizado (último registro é posterior à solicitação)
+function dpd(a){return Object.keys(cnt(a,function(r){return r.cpf+'|'+r.data.slice(0,10)})).length}   // contatos: 1 por CPF a cada dia
 function cAtu(){var mode=cRmode(),mM=msv('cM'),dI=$('cI').value,dF=$('cF').value,ult=msv('cU'),modo=CP_ON||ult.length>0,btnP=$('cP1');if(btnP)btnP.classList.toggle('on',CP_ON);
-  var nm=function(e){return D.umap[e]||e},res=OPC.Resultado,okM=respOkM;
-  var aset={},aby={};D.alunos.forEach(function(a){aset[a.cpf]=1;aby[a.cpf]=a});
-  var R=filtroData(D.regs,mM,dI,dF).filter(function(r){return okM(r.cpf)});
-  var respN=cnt(Object.keys(D.resp).filter(function(c){return D.resp[c]&&aset[c]}),function(c){return D.resp[c]});
-  var naoN={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];if(!e||!aby[c]||contatou(aby[c]))return;naoN[e]=(naoN[e]||0)+1});
-  var ativos={};Object.keys(D.resp).forEach(function(c){if(D.resp[c]&&aset[c])ativos[D.resp[c]]=1});R.forEach(function(r){ativos[r.colab]=1});
-  var us=D.usuarios.filter(function(u){return ativos[u.email]});
-  // "Pendentes Atualmente" e "Último registro": só alunos pendentes de cada colaborador
-  var pend={};Object.keys(D.resp).forEach(function(c){var e=D.resp[c];if(!e||!aset[c])return;
+  var res=OPC.Resultado;
+  // Alunos do escopo: base geral (Matriculados com FIES) no filtro de responsável, de datas e, se escolhido, do status clicado no Resumo
+  var SL=D.light.filter(function(x){return respOkM(x[3])&&stDataOk(x[3],x[0],x[4])&&(!ST_SEL||x[0]===ST_SEL)}),S={};SL.forEach(function(x){S[x[3]]=x});
+  var aset={};D.alunos.forEach(function(a){aset[a.cpf]=a});
+  // Registros: sem status escolhido seguem as datas; com status escolhido valem todos os registros dos alunos do escopo
+  var base=ST_SEL?D.regs.filter(function(r){return S[r.cpf]}):filtroData(D.regs,mM,dI,dF).filter(function(r){return respOkM(r.cpf)});
+  var pend={};   // "Pendentes Atualmente" / "Último registro": alunos de cada colaborador que ainda estão no Call Center
+  Object.keys(D.resp).forEach(function(c){var e=D.resp[c];if(!e||!aset[c]||(ST_SEL&&!S[c])||!respOkM(c))return;
     if(ult.length){var l=D.last[c];if(!l||ult.indexOf(l.resultado)<0)return}
     (pend[e]=pend[e]||[]).push(c)});
-  var ki=$('cKi');if(ki){ki.style.display=modo||mode?'block':'none';
-    ki.textContent=(mode==='com'?'👤 Só alunos com responsável. ':mode==='sem'?'👤 Só alunos sem responsável. ':'')+(modo?'🔎 Mostrando só os alunos pendentes de cada colaborador'+(ult.length?' cujo último registro é: '+ult.join(', ')+' (contado pelo último registro de cada aluno)':' (todos os registros feitos nesses alunos)')+'.':'')}
-  var usK=modo?us.filter(function(u){return(pend[u.email]||[]).length}):us;
-  var okRes=function(r){return true};
-  var T={rn:0,nn:0,mine:0,rc:{}};
-  var cards=usK.map(function(u,i){var rc,mine,rn,nn;
-    if(modo){var ps=pend[u.email]||[];rn=ps.length;nn=ps.filter(function(c){return aby[c]&&!contatou(aby[c])}).length;
-      if(ult.length)mine=ps.map(function(c){return D.last[c]}).filter(function(l){return l&&filtroData([l],mM,dI,dF).length});
-      else{var pz={};ps.forEach(function(c){pz[c]=1});mine=filtroData(D.regs,mM,dI,dF).filter(function(r){return pz[r.cpf]})}}
-    else{mine=R.filter(function(r){return r.colab===u.email});rn=respN[u.email]||0;nn=naoN[u.email]||0}
-    rc=cnt(mine,function(r){return r.resultado});T.rn+=rn;T.nn+=nn;T.mine+=mine.length;Object.keys(rc).forEach(function(k){T.rc[k]=(T.rc[k]||0)+rc[k]});
-    var sem=mode==='sem';
-    return '<div class="colab-card" id="cd_'+i+'">'+dlBtn('cd_'+i,'Cartão '+u.nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+avatar(u.foto,u.nome)+'</span>'+esc(u.nome)+'</div>'+
-      (sem?'':'<div class="colab-stat"><span class="cs-lbl">Responsável por</span><span class="cs-val">'+rn+' aluno(s)</span></div>')+'<div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+mine.length+'</span></div>'+
-      (sem?'':'<div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+nn+'</span></div>')+
-      res.filter(function(x){return rc[x]>0}).map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+(rc[x]||0)+'</span></div>'}).join('')+'</div>'});
-  // Cartão Total: Call Center + contatos (segue o filtro de responsável, Pendentes e Último registro)
-  var totCC,totNN,totMine,totRc;
-  if(modo){totCC=T.rn;totNN=T.nn;totMine=T.mine;totRc=T.rc}
-  else{var AL=D.alunos.filter(function(a){return okM(a.cpf)});totCC=AL.length;totNN=AL.filter(function(a){return !contatou(a)}).length;totMine=R.length;totRc=cnt(R,function(r){return r.resultado})}
-  var ks=Object.keys(totRc);res.forEach(function(x){if(ks.indexOf(x)<0&&totRc[x]>0)ks.push(x)});
-  var totHtml='<div class="colab-card colab-total" id="cd_tot">'+dlBtn('cd_tot','Cartão Total',FCOL)+'<div class="cc-name"><span class="cc-avatar">Σ</span>Total</div>'+
-    '<div class="colab-stat"><span class="cs-lbl">Total no Call Center</span><span class="cs-val">'+totCC+' aluno(s)</span></div><div class="colab-stat"><span class="cs-lbl">Contatos realizados</span><span class="cs-val">'+totMine+'</span></div><div class="colab-stat"><span class="cs-lbl">Contatos não realizados</span><span class="cs-val">'+totNN+'</span></div>'+
-    res.concat(ks.filter(function(x){return res.indexOf(x)<0})).filter(function(x){return totRc[x]>0}).map(function(x){return '<div class="colab-stat"><span class="cs-lbl">'+esc(x)+'</span><span class="cs-val">'+totRc[x]+'</span></div>'}).join('')+'</div>';
-  $('cK').innerHTML=totHtml+cards.join('')}
+  var linha=function(l,v){return v===null?'':'<div class="colab-stat"><span class="cs-lbl">'+l+'</span><span class="cs-val">'+v+'</span></div>'};
+  var cardHtml=function(id,nome,av,rLbl,rn,mine,nn,tot){var rc=cnt(mine,function(r){return r.resultado});
+    return {html:'<div class="colab-card'+(id==='cd_tot'?' colab-total':'')+'" id="'+id+'">'+dlBtn(id,'Cartão '+nome,FCOL)+'<div class="cc-name"><span class="cc-avatar">'+av+'</span>'+esc(nome)+'</div>'+
+      linha(rLbl,rn+(id==='cd_tot'?'':' aluno(s)'))+linha('Contatos realizados',dpd(mine))+linha('Contatos não realizados',nn)+linha('Total de registros',mine.length)+
+      res.concat(Object.keys(rc).filter(function(x){return res.indexOf(x)<0})).filter(function(x){return rc[x]>0}).map(function(x){return linha(esc(x),rc[x])}).join('')+'</div>',rc:rc}};
+  var cards=[],totMine=[],totAl=0,totNN=0;
+  if(mode!=='sem'){
+    var emails={};
+    if(modo)Object.keys(pend).forEach(function(e){emails[e]=1});
+    else{SL.forEach(function(x){var e=D.resp[x[3]];if(e)emails[e]=1});base.forEach(function(r){emails[r.colab]=1})}
+    D.usuarios.filter(function(u){return emails[u.email]}).forEach(function(u,i){var mine,rn,nn;
+      if(modo){var ps=pend[u.email]||[];if(!ps.length)return;rn=ps.length;nn=ps.filter(function(c){return !ctL(c,aset[c].solic)}).length;
+        if(ult.length)mine=ps.map(function(c){return D.last[c]}).filter(function(l){return l&&(ST_SEL||filtroData([l],mM,dI,dF).length)});
+        else{var pz={};ps.forEach(function(c){pz[c]=1});mine=(ST_SEL?D.regs:filtroData(D.regs,mM,dI,dF)).filter(function(r){return pz[r.cpf]})}}
+      else{var al=SL.filter(function(x){return D.resp[x[3]]===u.email});rn=al.length;nn=al.filter(function(x){return !ctL(x[3],x[4])}).length;mine=base.filter(function(r){return r.colab===u.email})}
+      if(!modo&&!rn&&!mine.length)return;
+      totAl+=rn;totNN+=nn;totMine=totMine.concat(mine);
+      cards.push(cardHtml('cd_'+i,u.nome,avatar(u.foto,u.nome),'Responsável por',rn,mine,nn).html)})}
+  // Cartão Total
+  var tMine,tAl,tNN;
+  if(modo){tMine=totMine;tAl=totAl;tNN=totNN}
+  else{tMine=mode==='sem'?base:base;tAl=SL.length;tNN=SL.filter(function(x){return !ctL(x[3],x[4])}).length}
+  var tot=cardHtml('cd_tot','Total','Σ','Total de alunos',tAl,tMine,tNN);
+  var ki=$('cKi');if(ki){var tx=(ST_SEL?'📌 Status: '+ST_SEL+'. ':'')+(mode==='com'?'👤 Só alunos com responsável. ':mode==='sem'?'👤 Só alunos sem responsável (os cartões dos colaboradores ficam ocultos). ':'')+(modo?'🔎 Só os alunos pendentes de cada colaborador'+(ult.length?' cujo último registro é: '+ult.join(', ')+' (contado pelo último registro de cada aluno)':' (todos os registros feitos nesses alunos)')+'.':'');ki.textContent=tx;ki.style.display=tx?'block':'none'}
+  $('cK').innerHTML=tot.html+cards.join('')}
 /* ---------- Alunos do status escolhido no Resumo Geral ---------- */
 var AD_SEM=false,AD_MAP={};
 function adSem(){AD_SEM=!AD_SEM;if(AD_SEM){$('aD').value='';$('aW').value='';var m=MS.aM;m.sel=[];msMake('aM',m.opts,m.cb)}adRender()}
