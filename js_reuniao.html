@@ -178,10 +178,13 @@ function limparFiltrosReu(){
 }
 var REU_ULT=null;
 var REU_TIT={kpis:'Cartões',barras:'Total por atividade',rosca:'Participação por atividade',dias:'Total por dia/mês',tabela:'Indicador por atividade'};
+function reuAcoes(chave,excel){
+  var ac=[{rot:'🖼️ Imagem (.jpg)',f:function(){reuBaixarJpg(chave);}}];
+  if(excel)ac.push({rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}});
+  return ac;
+}
 function reuH3(titulo,chave,excel){
-  return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+
-    '<button type="button" class="exp-mini" title="Baixar em imagem (.jpg)" onclick="reuBaixarJpg(\''+chave+'\')">🖼️ JPG</button>'+
-    (excel?'<button type="button" class="exp-mini" title="Baixar em Excel" onclick="reuBaixarExcel()">📊 Excel</button>':'')+'</span></h3>';
+  return '<h3 class="exp-h4"><span>'+titulo+'</span><span class="exp-btns no-img">'+dlBtn('reu_'+chave,reuAcoes(chave,excel))+'</span></h3>';
 }
 // chave opcional: sem argumento baixa cartões + gráficos + tabela
 function reuBaixarJpg(chave){
@@ -241,9 +244,7 @@ function renderReuniao(manter){
     modo:modo};
   // Cartão "Total geral": soma de todas as atividades, exceto Conversa Fechada e Call Center
   var totalCard=0;Object.keys(porAtiv).forEach(function(a){if(a!=='Conversa Fechada'&&a!=='Call Center')totalCard+=porAtiv[a];});
-  var html='<div class="exp-bar no-img"><button type="button" class="btn-outline" onclick="reuBaixarJpg()">🖼️ Baixar tudo (.jpg)</button>'+
-    '<button type="button" class="btn-outline" onclick="reuBaixarJpg(\'kpis\')">🎴 Baixar cartões (.jpg)</button>'+
-    '<button type="button" class="btn-outline" onclick="reuBaixarExcel()">📊 Baixar Excel</button><span class="exp-fb" id="reuDlFb"></span></div>'+
+  var html='<div class="exp-bar no-img"><span>Baixar tudo</span>'+dlBtn('reu_tudo',[{rot:'🖼️ Tudo em imagem (.jpg)',f:function(){reuBaixarJpg();}},{rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}}])+'<span class="exp-fb" id="reuDlFb"></span></div>'+
     '<div class="reu-kpis" data-exp="kpis"><div class="reu-kpi main"><span>Total geral</span><strong>'+nf(totalCard)+'</strong><small>'+
     diasReg+(diasReg===1?' dia':' dias')+' com registros · sem Conversa Fechada e Call Center</small></div>';
   itens.forEach(function(it){
