@@ -68,7 +68,7 @@ function aplicar(d){D=d;indexar();renderCC();abaAtiva(TAB);iniciarSync();marcaSy
 // Datas de mudança de status (ADITOU): buscadas em segundo plano para não atrasar a abertura da tela
 function statusSegundoPlano(){var sem=D.sem;google.script.run.withSuccessHandler(function(r){
   var m=r&&r.ok;if(!m||typeof m!=='object'||!D||D.sem!==sem)return;D.mud=m;(D.adit||[]).forEach(function(a){a.mud=m[a.cpf]||''});
-  if(TAB==='col'&&$('adT'))adRender();else if(TAB==='reu'&&$('raC'))reuTudo()}).withFailureHandler(function(){}).api(T,'statusAtu',{sem:sem})}
+  if(TAB==='col'&&$('adT'))adRender();else if(TAB==='reu'&&$('rcallC'))reuTudo()}).withFailureHandler(function(){}).api(T,'statusAtu',{sem:sem})}
 function carregar(fresh){call('getData',{sem:ME.semestre,fresh:!!fresh}).then(aplicar).catch(function(e){D=null;$('v-cc').innerHTML='<div class="section-box"><b>Não foi possível carregar os dados deste semestre.</b><p class="muted" style="margin-top:6px">'+esc(e&&e.message?e.message:e)+'</p></div>';abaAtiva('cc')})}
 // "Contato" = Sim só se o último registro for da data da solicitação do aditamento (coluna BD da Base Geral) em diante
 function contatou(a){var u=D.last[a.cpf];return !!u&&(!a.solic||u.data>=a.solic)}
@@ -125,7 +125,7 @@ function aplicarVivo(o){
   SYNC.sig=sig;D.regs=o.regs;D.resp=o.resp;if(o.respDt)D.respDt=o.respDt;D.v=o.v;indexar();
   if(TAB==='cc'&&$('tb')){filtrosVivos();kpisCC();linhas()}
   else if(TAB==='ger'&&$('gc1')){var mo=mesesVivos();msSync('dM',mo,gDia);msSync('rMs',mo,gRes);gBase();gDia();gRes()}
-  else if(TAB==='reu'&&$('raC')){reuTudo()}
+  else if(TAB==='reu'&&$('rcallC')){reuTudo()}
   else if(TAB==='col'&&$('cK')){var mc=mesesVivos();msSync('cM',mc,cTudo);msSync('iaM',mc,iaFiltrar);msSync('cU',resOpts(),cAtu);cTudo();iaRender()}
   return true}
 
@@ -415,7 +415,7 @@ var FX_PLUGIN={id:'fxSombra',
     c.data.datasets.forEach(function(d,i){var m=c.getDatasetMeta(i);if(m.hidden)return;m.data.forEach(function(el,k){var v=d.data[k];if(!v)return;
       x.save();x.font='800 13px '+ff;x.textAlign='center';
       if(pie){x.fillStyle='#fff';x.shadowColor='rgba(0,0,0,.6)';x.shadowBlur=4;x.textBaseline='middle';var p=el.tooltipPosition();x.fillText(v,p.x,p.y)}
-      else if(stk){if(i===ult){var t=0;c.data.datasets.forEach(function(e){t+=e.data[k]||0});x.fillStyle=cor;x.textBaseline='bottom';x.fillText(t,el.x,el.y-6)}}
+      else if(stk){var topo=-1;c.data.datasets.forEach(function(e,j){if(e.data[k]&&!c.getDatasetMeta(j).hidden)topo=j});if(i===topo){var t=0;c.data.datasets.forEach(function(e){t+=e.data[k]||0});x.fillStyle=cor;x.textBaseline='bottom';x.fillText(t,el.x,el.y-6)}}
       else if(sc&&sc.x){x.fillStyle=cor;x.textBaseline='bottom';x.fillText(v,el.x,el.y-6)}
       x.restore()})})},
   afterDraw:function(c){var f=c.config.options.fxCenter;if(!f)return;var x=c.ctx,a=c.chartArea,cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2,cor=getComputedStyle(document.body).color,ff=getComputedStyle(document.body).fontFamily||'sans-serif';
@@ -1020,7 +1020,7 @@ function tabelaParaAba(t,nome){
           totalUltima:String(linhas[linhas.length-1][0]).toLowerCase()==='total'}}
 function dlExcel(b){
   var abas=[];
-  (b.dataset.dx||'').split(',').forEach(function(id){if(id==='iaT'){var ai=iaAbaExcel();if(ai)abas.push(ai);return}var t=document.querySelector('#'+id+' table');if(t){var a=tabelaParaAba(t,b.dataset.dn);if(a)abas.push(a)}});
+  (b.dataset.dx||'').split(',').forEach(function(id){if(id==='iaT'){var ai=iaAbaExcel();if(ai)abas.push(ai);return}var t=document.querySelector('#'+id+' table');if(t){var nm=String(t.getAttribute('data-nome')||b.dataset.dn).replace(/[\\\/?*\[\]:]/g,'').slice(0,28),q=nm,z=2;while(abas.some(function(x){return x.nome===q}))q=nm+' '+(z++);var a=tabelaParaAba(t,q);if(a)abas.push(a)}});
   if(!abas.length){toast('Não há dados na tabela para baixar.','err');return}
   abas.push({nome:'Filtros',cab:['Item','Valor'],larg:[26,70],linhas:[['Semestre',ME.semestre]].concat(listFiltros(b.dataset.df))});
   try{var nome=dlArq(b.dataset.dn,'xlsx');
@@ -1057,10 +1057,10 @@ function rok(p,d){if(RS[p])return true;var m=msv(p+'M'),i=$(p+'I').value,f=$(p+'
 function rBtn(p){var b=$(p+'S');if(b)b.classList.toggle('on',!!RS[p])}
 function rpct(n,d){return d?(Math.round(n/d*1000)/10).toString().replace('.',',')+'%':''}
 // cartão: k = cor (índice ou #hex) · main = cartão azul cheio (destaque) · cartão sem dados (0) não aparece
-function rCard(k,v,l,sub,main){if(v===0||v==='0')return '';var c=typeof k==='number'?RC[k%RC.length]:k;
-  return '<div class="rv-card'+(main?' rv-main':'')+'" style="--ac:'+c+'"><div class="rv-l">'+l+'</div><div class="rv-v">'+v+'</div>'+(sub?'<div class="rv-s">'+sub+'</div>':'')+'</div>'}
+function rCard(k,v,l,sub,main,key){if((v===0||v==='0')&&!key)return '';var c=typeof k==='number'?RC[k%RC.length]:k;
+  return '<div class="rv-card'+(main?' rv-main':'')+(key?' rv-clk'+(REU_ON[key]?' on':''):'')+'"'+(key?' data-k="'+key+'" role="button" tabindex="0" title="Clique para abrir/fechar o indicador"':'')+' style="--ac:'+c+'"><div class="rv-l">'+l+'</div><div class="rv-v">'+v+'</div>'+(sub?'<div class="rv-s">'+sub+'</div>':'')+'</div>'}
 function rSet(id,h){$(id).innerHTML=h||'<p class="muted" style="padding:6px 2px">Sem dados para os filtros selecionados.</p>'}
-function rTab(cab,linhas,max){return '<div class="dyn-wrap" style="max-height:'+(max||420)+'px"><table class="dyn-table"><thead><tr>'+cab.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
+function rTab(cab,linhas,max,nome){return '<div class="dyn-wrap" style="max-height:'+(max||420)+'px"><table class="dyn-table"'+(nome?' data-nome="'+esc(nome)+'"':'')+'><thead><tr>'+cab.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
   linhas.map(function(l){return '<tr'+(l[0]==='Total'?' class="rt-tot"':'')+'>'+l.map(function(c,i){return typeof c==='number'?'<td class="num">'+c+'</td>':'<td>'+esc(c)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>'}
 function rSec(id,tit,sub,filt,dl,corpo){return '<div class="section-box" id="bx_'+id+'"><div class="dl-head"><div><h3>'+tit+'</h3><p class="sh">'+sub+'</p></div>'+dl+'</div>'+(filt?'<div class="filters-row inner no-img">'+filt+'</div>':'')+corpo+'</div>'}
 function reuMeses(){var s={};D.regs.forEach(function(r){s[r.data.slice(0,7)]=1});Object.keys(D.respDt||{}).forEach(function(c){s[D.respDt[c].slice(0,7)]=1});return Object.keys(s).sort()}
@@ -1071,68 +1071,96 @@ function reuBase(){   // números "de foto" (não dependem de data)
   var adit=(D.adit||[]).filter(function(a){return D.resp[a.cpf]});
   var outros=(D.outros||[]).filter(function(o){return D.resp[o[0]]});
   return {aset:aset,com:com,atuais:atuais,adit:adit,outros:outros,sem:Math.max(0,com.length-atuais.length-adit.length-outros.length)}}
-// registros no filtro geral (+ filtro próprio opcional de um indicador)
-function reuRegs(extraP){var rs=msv('rgR'),r2=extraP?msv(extraP+'R'):[];
-  return D.regs.filter(function(r){var d=r.data.slice(0,10);return rok('rg',d)&&(!extraP||rok(extraP,d))&&(!rs.length||rs.indexOf(r.resultado)>=0)&&(!r2.length||r2.indexOf(r.resultado)>=0)})}
+function reuRegs(p){return D.regs.filter(function(r){var d=r.data.slice(0,10);return rok('rg',d)&&(!p||rok(p,d))})}
+var REU_ON={},RF_REG=false;
+function reuOn(){return !RS.rg&&!!(msv('rgM').length||$('rgI').value||$('rgF').value)}
+// cpf -> {st,solic} de todos os alunos conhecidos (Call Center, aditados e com responsável em outros status)
+function reuUni(){var u={},lm={};D.light.forEach(function(x){lm[x[3]]=x});
+  var sol=function(c){return lm[c]?lm[c][4]:''};
+  D.alunos.forEach(function(a){u[a.cpf]={st:a.status,solic:a.solic||sol(a.cpf)}});
+  (D.adit||[]).forEach(function(a){u[a.cpf]={st:'ADITOU',solic:a.solic||sol(a.cpf)}});
+  (D.outros||[]).forEach(function(o){u[o[0]]={st:o[3],solic:sol(o[0])}});
+  return u}
+// data de referência: ADITOU = dia da mudança de status (se conhecido); demais = data da solicitação
+function reuDt(c,st,solic){var d=(st==='ADITOU'&&D.mud&&D.mud[c]?D.mud[c]:solic||'').slice(0,10);return rok('rg',d)}
+function reuSets(){var U=reuUni(),on=reuOn(),ok=function(c){var u=U[c];return !!u&&reuDt(c,u.st,u.solic)};
+  var S={U:U};S.al=D.alunos.filter(function(a){return ok(a.cpf)});
+  S.na=S.al.filter(function(a){return a.status===CC[0]});S.eb=S.al.filter(function(a){return a.status===CC[1]});
+  S.com=Object.keys(D.resp).filter(function(c){return D.resp[c]&&(U[c]?ok(c):!on)});
+  var st=function(c){return U[c]?U[c].st:''};
+  S.pend=S.com.filter(function(c){return st(c)===CC[0]||st(c)===CC[1]});
+  S.conf=S.com.filter(function(c){return st(c)==='ADITOU'});
+  S.outr=S.com.filter(function(c){return st(c)&&[CC[0],CC[1],'ADITOU'].indexOf(st(c))<0});
+  S.st=st;return S}
+// matriz dia × coluna · uniq: 1 por CPF a cada dia (e por coluna) · senão conta registros
+function reuMat(R,kf,uniq,ord){var m={},seen={},td={},tc={},tdd={};
+  R.forEach(function(r){var d=r.data.slice(0,10),k=kf(r);m[d]=m[d]||{};
+    if(uniq){var a=r.cpf+'|'+d;if(!tdd[a]){tdd[a]=1;td[d]=(td[d]||0)+1}a+='|'+k;if(seen[a])return;seen[a]=1}else td[d]=(td[d]||0)+1;
+    m[d][k]=(m[d][k]||0)+1;tc[k]=(tc[k]||0)+1});
+  var cols=Object.keys(tc).sort(function(a,b){var x=ord?ord.indexOf(a):-1,y=ord?ord.indexOf(b):-1;return(x<0?999:x)-(y<0?999:y)||String(a).localeCompare(String(b),'pt')});
+  var dias=Object.keys(td).sort();return {m:m,td:td,tc:tc,cols:cols,dias:dias,tot:dias.reduce(function(s,d){return s+td[d]},0)}}
+function reuTabHtml(M,lab,cor,id,nome){
+  if(!M.dias.length)return '<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>';
+  return '<div id="'+id+'"><div class="dyn-wrap rf-wrap"><table class="dyn-table rf-table" data-nome="'+esc(nome)+'"><thead><tr><th>Data</th>'+M.cols.map(function(x,i){return '<th style="border-bottom:3px solid '+cor(x,i)+'">'+esc(lab(x))+'</th>'}).join('')+'<th>Total geral</th></tr></thead><tbody>'+
+    M.dias.slice().reverse().map(function(d){return '<tr><td><b>'+ddmm(d)+'</b></td>'+M.cols.map(function(x){return '<td class="num">'+(M.m[d][x]||'')+'</td>'}).join('')+'<td class="num rf-t">'+M.td[d]+'</td></tr>'}).join('')+
+    '<tr class="rf-sum"><td>Total geral</td>'+M.cols.map(function(x){return '<td class="num">'+M.tc[x]+'</td>'}).join('')+'<td class="num">'+M.tot+'</td></tr></tbody></table></div></div>'}
+function reuColab(k){return D.umap[k]||k}
+function reuIdx(M){return function(x,i){return RC[i%RC.length]}}
 function renderReu(){
-  if(!D)return;$('v-reu').classList.add('reu');var me=reuMeses(),B=reuBase();
-  var stOut=Object.keys(cnt(B.outros,function(o){return o[3]})).sort();
+  if(!D)return;$('v-reu').classList.add('reu');var me=reuMeses();
   $('v-reu').innerHTML=
-  '<div class="reu-topo"><h2 class="reu-tit">🎯 Reunião — Indicadores</h2><div class="filters-row" style="margin:0">'+fdate('rgI','De')+fdate('rgF','Até')+fms('rgM','Mês')+fms('rgR','Atividade')+'<button class="btn-clear btn-sem" id="rgS" type="button" title="Semestre inteiro (ignora as datas)">📅 Semestre</button><button class="btn-clear" id="rgX" type="button">✕ Limpar</button></div><p class="sh" style="margin:8px 0 0">Este filtro vale para todos os indicadores abaixo (os totais de alunos mostram a situação de agora).</p></div>'+
-  rSec('ra','📋 Total Geral','Situação atual dos alunos e total de contatos no período.','',dlBtn('bx_ra','Reunião - Total Geral','rgM,rgI,rgF,rgR','raT'),'<div class="rv-row" id="raC"></div><div id="raT" class="no-img" style="display:none"></div>')+
-  rSec('rt','🏷️ Total de Registros - Detalhamento','Total de cada resultado de contato registrado.','',dlBtn('bx_rt','Reunião - Total de Registros Detalhamento','rgM,rgI,rgF,rgR','rtT'),'<div class="rv-row" id="rtC"></div><div class="rv-duo"><div class="rv-box"><h4>📊 Total por atividade</h4><div class="ch"><canvas id="rtG"></canvas></div></div><div class="rv-box"><h4>🍩 Participação por atividade</h4><div class="rv-donut"><div class="ch"><canvas id="rtP"></canvas></div><div id="rtL" class="rv-leg"></div></div></div></div><div id="rtT" class="no-img" style="display:none"></div>')+
-  rSec('rd','⏳ Acompanhamento Atual','Alunos com responsável que continuam no Call Center (Solicitado / Não aditou ou Enviado ao banco).',fms('rdU','Responsável')+fms('rdV','Status')+'<button class="btn-clear" id="rdX" type="button">✕ Limpar</button>',dlBtn('bx_rd','Reunião - Acompanhamento Atual','rdU,rdV','rdTb'),'<div class="rv-row" id="rdC"></div><div class="rv-duo"><div class="rv-box"><h4>👤 Por responsável</h4><div class="ch"><canvas id="rdG"></canvas></div></div><div class="rv-box"><h4>📌 Por status</h4><div class="ch"><canvas id="rdP"></canvas></div></div></div><div id="rdTb" style="margin-top:12px"></div>')+
-  rSec('re','⚠️ Alunos em outro Status','Alunos com responsável cujo status na Base Geral não é Solicitado / Não aditou, Enviado ao banco nem ADITOU (ex.: Rejeitado, Cancelado). Serve para não perder a conta.',fms('reU','Responsável')+fms('reV','Status')+'<button class="btn-clear" id="reX" type="button">✕ Limpar</button>',dlBtn('bx_re','Reunião - Alunos em outro Status','reU,reV','reTd'),'<div class="rv-row" id="reC"></div><div id="reTd"></div>')+
-  rSec('rf','📅 Contatos por resultado e por dia','Contatos realizados por dia (sem separar por colaborador). Os filtros daqui valem só para este indicador.',fms('rfM','Mês')+fdate('rfI','Data inicial')+fdate('rfF','Data final')+'<button class="btn-clear btn-sem" id="rfS" type="button">📅 Semestre</button>'+fms('rfR','Resultado do contato')+'<button class="btn-clear" id="rfX" type="button">✕ Limpar</button>',dlBtn('bx_rf','Reunião - Contatos por resultado e dia','rgM,rgI,rgF,rgR,rfM,rfI,rfF,rfR','rfT'),'<div class="rv-box" style="margin-bottom:12px"><h4>📅 Total por dia</h4><div class="rv-scroll"><div class="ch" id="rfW"><canvas id="rfG2"></canvas></div></div></div><div id="rfT"></div>')+
-  rSec('rb','🗓️ Responsáveis inseridos (início do Call Center)','Quantos alunos receberam responsável em cada dia (a 1ª vez que foi inserido) e o acumulado.','',dlBtn('bx_rb','Reunião - Responsáveis inseridos','rgM,rgI,rgF'),'<div class="rv-row" id="rbC"></div>');
-  var ro=resOpts(),us=function(es){return es.map(function(e){return {v:e,t:D.umap[e]||e}})};
-  rwire('rg',me,reuTudo,[['rgR',ro]]);rwire('rf',me,reuF,[['rfR',ro]]);
-  var resp=Object.keys(cnt(B.com,function(c){return D.resp[c]}));
-  msMake('rdU',us(resp),reuD);msMake('rdV',CC.map(vt),reuD);$('rdX').onclick=function(){limpar(['rdU','rdV'],[],reuD)};
-  msMake('reU',us(resp),reuE);msMake('reV',stOut.map(vt),reuE);$('reX').onclick=function(){limpar(['reU','reV'],[],reuE)};
+  '<div class="reu-flt"><h2 class="reu-tit">🎯 Reunião — Indicadores</h2><div class="filters-row reu-flat">'+fdate('rgI','De')+fdate('rgF','Até')+fms('rgM','Mês')+'<button class="btn-clear btn-sem" id="rgS" type="button" title="Semestre inteiro (ignora as datas)">📅 Semestre</button><button class="btn-clear" id="rgX" type="button">✕ Limpar</button>'+dlBtn('reuCorpo','Reunião - Completo','rgM,rgI,rgF','rbaseT')+'</div></div>'+
+  '<div id="reuCorpo">'+
+  rSec('rbase','🗃️ Total Base Geral','Alunos da base geral (Matriculados com FIES) e o total de cada status.','',dlBtn('bx_rbase','Reunião - Total Base Geral','rgM,rgI,rgF','rbaseT'),'<div class="rv-row" id="rbaseC"></div><div id="rbaseT" class="no-img" style="display:none"></div>')+
+  rSec('rcall','📞 Total Call','Clique em um cartão para abrir o indicador dele logo abaixo; clique de novo para fechar.','',dlBtn('bx_rcall','Reunião - Total Call','rgM,rgI,rgF','rcallT'),'<div class="rv-row" id="rcallC"></div><div id="rcallT" class="no-img" style="display:none"></div>')+
+  '<div id="rctx"></div>'+
+  rSec('rf','📅 Contatos realizados por dia','Alunos contatados em cada dia (1 por CPF); cada coluna é o total de um colaborador. O botão “Total de Registros” mostra os registros por resultado. Os filtros daqui valem só para este indicador.',fms('rfM','Mês')+fdate('rfI','Data inicial')+fdate('rfF','Data final')+'<button class="btn-clear btn-sem" id="rfS" type="button">📅 Semestre</button><button class="btn-clear rf-tg" id="rfB" type="button" title="Mostrar o total de registros por dia">Total de Registros</button><button class="btn-clear" id="rfX" type="button">✕ Limpar</button>',dlBtn('bx_rf','Reunião - Contatos realizados por dia','rgM,rgI,rgF,rfM,rfI,rfF','rfT'),'<div class="rv-box" style="margin-bottom:12px"><h4 id="rfH">📅 Total por dia</h4><div class="rv-scroll"><div class="ch" id="rfW"><canvas id="rfG2"></canvas></div></div></div><div id="rfT"></div>')+
+  rSec('rb','🗓️ Responsáveis inseridos (início do Call Center)','Quantos alunos receberam responsável em cada dia (a 1ª vez que foi inserido) e o acumulado.','',dlBtn('bx_rb','Reunião - Responsáveis inseridos','rgM,rgI,rgF'),'<div class="rv-row" id="rbC"></div>')+
+  '</div>';
+  rwire('rg',me,reuTudo);rwire('rf',me,reuF);
+  $('rfB').onclick=function(){RF_REG=!RF_REG;reuF()};
+  $('rcallC').onclick=function(e){var el=e.target.closest?e.target.closest('.rv-clk'):null;if(!el)return;var k=el.getAttribute('data-k');REU_ON[k]=!REU_ON[k];reuCall()};
   reuTudo()}
-function reuTudo(){rBtn('rg');reuA();reuT();reuD();reuE();reuF();reuB()}
-function reuA(){var B=reuBase(),R=reuRegs(),cpfs=Object.keys(cnt(R,function(r){return r.cpf+'|'+r.data.slice(0,10)})).length,   // 1 contato por CPF a cada dia
-  dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).length;
-  var base=[['Total de Alunos (Não Aditou + Enviado ao Banco)',D.alunos.length,'',1],['Total de Alunos com Responsáveis',B.com.length,'independente do status',0],
-    ['Total de Alunos em Acompanhamento',B.atuais.length,rpct(B.atuais.length,B.com.length)+' dos alunos com responsáveis',2],['Total de Alunos que Confirmaram em Acompanhamento',B.adit.length,rpct(B.adit.length,B.com.length)+' dos alunos com responsáveis',4],
-    ['Total de Alunos em Acompanhamento com outro Status',B.outros.length,B.sem?'+ '+B.sem+' sem correspondência na Base Geral':rpct(B.outros.length,B.com.length)+' dos alunos com responsáveis',7],
-    ['Total de Atendimentos',cpfs,'1 contato por CPF a cada dia',5],['Total de Registros',R.length,dias+' dia(s) com registros',3]];
-  rSet('raC',base.map(function(x,i){return rCard(x[3],x[1],esc(x[0]),x[2],i===0)}).join(''));
-  $('raT').innerHTML=rTab(['Indicador','Total'],base.map(function(x){return [x[0],x[1]]}))}
-function reuT(){var R=reuRegs(),rc=cnt(R,function(r){return r.resultado}),res=resOpts().map(function(o){return o.v}).filter(function(x){return rc[x]>0}),tot=R.length;
-  rSet('rtC',res.map(function(x){return rCard(rcor(x),rc[x],esc(x),rpct(rc[x],tot)+' do total')}).join(''));
-  var cols=res.map(rcor);
-  chart('rtG','bar',res,[{l:'Registros',d:res.map(function(x){return rc[x]})}],false,{cols:cols});
-  chart('rtP','pie',res,[{l:'Registros',d:res.map(function(x){return rc[x]})}],false,{cols:cols,center:{n:tot,l:'total geral'}});
-  $('rtL').innerHTML=res.map(function(x){return '<div class="rv-li"><i style="background:'+rcor(x)+'"></i><span>'+esc(x)+'</span><b>'+rc[x]+'</b><em>'+rpct(rc[x],tot)+'</em></div>'}).join('');
-  $('rtT').innerHTML=rTab(['Resultado','Total','% do total'],res.map(function(x){return [x,rc[x],rpct(rc[x],tot)]}).concat(res.length?[['Total',tot,'100%']]:[]))}
-function reuD(){var us=msv('rdU'),st=msv('rdV');
-  var L=D.alunos.filter(function(a){var e=D.resp[a.cpf];return e&&(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(a.status)>=0)});
-  var por=cnt(L,function(a){return D.resp[a.cpf]}),es=Object.keys(por).sort(function(x,y){return por[y]-por[x]}),ps=cnt(L,function(a){return a.status});
-  rSet('rdC',rCard(2,L.length,'Restam com responsáveis (no Call Center agora)','',true)+CC.map(function(s,i){return rCard(i?7:1,ps[s]||0,esc(s),rpct(ps[s]||0,L.length)+' dos restantes')}).join(''));
-  chart('rdG','bar',es.map(function(e){return D.umap[e]||e}),[{l:'Alunos',d:es.map(function(e){return por[e]})}],false,{cols:RC});
-  var ks=CC.filter(function(s){return ps[s]});
-  chart('rdP','pie',ks,[{l:'Alunos',d:ks.map(function(s){return ps[s]})}],false,{cols:[RC[1],RC[7]],center:{n:L.length,l:'restam'}});
-  var lin=es.map(function(e){var m=L.filter(function(a){return D.resp[a.cpf]===e});return [D.umap[e]||e,m.filter(function(a){return a.status===CC[0]}).length,m.filter(function(a){return a.status===CC[1]}).length,m.length]});
-  if(lin.length)lin.push(['Total',L.filter(function(a){return a.status===CC[0]}).length,L.filter(function(a){return a.status===CC[1]}).length,L.length]);
-  $('rdTb').innerHTML=lin.length?rTab(['Responsável',CC[0],CC[1],'Total'],lin):'<p class="muted" style="padding:12px">Nenhum aluno para os filtros selecionados.</p>'}
-function reuE(){var B=reuBase(),us=msv('reU'),st=msv('reV');
-  var L=B.outros.filter(function(o){var e=D.resp[o[0]];return(!us.length||us.indexOf(e)>=0)&&(!st.length||st.indexOf(o[3])>=0)}).sort(function(x,y){return x[3].localeCompare(y[3])||x[1].localeCompare(y[1],'pt',{sensitivity:'base'})});
-  var ps=cnt(L,function(o){return o[3]});
-  rSet('reC',rCard(7,L.length,'Com responsáveis em outros status','',true)+Object.keys(ps).sort().map(function(s,i){return rCard(i+4,ps[s],esc(s),rpct(ps[s],L.length)+' do total')}).join('')+(B.sem&&!us.length&&!st.length?rCard(3,B.sem,'Com responsáveis, mas sem correspondência na Base Geral',''):''));
-  $('reTd').innerHTML=L.length?rTab(['Aluno','CPF','Curso','Status','Responsável','Registros'],L.map(function(o){var e=D.resp[o[0]];return [o[1],o[0],o[2],o[3],D.umap[e]||e,(D.rmap[o[0]]||[]).length]})):'<p class="muted" style="padding:12px">Nenhum aluno com responsável em outro status.</p>'}
-function reuF(){rBtn('rf');var R=reuRegs('rf');
-  var c=cnt(R,function(r){return r.resultado}),k=resOpts().map(function(o){return o.v}).filter(function(x){return c[x]>0});
-  Object.keys(c).forEach(function(x){if(k.indexOf(x)<0)k.push(x)});                      // só resultados que têm número em alguma data
-  var dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).sort(),m={};R.forEach(function(r){var d=r.data.slice(0,10);m[d]=m[d]||{};m[d][r.resultado]=(m[d][r.resultado]||0)+1});
-  var w=$('rfW');if(w)w.style.width='max('+(dias.length*42)+'px,100%)';
-  chart('rfG2','bar',dias.map(ddmm),k.map(function(x){return {l:x,d:dias.map(function(d){return m[d][x]||0})}}),true,{cols:k.map(rcor)});
-  if(!dias.length){$('rfT').innerHTML='<p class="muted" style="padding:12px">Sem dados para os filtros selecionados.</p>';return}
-  var dr=dias.slice().reverse(),totD=function(d){return Object.keys(m[d]).reduce(function(s,x){return s+m[d][x]},0)};
-  $('rfT').innerHTML='<div class="dyn-wrap rf-wrap"><table class="dyn-table rf-table"><thead><tr><th>Data</th>'+k.map(function(x){return '<th style="border-bottom:3px solid '+rcor(x)+'">'+esc(x)+'</th>'}).join('')+'<th>Total geral</th></tr></thead><tbody>'+
-    dr.map(function(d){return '<tr><td><b>'+ddmm(d)+'</b></td>'+k.map(function(x){return '<td class="num">'+(m[d][x]||'')+'</td>'}).join('')+'<td class="num rf-t">'+totD(d)+'</td></tr>'}).join('')+
-    '<tr class="rf-sum"><td>Total geral</td>'+k.map(function(x){return '<td class="num">'+c[x]+'</td>'}).join('')+'<td class="num">'+R.length+'</td></tr></tbody></table></div>'}
+function reuTudo(){rBtn('rg');reuBaseG();reuCall();reuF();reuB()}
+function reuBaseG(){var L=D.light.filter(function(x){return reuDt(x[3],x[0],x[4])}),cs=cnt(L,function(x){return x[0]||'(vazio)'});
+  var rows=[['Total de alunos na base geral',L.length]].concat(STATUS7.map(function(s){return [s,cs[s]||0]}));
+  rSet('rbaseC',rCard(1,L.length,'Total de alunos na base geral','Matriculados com FIES',true)+STATUS7.map(function(s,i){return rCard(i,cs[s]||0,esc(s),rpct(cs[s]||0,L.length)+' do total')}).join(''));
+  $('rbaseT').innerHTML=rTab(['Indicador','Total'],rows,0,'Total Base Geral')}
+var REU_K=[['tAl','Total de Alunos (Não Aditou + Enviado ao Banco)'],['tCom','Total de Alunos com Responsáveis'],['tAc','Total de Alunos em Acompanhamento'],['tCf','Total de Alunos Que Confirmaram em Acompanhamento'],['tAt','Total de Atendimentos'],['tRg','Total de Registros']];
+function reuCall(){var S=reuSets(),R=reuRegs(),n=function(a){return a.length};
+  var at=Object.keys(cnt(R,function(r){return r.cpf+'|'+r.data.slice(0,10)})).length,dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).length;
+  var V={tAl:[n(S.al),'',1],tCom:[n(S.com),'independente do status',0],tAc:[n(S.pend),rpct(n(S.pend),n(S.com))+' dos alunos com responsáveis',2],tCf:[n(S.conf),rpct(n(S.conf),n(S.com))+' dos alunos com responsáveis',4],tAt:[at,'1 contato por CPF a cada dia',5],tRg:[R.length,dias+' dia(s) com registros',3]};
+  rSet('rcallC',REU_K.map(function(k,i){var v=V[k[0]];return rCard(v[2],v[0],esc(k[1]),v[1],i===0,k[0])}).join(''));
+  $('rcallT').innerHTML=rTab(['Indicador','Total'],REU_K.map(function(k){return [k[1],V[k[0]][0]]}),0,'Total Call');
+  var h='',ids=['rbaseT','rcallT'],gs=[];
+  REU_K.forEach(function(k){if(!REU_ON[k[0]])return;var c=reuCtx(k[0],k[1],S,R);h+=c.h;ids=ids.concat(c.ids);if(c.g)gs.push(c.g)});
+  $('rctx').innerHTML=h;gs.forEach(function(g){g()});
+  ids=ids.concat(['rfT']);var gb=document.querySelector('[data-dt="reuCorpo"]');if(gb)gb.dataset.dx=ids.join(',')}
+function reuCtx(k,tit,S,R){var G=null,id='cT_'+k,nome=tit.replace(/[()]/g,'').slice(0,28),L=null,corpo='',ids=[id],sub='';
+  var P=function(f){return S.pend.filter(f).length};
+  if(k==='tAl')L=[['Não Aditou',n0(S.na),1],['Enviado ao Banco',n0(S.eb),7]];
+  else if(k==='tCom'){L=[['Alunos Pendentes',S.pend.length,2],['Alunos Que Aditaram',S.conf.length,4]];var oc=cnt(S.outr,S.st);Object.keys(oc).sort().forEach(function(s,i){L.push([s,oc[s],i+5])})}
+  else if(k==='tAc')L=[['Não Aditou',P(function(c){return S.st(c)===CC[0]}),1],['Enviado ao Banco',P(function(c){return S.st(c)===CC[1]}),7]];
+  else if(k==='tCf')L=[['Total Não Aditou',S.na.length,1],['Alunos Pendentes',S.pend.length,2],['Total Que Confirmaram',S.conf.length,4]];
+  if(L){corpo='<div class="rv-row rv-small">'+(L.map(function(x){return rCard(x[2],x[1],esc(x[0]),'',0)}).join('')||'<p class="muted" style="padding:6px 2px">Sem dados para os filtros selecionados.</p>')+'</div><div id="'+id+'" class="no-img" style="display:none">'+rTab(['Indicador','Total'],L.map(function(x){return [x[0],x[1]]}),0,nome)+'</div>';
+    sub=k==='tCom'?'Alunos com responsável, por situação.':k==='tAc'?'Só alunos com responsável que ainda estão no Call Center.':k==='tCf'?'Pendentes e confirmados são só de alunos com responsável; “Total Não Aditou” inclui os sem responsável.':'Todos os alunos do Call Center, com ou sem responsável.'}
+  else if(k==='tAt'){var M=reuMat(R,function(r){return r.colab},true);var cA=function(x,i){return RC[i%RC.length]};corpo=(M.dias.length?reuGraf(k,'📅 Atendimentos por dia (por colaborador)'):'')+reuTabHtml(M,reuColab,cA,id,nome);G=function(){reuDesenha(k,M,reuColab,cA)};sub='Alunos atendidos em cada dia (1 por CPF); colunas = total de cada colaborador.'}
+  else{var ro=resOpts().map(function(o){return o.v}),M2=reuMat(R,function(r){return r.resultado},false,ro);
+    corpo='<div class="rv-row rv-small">'+(M2.cols.map(function(x){return rCard(rcor(x),M2.tc[x],esc(x),rpct(M2.tc[x],M2.tot)+' do total')}).join('')||'')+'</div><div id="'+id+'" class="no-img" style="display:none">'+rTab(['Resultado','Total'],M2.cols.map(function(x){return [x,M2.tc[x]]}),0,'Registros por resultado')+'</div>'+(M2.dias.length?reuGraf(k,'📅 Registros por dia (por resultado)'):'')+reuTabHtml(M2,function(x){return x},function(x){return rcor(x)},id+'D','Registros por dia');G=function(){reuDesenha(k,M2,function(x){return x},function(x){return rcor(x)})};
+    ids=[id,id+'D'];sub='Total de cada resultado de contato e a quantidade por dia.'}
+  return {g:G,ids:ids,h:rSec('c_'+k,'🔎 '+esc(tit),sub,'',dlBtn('bx_c_'+k,'Reunião - '+tit.replace(/[()]/g,''),'rgM,rgI,rgF',ids.join(',')),corpo)}}
+function n0(a){return a.length}
+function reuGraf(k,tit){return '<div class="rv-box" style="margin-bottom:12px"><h4>'+tit+'</h4><div class="rv-scroll"><div class="ch" id="cW_'+k+'"><canvas id="cG_'+k+'"></canvas></div></div></div>'}
+function reuDesenha(k,M,lab,cor){var w=$('cW_'+k);if(!w||!M.dias.length)return;w.style.width='max('+(M.dias.length*42)+'px,100%)';
+  chart('cG_'+k,'bar',M.dias.map(ddmm),M.cols.map(function(x){return {l:lab(x),d:M.dias.map(function(d){return M.m[d][x]||0})}}),true,{cols:M.cols.map(cor)})}
+function reuF(){rBtn('rf');var R=reuRegs('rf'),b=$('rfB');b.classList.toggle('on',RF_REG);
+  var M=RF_REG?reuMat(R,function(r){return r.resultado},false,resOpts().map(function(o){return o.v})):reuMat(R,function(r){return r.colab},true);
+  var lab=RF_REG?function(x){return x}:reuColab,cor=RF_REG?function(x){return rcor(x)}:function(x,i){return RC[i%RC.length]};
+  $('rfH').textContent=RF_REG?'📅 Total de registros por dia (por resultado)':'📅 Contatos realizados por dia (por colaborador)';
+  var w=$('rfW');if(w)w.style.width='max('+(M.dias.length*42)+'px,100%)';
+  chart('rfG2','bar',M.dias.map(ddmm),M.cols.map(function(x){return {l:lab(x),d:M.dias.map(function(d){return M.m[d][x]||0})}}),true,{cols:M.cols.map(cor)});
+  $('rfT').innerHTML=reuTabHtml(M,lab,cor,'rfTt',RF_REG?'Registros por dia':'Contatos por dia');
+  var t=$('rfT');if(t.firstChild&&t.firstChild.id==='rfTt'){t.innerHTML=t.firstChild.innerHTML}}
 function reuB(){var B=reuBase(),dt=D.respDt||{},ini=[],sem=0;
   // só conta quem AINDA está com responsável (se o responsável foi removido, sai da contagem, mesmo que mude de status)
   B.com.forEach(function(c){if(dt[c]){var d=dt[c].slice(0,10);if(rok('rg',d))ini.push(d)}else sem++});
