@@ -886,6 +886,8 @@ function blocoParaJpg(el,titulo,sub){
   return domParaImagem(el).then(function(b){
     var S=2,mg=28,bg=corFundoTela(),esc=corEhEscura(bg);
     var cabH=sub?78:56,W=Math.max(b.W+mg*2,360),H=cabH+b.H+mg+20;
+    // a largura acompanha o texto do cabeçalho, para título e período nunca saírem cortados
+    try{var mc=document.createElement('canvas').getContext('2d');mc.font='700 22px '+FONTE_IMG;var wt=mc.measureText(titulo).width;mc.font='400 13px '+FONTE_IMG;var ws=sub?mc.measureText(sub).width:0;W=Math.max(W,Math.ceil(Math.max(wt,ws))+mg*2)}catch(e){}
     var cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
     var x=cv.getContext('2d');x.scale(S,S);
     x.fillStyle=bg;x.fillRect(0,0,W,H);
@@ -1047,7 +1049,7 @@ function dlImagem(b){
   var el=$(b.dataset.dt);if(!el){toast('Nada para baixar.','err');return}
 
   b.classList.add('busy');toast('Gerando imagem...');
-  blocoParaJpg(el,/^cd_/.test(b.dataset.dt)?'Call do Aditamento':(CFG.nomeSistema||'Call Center FIES'),/^cd_/.test(b.dataset.dt)?'':dlSub(b.dataset.df)).then(function(bytes){
+  blocoParaJpg(el,/^cd_/.test(b.dataset.dt)?'Call do Aditamento':(CFG.nomeSistema||'Call Center FIES'),dlSub(b.dataset.df)).then(function(bytes){
     var nome=dlArq(b.dataset.dn,'jpg');baixarBytes(nome,bytes,'image/jpeg');toast('Imagem baixada: '+nome);
   }).catch(function(e){toast('Erro ao gerar a imagem: '+((e&&e.message)||e),'err')})
   .then(function(){b.classList.remove('busy')})}
