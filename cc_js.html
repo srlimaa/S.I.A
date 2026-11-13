@@ -1047,7 +1047,7 @@ function dlImagem(b){
   var el=$(b.dataset.dt);if(!el){toast('Nada para baixar.','err');return}
 
   b.classList.add('busy');toast('Gerando imagem...');
-  blocoParaJpg(el,CFG.nomeSistema||'Call Center FIES',/^cd_/.test(b.dataset.dt)?'':dlSub(b.dataset.df)).then(function(bytes){
+  blocoParaJpg(el,/^cd_/.test(b.dataset.dt)?'Call do Aditamento':(CFG.nomeSistema||'Call Center FIES'),/^cd_/.test(b.dataset.dt)?'':dlSub(b.dataset.df)).then(function(bytes){
     var nome=dlArq(b.dataset.dn,'jpg');baixarBytes(nome,bytes,'image/jpeg');toast('Imagem baixada: '+nome);
   }).catch(function(e){toast('Erro ao gerar a imagem: '+((e&&e.message)||e),'err')})
   .then(function(){b.classList.remove('busy')})}
