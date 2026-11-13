@@ -1057,7 +1057,7 @@ function rok(p,d){if(RS[p])return true;var m=msv(p+'M'),i=$(p+'I').value,f=$(p+'
 function rBtn(p){var b=$(p+'S');if(b)b.classList.toggle('on',!!RS[p])}
 function rpct(n,d){return d?(Math.round(n/d*1000)/10).toString().replace('.',',')+'%':''}
 // cartão: k = cor (índice ou #hex) · main = cartão azul cheio (destaque) · cartão sem dados (0) não aparece
-function rCard(k,v,l,sub,main,key){if((v===0||v==='0')&&!key)return '';var c=typeof k==='number'?RC[k%RC.length]:k;
+function rCard(k,v,l,sub,main,key,zero){if((v===0||v==='0')&&!key&&!zero)return '';var c=typeof k==='number'?RC[k%RC.length]:k;
   return '<div class="rv-card'+(main?' rv-main':'')+(key?' rv-clk'+(REU_ON[key]?' on':''):'')+'"'+(key?' data-k="'+key+'" role="button" tabindex="0" title="Clique para abrir/fechar o indicador"':'')+' style="--ac:'+c+'"><div class="rv-l">'+l+'</div><div class="rv-v">'+v+'</div>'+(sub?'<div class="rv-s">'+sub+'</div>':'')+'</div>'}
 function rSet(id,h){$(id).innerHTML=h||'<p class="muted" style="padding:6px 2px">Sem dados para os filtros selecionados.</p>'}
 function rTab(cab,linhas,max,nome){return '<div class="dyn-wrap" style="max-height:'+(max||420)+'px"><table class="dyn-table"'+(nome?' data-nome="'+esc(nome)+'"':'')+'><thead><tr>'+cab.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
@@ -1083,15 +1083,20 @@ function reuUni(){var u={},lm={};D.light.forEach(function(x){lm[x[3]]=x});
   return u}
 // data de referência: ADITOU = dia da mudança de status (se conhecido); demais = data da solicitação
 function reuDt(c,st,solic){var d=(st==='ADITOU'&&D.mud&&D.mud[c]?D.mud[c]:solic||'').slice(0,10);return rok('rg',d)}
-function reuSets(){var U=reuUni(),on=reuOn(),ok=function(c){var u=U[c];return !!u&&reuDt(c,u.st,u.solic)};
-  var S={U:U};S.al=D.alunos.filter(function(a){return ok(a.cpf)});
-  S.na=S.al.filter(function(a){return a.status===CC[0]});S.eb=S.al.filter(function(a){return a.status===CC[1]});
-  S.com=Object.keys(D.resp).filter(function(c){return D.resp[c]&&(U[c]?ok(c):!on)});
-  var st=function(c){return U[c]?U[c].st:''};
-  S.pend=S.com.filter(function(c){return st(c)===CC[0]||st(c)===CC[1]});
-  S.conf=S.com.filter(function(c){return st(c)==='ADITOU'});
+function reuFim(){if(RS.rg)return '';var f=$('rgF').value,m=msv('rgM'),e=f||'';if(m.length){var l=m.slice().sort().pop()+'-31';e=e&&e<l?e:l}return e}
+function reuSets(){var U=reuUni(),fim=reuFim(),st=function(c){return U[c]?U[c].st:''},dt=D.respDt||{};
+  var S={U:U,st:st};
+  // não mudam com a data: alunos que estão hoje no Call Center
+  S.al=D.alunos;S.na=S.al.filter(function(a){return a.status===CC[0]});S.eb=S.al.filter(function(a){return a.status===CC[1]});
+  S.comAll=Object.keys(D.resp).filter(function(c){return D.resp[c]});
+  // alunos com responsável: soma acumulada até a data final (quem recebeu responsável depois dela ainda não entra)
+  S.com=S.comAll.filter(function(c){return !fim||!dt[c]||dt[c].slice(0,10)<=fim});
+  var pd=function(c){return st(c)===CC[0]||st(c)===CC[1]};
+  S.pendAll=S.comAll.filter(pd);S.pend=S.com.filter(pd);
+  // confirmaram: ADITOU com responsável cuja mudança de status caiu no período
+  S.conf=S.comAll.filter(function(c){return st(c)==='ADITOU'&&reuDt(c,'ADITOU',U[c].solic)});
   S.outr=S.com.filter(function(c){return st(c)&&[CC[0],CC[1],'ADITOU'].indexOf(st(c))<0});
-  S.st=st;return S}
+  return S}
 // matriz dia × coluna · uniq: 1 por CPF a cada dia (e por coluna) · senão conta registros
 function reuMat(R,kf,uniq,ord){var m={},seen={},td={},tc={},tdd={};
   R.forEach(function(r){var d=r.data.slice(0,10),k=kf(r);m[d]=m[d]||{};
@@ -1124,12 +1129,12 @@ function renderReu(){
 function reuTudo(){rBtn('rg');reuBaseG();reuCall();reuF();reuB()}
 function reuBaseG(){var L=D.light.filter(function(x){return reuDt(x[3],x[0],x[4])}),cs=cnt(L,function(x){return x[0]||'(vazio)'});
   var rows=[['Total de alunos na base geral',L.length]].concat(STATUS7.map(function(s){return [s,cs[s]||0]}));
-  rSet('rbaseC',rCard(1,L.length,'Total de alunos na base geral','Matriculados com FIES',true)+STATUS7.map(function(s,i){return rCard(i,cs[s]||0,esc(s),rpct(cs[s]||0,L.length)+' do total')}).join(''));
+  rSet('rbaseC',rCard(1,L.length,'Total de alunos na base geral','Matriculados com FIES',true)+STATUS7.map(function(s,i){return rCard(i,cs[s]||0,esc(s),rpct(cs[s]||0,L.length)+' do total',0,'',1)}).join(''));
   $('rbaseT').innerHTML=rTab(['Indicador','Total'],rows,0,'Total Base Geral')}
 var REU_K=[['tAl','Total de Alunos (Não Aditou + Enviado ao Banco)'],['tCom','Total de Alunos com Responsáveis'],['tAc','Total de Alunos em Acompanhamento'],['tCf','Total de Alunos Que Confirmaram em Acompanhamento'],['tAt','Total de Atendimentos'],['tRg','Total de Registros']];
 function reuCall(){var S=reuSets(),R=reuRegs(),n=function(a){return a.length};
   var at=Object.keys(cnt(R,function(r){return r.cpf+'|'+r.data.slice(0,10)})).length,dias=Object.keys(cnt(R,function(r){return r.data.slice(0,10)})).length;
-  var V={tAl:[n(S.al),'',1],tCom:[n(S.com),'independente do status',0],tAc:[n(S.pend),rpct(n(S.pend),n(S.com))+' dos alunos com responsáveis',2],tCf:[n(S.conf),rpct(n(S.conf),n(S.com))+' dos alunos com responsáveis',4],tAt:[at,'1 contato por CPF a cada dia',5],tRg:[R.length,dias+' dia(s) com registros',3]};
+  var V={tAl:[n(S.al),'situação atual do Call Center',1],tCom:[n(S.com),reuFim()?'acumulado até '+ddmm(reuFim()):'independente do status',0],tAc:[n(S.pendAll),rpct(n(S.pendAll),n(S.comAll))+' dos alunos com responsáveis (hoje)',2],tCf:[n(S.conf),reuOn()?'mudaram para ADITOU no período':rpct(n(S.conf),n(S.comAll))+' dos alunos com responsáveis',4],tAt:[at,'1 contato por CPF a cada dia',5],tRg:[R.length,dias+' dia(s) com registros',3]};
   rSet('rcallC',REU_K.map(function(k,i){var v=V[k[0]];return rCard(v[2],v[0],esc(k[1]),v[1],i===0,k[0])}).join(''));
   $('rcallT').innerHTML=rTab(['Indicador','Total'],REU_K.map(function(k){return [k[1],V[k[0]][0]]}),0,'Total Call');
   var h='',ids=['rbaseT','rcallT'],gs=[];
@@ -1140,10 +1145,10 @@ function reuCtx(k,tit,S,R){var G=null,id='cT_'+k,nome=tit.replace(/[()]/g,'').sl
   var P=function(f){return S.pend.filter(f).length};
   if(k==='tAl')L=[['Não Aditou',n0(S.na),1],['Enviado ao Banco',n0(S.eb),7]];
   else if(k==='tCom'){L=[['Alunos Pendentes',S.pend.length,2],['Alunos Que Aditaram',S.conf.length,4]];var oc=cnt(S.outr,S.st);Object.keys(oc).sort().forEach(function(s,i){L.push([s,oc[s],i+5])})}
-  else if(k==='tAc')L=[['Não Aditou',P(function(c){return S.st(c)===CC[0]}),1],['Enviado ao Banco',P(function(c){return S.st(c)===CC[1]}),7]];
-  else if(k==='tCf')L=[['Total Não Aditou',S.na.length,1],['Alunos Pendentes',S.pend.length,2],['Total Que Confirmaram',S.conf.length,4]];
+  else if(k==='tAc')L=[['Não Aditou',S.pendAll.filter(function(c){return S.st(c)===CC[0]}).length,1],['Enviado ao Banco',S.pendAll.filter(function(c){return S.st(c)===CC[1]}).length,7]];
+  else if(k==='tCf')L=[['Total Não Aditou',S.na.length,1],['Alunos Pendentes',S.pendAll.length,2],['Total Que Confirmaram',S.conf.length,4]];
   if(L){corpo='<div class="rv-row rv-small">'+(L.map(function(x){return rCard(x[2],x[1],esc(x[0]),'',0)}).join('')||'<p class="muted" style="padding:6px 2px">Sem dados para os filtros selecionados.</p>')+'</div><div id="'+id+'" class="no-img" style="display:none">'+rTab(['Indicador','Total'],L.map(function(x){return [x[0],x[1]]}),0,nome)+'</div>';
-    sub=k==='tCom'?'Alunos com responsável, por situação.':k==='tAc'?'Só alunos com responsável que ainda estão no Call Center.':k==='tCf'?'Pendentes e confirmados são só de alunos com responsável; “Total Não Aditou” inclui os sem responsável.':'Todos os alunos do Call Center, com ou sem responsável.'}
+    sub=k==='tCom'?'Alunos com responsável, por situação atual (acumulado até a data final, se houver filtro).':k==='tAc'?'Situação de hoje: só alunos com responsável que ainda estão no Call Center (não muda com a data).':k==='tCf'?'Confirmaram = ADITOU com responsável, pela data da mudança de status. Pendentes e “Total Não Aditou” são a situação de hoje (o último inclui os sem responsável).':'Situação de hoje: todos os alunos do Call Center, com ou sem responsável (não muda com a data).'}
   else if(k==='tAt'){var M=reuMat(R,function(r){return r.colab},true);var cA=function(x,i){return RC[i%RC.length]};corpo=(M.dias.length?reuGraf(k,'📅 Atendimentos por dia (por colaborador)'):'')+reuTabHtml(M,reuColab,cA,id,nome);G=function(){reuDesenha(k,M,reuColab,cA)};sub='Alunos atendidos em cada dia (1 por CPF); colunas = total de cada colaborador.'}
   else{var ro=resOpts().map(function(o){return o.v}),M2=reuMat(R,function(r){return r.resultado},false,ro);
     corpo='<div class="rv-row rv-small">'+(M2.cols.map(function(x){return rCard(rcor(x),M2.tc[x],esc(x),rpct(M2.tc[x],M2.tot)+' do total')}).join('')||'')+'</div><div id="'+id+'" class="no-img" style="display:none">'+rTab(['Resultado','Total'],M2.cols.map(function(x){return [x,M2.tc[x]]}),0,'Registros por resultado')+'</div>'+(M2.dias.length?reuGraf(k,'📅 Registros por dia (por resultado)'):'')+reuTabHtml(M2,function(x){return x},function(x){return rcor(x)},id+'D','Registros por dia');G=function(){reuDesenha(k,M2,function(x){return x},function(x){return rcor(x)})};
