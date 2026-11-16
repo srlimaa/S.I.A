@@ -208,6 +208,13 @@ function reuBaixarExcel(){
     {nome:'Filtros',cab:['Item','Valor'],larg:[22,70],linhas:[['Período letivo',PERIODO],['Datas',R.filtro]]}];
   baixarXlsxTabelas('Reuniao_'+PERIODO+'.xlsx',abas,'reuDlFb');
 }
+function reuBaixarExcelCartoes(){
+  if(!REU_ULT){expMsg('reuDlFb','Aguarde o carregamento dos indicadores.',false);return;}
+  var R=REU_ULT,linhas=[['Total geral (sem Conversa Fechada e Call Center)',R.totalCard,'']].concat(R.ativs.map(function(a){return [a,R.porAtiv[a],pctTxt(R.porAtiv[a],R.total)];}));
+  baixarXlsxTabelas('Reuniao_Cartoes_'+PERIODO+'.xlsx',[
+    {nome:'Cartões',cab:['Cartão','Total','% do total'],larg:[46,12,14],linhas:linhas},
+    {nome:'Filtros',cab:['Item','Valor'],larg:[22,70],linhas:[['Período letivo',PERIODO],['Datas',R.filtro],['Dias com registros',R.diasReg]]}],'reuDlFb');
+}
 var _reuW=0;
 function renderReuniao(manter){
   var cont=document.getElementById('reuniaoContainer'),data=INDICADORES_CACHE;
@@ -243,8 +250,8 @@ function renderReuniao(manter){
     filtro:txtFiltroDatas(REU_SEM,document.getElementById('reuDe').value,document.getElementById('reuAte').value)+(tm?' · '+tm:''),
     modo:modo};
   // Cartão "Total geral": soma de todas as atividades, exceto Conversa Fechada e Call Center
-  var totalCard=0;Object.keys(porAtiv).forEach(function(a){if(a!=='Conversa Fechada'&&a!=='Call Center')totalCard+=porAtiv[a];});
-  var html='<div class="exp-bar no-img"><span>Baixar tudo</span>'+dlBtn('reu_tudo',[{rot:'🖼️ Tudo em imagem (.jpg)',f:function(){reuBaixarJpg();}},{rot:'📊 Excel (.xlsx)',f:function(){reuBaixarExcel();}}])+'<span class="exp-fb" id="reuDlFb"></span></div>'+
+  var totalCard=0;Object.keys(porAtiv).forEach(function(a){if(a!=='Conversa Fechada'&&a!=='Call Center')totalCard+=porAtiv[a];});REU_ULT.totalCard=totalCard;REU_ULT.diasReg=diasReg;
+  var html='<div class="exp-bar no-img"><span>Baixar tudo</span>'+dlBtn('reu_tudo',[{rot:'🖼️ Tudo em imagem (.jpg)',f:function(){reuBaixarJpg();}},{rot:'🎴 Imagem só dos cartões (.jpg)',f:function(){reuBaixarJpg('kpis');}},{rot:'📊 Excel só dos cartões (.xlsx)',f:function(){reuBaixarExcelCartoes();}}])+'<span class="exp-fb" id="reuDlFb"></span></div>'+
     '<div class="reu-kpis" data-exp="kpis"><div class="reu-kpi main"><span>Total geral</span><strong>'+nf(totalCard)+'</strong><small>'+
     diasReg+(diasReg===1?' dia':' dias')+' com registros · sem Conversa Fechada e Call Center</small></div>';
   itens.forEach(function(it){
